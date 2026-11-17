@@ -5,7 +5,7 @@
 (function (PR) {
   "use strict";
   const dlg = () => PR.$("#settingsDlg");
-  const ALL_TABS = [["chat", PR.t("模型")], ["reading", PR.t("阅读")], ["library", PR.t("侧边栏")], ["cloud", PR.t("云文献库")], ["keys", PR.t("快捷键")]];
+  const ALL_TABS = [["chat", PR.t("模型")], ["reading", PR.t("阅读")], ["library", PR.t("侧边栏")], ["cloud", PR.t("云文献库")], ["proxy", PR.t("网络与代理")], ["keys", PR.t("快捷键")]];
   const tabs = () => ALL_TABS.filter(([k]) => PR.settingsTabs[k]);  // “侧边栏”页只在文献库页面有
   PR.settingsTabs = PR.settingsTabs || {};
   const st = (PR.settingsState = { tab: "chat", cfg: null, presets: [], groups: [], found: null, chat: null, ui: null });
@@ -17,7 +17,7 @@
     const [d, chat] = await Promise.all([PR.api("/api/config"), PR.api("/api/chat/models").catch(() => null)]);
     if (!PR.token) PR.token = (await PR.api("/api/library")).token;
     Object.assign(st, { tab: typeof tab === "string" && tab !== "engine" ? tab : "chat", cfg: d.config, presets: d.presets, groups: d.groups || [], chat,
-      fetchMsg: null, apiTyping: false, advOpen: false, ui: { features: Object.assign({}, PR.features), keys_on: PR.keysOn, keys: Object.assign({}, PR.keymap) },
+      proxyForm: null, proxyMessage: "", proxyTesting: false, fetchMsg: null, apiTyping: false, advOpen: false, ui: { features: Object.assign({}, PR.features), keys_on: PR.keysOn, keys: Object.assign({}, PR.keymap) },
       theme: PR.ls.get("easyread-prefs", {}).theme || "auto", recording: null, editing: null, form: null, chatKeys: null, type: null, transChecked: false });
     render();
     dlg().classList.add("open");
@@ -59,13 +59,31 @@
     dlg().querySelector(".set-body").scrollTop = scroll;
   }
 
+  PR.dockerTerminalUrl = function (cfg) {
+    const terminal = cfg?.docker_terminal;
+    if (!terminal) return "";
+    try {
+      const url = new URL(terminal.url || location.href);
+      if (url.username || url.password) return "";
+      if (!terminal.url) {
+        if (!Number.isInteger(terminal.port) || terminal.port < 1 || terminal.port > 65535) return "";
+        url.protocol = "https:"; url.port = String(terminal.port); url.pathname = "/"; url.search = ""; url.hash = "";
+      }
+      if (url.protocol !== "https:" || url.origin === new URL(location.href).origin) return "";
+      return url.href;
+    } catch (_) { return ""; }
+  };
+
   function footerHtml() {
     if (st.tab === "chat" && st.editing) {
       const adding = st.editing === "new";
       return '<div class="actions set-foot"><button class="btn" data-cm="cancel">' + (adding ? PR.t("取消") : PR.t("完成")) +
         '</button>' + (adding ? '<button class="btn accent" data-cm="ok">' + PR.t("添加模型") + '</button>' : "") + '</div>';
     }
-    return '<div class="actions set-foot"><button class="linkish" id="showLog">' + PR.t("运行日志") + '</button><span class="grow"></span><button class="btn" id="setCancel">' + (st.tab === "chat" ? PR.t("关闭") : PR.t("取消")) + '</button>' + (st.tab === "chat" ? "" : '<button class="btn primary" id="setSave">' + PR.t("保存") + "</button>") + "</div>";
+    const terminal = PR.dockerTerminalUrl(st.cfg);
+    return '<div class="actions set-foot"><button class="linkish" id="showLog">' + PR.t("运行日志") + '</button>' +
+      (terminal ? '<a class="linkish" href="' + PR.esc(terminal) + '" target="_blank" rel="noopener noreferrer">' + PR.t("CLI 登录与终端") + '</a>' : "") +
+      '<span class="grow"></span><button class="btn" id="setCancel">' + (st.tab === "chat" ? PR.t("关闭") : PR.t("取消")) + '</button>' + (st.tab === "chat" ? "" : '<button class="btn primary" id="setSave">' + PR.t("保存") + "</button>") + "</div>";
   }
 
   function saveStatusHtml() {
@@ -102,6 +120,11 @@
   async function save() {
     await modelSaveQueue;
     sync();
+    if (st.tab === "proxy") {
+      const r = await PR.api("/api/system-proxy", { method: "POST", body: PR.settingsTabs.proxy.collect(st) });
+      st.cfg = r.config; dlg().classList.remove("open"); PR.toast(PR.t("代理设置已保存"));
+      return;
+    }
     const r = await PR.api("/api/config", { method: "POST", body: PR.settingsTabs.engine.collect(st) });
     st.cfg = r.config;
     if (st.chat) st.chat = await PR.api("/api/chat/models", { method: "POST", body: { models: st.chat.models, default: st.chat.default, keys: st.chatKeys || {} } });

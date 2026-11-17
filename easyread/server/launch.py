@@ -11,7 +11,7 @@ import webbrowser
 from http.server import ThreadingHTTPServer
 
 from .. import __version__
-from ..app import config
+from ..app import config, proxy
 from ..engines import detect
 from ..library import reader_files
 from ..app.log import log, setup as setup_log
@@ -46,6 +46,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     setup_log(config.LOG_PATH)
     started = time.monotonic()
     cfg = config.load()
+    proxy.apply(cfg.get("system_proxy"))
     log.info("startup config-ready +%.0fms", (time.monotonic() - started) * 1000)
     app = App(cfg)
     log.info("startup library-jobs-ready +%.0fms", (time.monotonic() - started) * 1000)

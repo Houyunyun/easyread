@@ -1,23 +1,86 @@
+x-runtime: &runtime
+  image: easyread:local
+  init: true
+  security_opt:
+    - seccomp:./docker/seccomp-chromium.json
+  environment:
+    EASYREAD_HOME: /data/EasyRead
+    EASYREAD_HOST: 0.0.0.0
+    EASYREAD_PORT: "8765"
+    EASYREAD_ALLOWED_HOSTS: ${EASYREAD_ALLOWED_HOSTS:-}
+    EASYREAD_TERMINAL_PORT: ${EASYREAD_TERMINAL_PORT:-8766}
+    EASYREAD_TERMINAL_URL: ${EASYREAD_TERMINAL_URL:-}
+    HTTP_PROXY: ${EASYREAD_HTTP_PROXY:-}
+    HTTPS_PROXY: ${EASYREAD_HTTPS_PROXY:-}
+    http_proxy: ${EASYREAD_HTTP_PROXY:-}
+    https_proxy: ${EASYREAD_HTTPS_PROXY:-}
+    NO_PROXY: localhost,127.0.0.1,::1,easyread,terminal,gateway,host.docker.internal
+  volumes:
+    - easyread-data:/data/EasyRead
+    - easyread-cli-home:/home/easyread
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  restart: unless-stopped
+  stop_grace_period: 30s
+
 services:
   easyread:
-    build: .
-    image: easyread:local
+    <<: *runtime
+    build:
+      context: .
+      target: full
+      args:
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
+        CODEX_VERSION: ${CODEX_VERSION:-latest}
+        HTTP_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        HTTPS_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        http_proxy: ${EASYREAD_BUILD_PROXY:-}
+        https_proxy: ${EASYREAD_BUILD_PROXY:-}
+    shm_size: 256mb
+
+  terminal:
+    <<: *runtime
+    pull_policy: never
+    command: ["ttyd", "--writable", "--check-origin", "--max-clients", "4", "--port", "7681", "--cwd", "/data/EasyRead", "/usr/local/bin/easyread-terminal-session"]
+    depends_on:
+      easyread:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7681/', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  gateway:
+    build:
+      context: docker/gateway
+      args:
+        HTTP_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        HTTPS_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        http_proxy: ${EASYREAD_BUILD_PROXY:-}
+        https_proxy: ${EASYREAD_BUILD_PROXY:-}
+    image: easyread-gateway:local
     init: true
     ports:
-      # No built-in login. Keep loopback by default; use an authenticated proxy
-      # or SSH tunnel for remote access. See docs/docker.md before opening LAN.
-      - "${EASYREAD_BIND_IP:-127.0.0.1}:${EASYREAD_PORT:-8765}:8765"
+      # Only the authenticated TLS gateway is exposed. Backend/PTY stay private.
+      - "${EASYREAD_BIND_IP:-127.0.0.1}:${EASYREAD_PORT:-8765}:8080"
+      - "${EASYREAD_BIND_IP:-127.0.0.1}:${EASYREAD_TERMINAL_PORT:-8766}:8081"
     environment:
-      EASYREAD_HOME: /data/EasyRead
-      EASYREAD_HOST: 0.0.0.0
-      EASYREAD_PORT: "8765"
+      EASYREAD_ADMIN_USER: ${EASYREAD_ADMIN_USER:-admin}
+      EASYREAD_ADMIN_PASSWORD: ${EASYREAD_ADMIN_PASSWORD:-}
       EASYREAD_ALLOWED_HOSTS: ${EASYREAD_ALLOWED_HOSTS:-}
     volumes:
-      - easyread-data:/data/EasyRead
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - easyread-auth:/auth
+    depends_on:
+      easyread:
+        condition: service_healthy
+      terminal:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
 
 volumes:
   easyread-data:
+  easyread-cli-home:
+  easyread-auth:

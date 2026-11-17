@@ -22,7 +22,13 @@ cd easyread
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:8765> on the server. The default published port is loopback-only, and data persists in a Docker volume. Use an SSH tunnel or an authenticating reverse proxy for remote access. See the [Docker deployment guide](docs/docker.en.md) for LAN access, models and backups. There is no built-in login; do not expose the app directly to the public Internet.
+The default image includes Claude Code, Codex CLI, Chromium, BabelDOC and an authenticated Web terminal. Open <https://localhost:8765> for the reader and <https://localhost:8766> for CLI login/updates. Administrator credentials and a local HTTPS certificate are generated on first startup.
+
+```bash
+docker compose exec gateway easyread-admin credentials
+```
+
+Data and CLI logins persist. **Settings → Network & proxy** configures global `http_proxy` / `https_proxy`. See the [full Docker guide](docs/docker.en.md) for certificate trust, CLI authentication, proxies, remote access and backups.
 
 ## Read your first paper
 

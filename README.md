@@ -22,7 +22,13 @@ cd easyread
 docker compose up -d --build
 ```
 
-在服务器本机访问 <http://127.0.0.1:8765>。默认只发布本机端口，数据通过 Docker 卷持久保存；远程访问可用 SSH 隧道或带认证的反向代理。局域网配置、模型接入与备份见 [Docker 部署说明](docs/docker.md)。应用没有内置登录，请勿直接暴露到公网。
+默认提供 Claude Code、Codex CLI、Chromium、BabelDOC 和经过认证的 Web 终端。阅读器访问 <https://localhost:8765>，CLI 登录/更新终端访问 <https://localhost:8766>；首次生成管理密码和本地 HTTPS 证书。
+
+```bash
+docker compose exec gateway easyread-admin credentials
+```
+
+数据和 CLI 登录持久化；网页“设置 → 网络与代理”支持全局 `http_proxy` / `https_proxy`。首次证书信任、CLI 登录、代理、服务器访问和备份见 [完整 Docker 部署说明](docs/docker.md)。
 
 ## 读第一篇论文
 

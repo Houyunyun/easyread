@@ -1,27 +1,78 @@
-FROM python:3.12-slim
+FROM node:22-bookworm-slim AS node
 
+FROM python:3.12-slim AS python-deps
 WORKDIR /opt/easyread
-
-# The base includes CA certificates; PDF/image wheels bundle their native libs.
-# The repository includes the built editor assets; Node/Electron is not needed.
-COPY pyproject.toml README.md LICENSE ./
-COPY easyread ./easyread
-RUN python -m pip install --no-cache-dir . \
+COPY pyproject.toml /tmp/easyread-pyproject.toml
+RUN python -c "import subprocess,sys,tomllib; subprocess.check_call([sys.executable,'-m','pip','install','--no-cache-dir',*tomllib.load(open('/tmp/easyread-pyproject.toml','rb'))['project']['dependencies']])" \
     && useradd --create-home --uid 1000 easyread \
-    && mkdir -p /data/EasyRead \
-    && chown -R easyread:easyread /data
-
+    && mkdir -p /data/EasyRead && chown -R easyread:easyread /data
 ENV PYTHONUNBUFFERED=1 \
     PYTHONUTF8=1 \
     EASYREAD_HOME=/data/EasyRead \
     EASYREAD_HOST=0.0.0.0 \
     EASYREAD_PORT=8765
-
-USER easyread
 VOLUME ["/data/EasyRead"]
 EXPOSE 8765
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('EASYREAD_PORT', '8765') + '/api/version', timeout=3).close()"
 
+FROM python-deps AS lite
+COPY pyproject.toml README.md LICENSE ./
+COPY easyread ./easyread
+RUN python -m pip install --no-cache-dir --no-deps .
+USER easyread
+CMD ["python", "-m", "easyread", "serve"]
+
+# Heavy dependencies are independent of app source, so UI updates reuse them.
+FROM python-deps AS full-deps
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       bash curl git ripgrep chromium chromium-sandbox fonts-noto-cjk \
+       libgomp1 zstd \
+    && rm -rf /var/lib/apt/lists/* \
+    && case "$(dpkg --print-architecture)" in \
+         amd64) ttyd_arch=x86_64; ttyd_sha=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;; \
+         arm64) ttyd_arch=aarch64; ttyd_sha=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;; \
+         *) echo 'Unsupported ttyd architecture' >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL --retry 3 "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.$ttyd_arch" -o /tmp/ttyd \
+    && echo "$ttyd_sha  /tmp/ttyd" | sha256sum -c - \
+    && install -m 755 /tmp/ttyd /usr/local/bin/ttyd && rm /tmp/ttyd \
+    && python -m venv --system-site-packages /opt/babeldoc \
+    && /opt/babeldoc/bin/python -m pip install --no-cache-dir \
+       'babeldoc==0.6.4' 'bitstring<5' 'onnxruntime==1.23.2'
+ENV HOME=/home/easyread \
+    NPM_CONFIG_PREFIX=/home/easyread/.npm-global \
+    PATH=/home/easyread/.local/bin:/home/easyread/.npm-global/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin \
+    EASYREAD_BABELDOC_PYTHON=/opt/babeldoc/bin/python \
+    DISABLE_AUTOUPDATER=1
+ARG CLAUDE_CODE_VERSION=stable
+ARG CODEX_VERSION=latest
+USER easyread
+RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh \
+    && bash /tmp/claude-install.sh "$CLAUDE_CODE_VERSION" \
+    && rm /tmp/claude-install.sh \
+    && npm install --global "@openai/codex@$CODEX_VERSION" \
+    && claude --version && codex --version \
+    && /opt/babeldoc/bin/python -c "from babeldoc.docvision.doclayout import DocLayoutModel; DocLayoutModel.load_onnx()" \
+    && rm -rf /home/easyread/.npm /home/easyread/.claude/downloads
+USER root
+RUN mv /home/easyread /opt/easyread-cli-seed \
+    && mkdir /home/easyread && chown easyread:easyread /home/easyread
+
+FROM full-deps AS full
+COPY pyproject.toml README.md LICENSE ./
+COPY easyread ./easyread
+RUN python -m pip install --no-cache-dir --no-deps .
+COPY docker/runtime.py /usr/local/bin/easyread-runtime
+COPY docker/cli.py /usr/local/bin/easyread-cli
+COPY docker/terminal-session.sh /usr/local/bin/easyread-terminal-session
+RUN chmod 755 /usr/local/bin/easyread-runtime /usr/local/bin/easyread-cli /usr/local/bin/easyread-terminal-session
+USER easyread
+VOLUME ["/home/easyread"]
+ENTRYPOINT ["python", "/usr/local/bin/easyread-runtime"]
 CMD ["python", "-m", "easyread", "serve"]

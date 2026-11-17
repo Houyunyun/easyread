@@ -4,7 +4,7 @@ from __future__ import annotations
 from urllib.parse import urlsplit
 
 from ..chat import chat_models
-from ..app import config
+from ..app import config, proxy
 from ..app.api_keys import resolve, saved_keys
 from ..engines import engines, openai_api
 from ..translate import langs, instructions, prompt_style
@@ -12,6 +12,9 @@ from ..app.i18n import tr
 
 
 def save_config(patch: dict) -> dict:
+    patch.pop("docker_terminal", None)  # Deployment capability comes from the process environment.
+    if "system_proxy" in patch:
+        raise ValueError("Use /api/system-proxy to change global proxies")
     patch.pop("translation_prompt_default", None)
     patch.pop("translation_prompt_effective", None)
     patch.pop("translation_extra", None)  # Task-only instructions must never become global.
@@ -88,5 +91,18 @@ def list_models(body: dict) -> dict:
         return {"ok": False, "message": str(e)[:300]}
 
 
-POST = {"/api/config": save_config, "/api/chat/models": save_chat_models,
+def save_system_proxy(body: dict) -> dict:
+    with config.SAVE_LOCK:
+        settings = proxy.validate(body, config.load().get("system_proxy"))
+        cfg = config.save({"system_proxy": settings})
+        proxy.apply(settings)
+        return {"config": config.public(cfg)}
+
+
+def test_system_proxy(body: dict) -> dict:
+    return proxy.test(proxy.validate(body, config.load().get("system_proxy")))
+
+
+POST = {"/api/system-proxy": save_system_proxy, "/api/system-proxy/test": test_system_proxy,
+        "/api/config": save_config, "/api/chat/models": save_chat_models,
         "/api/config/test": test_engine, "/api/models/list": list_models}
