@@ -115,7 +115,7 @@
       (isApi(f.kind) ? PR.apiForm.html(s, f, {keyProp: "key", vision: false}) : "") + PR.modelReasoningFields(s, f);
     return '<section class="model-editor"><div class="model-heading"><h3>' + (s.editing === "new" ? PR.t("添加模型") : PR.t("编辑模型")) +
       '</h3><button class="linkish" data-rescan>' + PR.t("重新检测") + '</button></div>' +
-      (status ? '<p class="hint" role="status">' + status + '</p>' : "") + fields + guides + '</section>';
+      (status ? '<p class="hint" role="status">' + status + '</p>' : "") + fields + guides + '<div class="test-line"><button type="button" class="btn sm line" data-cm="test-form">' + PR.t("测试此模型") + '</button><span class="test-result" id="formTestRes" role="status"></span></div></section>';
   }
   function autoName(s, f) {
     if (PR.isAgentCli(f.kind)) return f.model || PR.agentClis[f.kind].name;
@@ -295,6 +295,7 @@
           { label: PR.t("设为翻译"), icon: "sparkle", disabled: tr, fn: () => { assignRole(s, m, "translate"); PR.settingsRender(); } },
           { label: PR.t("设为问 AI"), icon: "note", disabled: s.chat.default === m.id, fn: () => { assignRole(s, m, "chat-default"); PR.settingsRender(); } },
           "-",
+          { label: PR.t("测试此模型"), icon: "sparkle", fn: () => PR.testModel(s, m) },
           { label: PR.t("修改"), icon: "edit", fn: () => { readForm(s); s.editing = m.id; startForm(s, m); PR.settingsRender(); } },
           "-",
           { label: PR.t("删除"), icon: "trash", disabled: tr, fn: async () => {
@@ -306,6 +307,12 @@
             PR.saveModelSettings(); PR.settingsRender();
           } },
         ]);
+        return false;
+      }
+      if (act === "test-form") {
+        readForm(s); b.disabled = true;
+        try { await PR.testModel(s, s.form, s.form.key, PR.$("#formTestRes")); }
+        finally { b.disabled = false; }
         return false;
       }
       if (act === "add") { readForm(s); s.editing = "new"; startForm(s); }

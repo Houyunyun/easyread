@@ -31,6 +31,7 @@
     // Existing highlights and note anchors must be present at initial setup.
     const marked = new Set((PR.state.discussion.entries || []).map(e => e.anchor));
     for (const note of PR.myNotes()) for (const id of PR.noteBlocks(note)) marked.add(id);
+    for (const item of [...Object.values(PR.state.reader.ink || {}), ...Object.values(PR.state.reader.stickers || {})]) if (!item.deleted) marked.add(item.anchor);
     blocks.forEach((b, i) => { if (marked.has(b?.id)) eager.add(Math.floor(i / batch)); });
     const waiting = new Map();
     const observer = new IntersectionObserver(entries => {

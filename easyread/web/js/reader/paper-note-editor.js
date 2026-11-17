@@ -4,7 +4,21 @@
   const panel = PR.$("#notespanel"), libraries = PR.noteLibraries;
   let rich = null, map = null, observer = null, richSource = "", formula = null, unmountToolbar = null;
   let mode = "rich", split = PR.ls.get("easyread-note-split", 58), firstMap = true;
-  let mapBody = null, selectingFromMap = false;
+  let mapBody = null, selectingFromMap = false, mapFolded = true;
+  const ICON_EXPAND_ALL = '<svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="2" fill="currentColor"/><circle cx="16" cy="4" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/><path d="M6 10h4m0 0V4h4.5m-4.5 6v6h4.5m-4.5-6h4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ICON_COLLAPSE_MAIN = '<svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="2" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/><path d="M6 10h3a1 1 0 0 0 1-1V5h1m-1 5a1 1 0 0 1 1 1v4h1M17 5h-3m3 10h-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function setTreeFold(node, foldMainOnly) {
+    if (!node) return;
+    function walk(n, depth) {
+      const hasChildren = Array.isArray(n.children) && n.children.length > 0;
+      const shouldFold = foldMainOnly && depth >= 1 && hasChildren ? 1 : 0;
+      n.payload = { ...(n.payload || {}), fold: shouldFold };
+      if (hasChildren) n.children.forEach(c => walk(c, depth + 1));
+    }
+    walk(node, 0);
+  }
+  let mapVisible = PR.ls.get("easyread-note-map-visible", false);
   let expanded = false, layout = PR.ls.get("easyread-note-layout", "side"), focus = "both";
   const wide = window.matchMedia("(min-width: 900px)");
   const horizontal = () => expanded && layout === "side" && wide.matches;
@@ -64,15 +78,23 @@
     divider.setAttribute("aria-orientation", horizontal() ? "vertical" : "horizontal");
     const hint = horizontal() ? PR.t("调整笔记与思维导图的宽度") : PR.t("调整笔记与思维导图的高度");
     divider.setAttribute("aria-label", hint); divider.title = hint;
-    setMapVisible(expanded && focus !== "note");
+    setMapVisible(mapVisible);
   }
   wide.addEventListener("change", setLayout);
 
   function setMapVisible(visible) {
-    const el = workspace();
+    mapVisible = visible;
+    visible = expanded ? focus !== "note" : visible;
+    const el = workspace(), button = el.querySelector("[data-note-map-toggle]");
     el.classList.toggle("pn-map-hidden", !visible);
     el.querySelector(".pn-divider").hidden = !visible || (expanded && focus === "map");
     el.querySelector(".pn-mindmap").hidden = !visible;
+    button.setAttribute("aria-expanded", String(visible));
+    button.setAttribute("aria-pressed", String(visible));
+    button.classList.toggle("on", visible);
+    const action = visible ? PR.t("隐藏思维导图") : PR.t("显示思维导图");
+    button.title = action;
+    button.setAttribute("aria-label", action);
     if (visible && map) updateMap();
   }
 
@@ -92,6 +114,7 @@
     const doc = body === richSource ? rich.getJSON() : rich.markdown.parse(body);
     const meta = PR.state.paper.meta || {};
     const root = libraries.toMindMap(doc, meta.short_zh || meta.title_zh || meta.title_en || PR.t("论文笔记"));
+    setTreeFold(root, mapFolded);
     const empty = !body.trim();
     workspace().querySelector(".pn-map-empty").hidden = !empty;
     await current.setData(root);
@@ -181,16 +204,16 @@
     html(body) {
       const modes = [["rich", PR.t("预览")], ["source", "Markdown"]];
       return '<div class="pn-display-bar"><div class="pn-view-controls" hidden><div class="seg" role="group" aria-label="' + label(PR.t("工作区布局")) + '">' + [["side", PR.t("左右")], ["stack", PR.t("上下")]].map(([key, text]) => '<button data-note-layout="' + key + '">' + text + '</button>').join("") + '</div><div class="seg" role="group" aria-label="' + label(PR.t("显示内容")) + '">' + [["both", PR.t("笔记与导图")], ["note", PR.t("仅笔记")], ["map", PR.t("仅导图")]].map(([key, text]) => '<button data-note-focus="' + key + '">' + text + '</button>').join("") + '</div></div><button class="btn sm" data-note-expand aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg><span>' + PR.t("全屏工作区") + '</span></button></div><div class="pn-workspace"><section class="pn-writing" aria-label="' + label(PR.t("论文笔记编辑器")) + '">' +
-        '<div class="pn-bar"><div class="seg" role="group" aria-label="' + label(PR.t("笔记显示方式")) + '">' + modes.map(([key, text]) => '<button data-note-mode="' + key + '">' + text + '</button>').join("") + '</div><span class="grow"></span></div>' +
+        '<div class="pn-bar"><div class="seg" role="group" aria-label="' + label(PR.t("笔记显示方式")) + '">' + modes.map(([key, text]) => '<button data-note-mode="' + key + '">' + text + '</button>').join("") + '</div><span class="grow"></span><button class="btn sm" data-note-map-toggle aria-controls="pnMindmap">Markmap</button></div>' +
         '<div class="pn-format"></div>' +
         '<form class="pn-formula" hidden><input class="input" data-note-latex aria-label="' + label(PR.t("LaTeX 公式")) + '" placeholder="E = mc^2"><label><input type="checkbox" data-note-display> ' + PR.t("独立公式") + '</label><button class="btn sm accent" type="submit">' + PR.t("应用") + '</button><button class="btn sm" type="button" data-note-math-cancel>' + PR.t("取消") + '</button></form>' +
         '<div class="pn-content"><div class="pn-rich-pane"><div class="pn-rich"></div></div><div class="pn-source" hidden><textarea id="paperNote" spellcheck="false" aria-label="' + label(PR.t("论文笔记 Markdown")) + '">' + PR.esc(body) + '</textarea></div></div></section>' +
         '<div class="pn-divider" role="separator" tabindex="0" aria-label="' + label(PR.t("调整笔记与思维导图的高度")) + '" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="80" aria-controls="pnMindmap" title="' + label(PR.t("拖动调整高度，方向键微调，双击恢复")) + '"></div>' +
-        '<section id="pnMindmap" class="pn-mindmap" aria-label="' + label(PR.t("思维导图")) + '"><div class="pn-bar"><b>Markmap</b><span class="grow"></span><button class="btn sm" popovertarget="pnExportMenu">' + PR.t("导出") + ' ▾</button><div id="pnExportMenu" class="pn-export-menu" popover><button class="btn sm" data-note-xmind>XMind (.xmind)</button><button class="btn sm" data-note-map-export>SVG (.svg)</button></div><button class="btn sm" data-note-zoom="fit">' + PR.t("适合窗口") + '</button><button class="btn sm" data-note-zoom="out" aria-label="' + label(PR.t("缩小思维导图")) + '">−</button><button class="btn sm" data-note-zoom="in" aria-label="' + label(PR.t("放大思维导图")) + '">+</button></div>' +
+        '<section id="pnMindmap" class="pn-mindmap" aria-label="' + label(PR.t("思维导图")) + '"><div class="pn-bar"><b>Markmap</b><span class="grow"></span><button class="btn sm" popovertarget="pnExportMenu">' + PR.t("导出") + ' ▾</button><div id="pnExportMenu" class="pn-export-menu" popover><button class="btn sm" data-note-xmind>XMind (.xmind)</button><button class="btn sm" data-note-map-export>SVG (.svg)</button></div><button class="btn icon sm" type="button" data-note-fold="expand" title="' + label(PR.t("全部展開")) + '" aria-label="' + label(PR.t("全部展開")) + '">' + ICON_EXPAND_ALL + '</button><button class="btn icon sm" type="button" data-note-fold="collapse" title="' + label(PR.t("收合至主分支")) + '" aria-label="' + label(PR.t("收合至主分支")) + '">' + ICON_COLLAPSE_MAIN + '</button><button class="btn sm" data-note-zoom="fit">' + PR.t("适合窗口") + '</button><button class="btn sm" data-note-zoom="out" aria-label="' + label(PR.t("缩小思维导图")) + '">−</button><button class="btn sm" data-note-zoom="in" aria-label="' + label(PR.t("放大思维导图")) + '">+</button></div>' +
         '<div class="pn-map"><svg class="pn-map-svg" role="img" tabindex="0" aria-label="' + label(PR.t("思维导图：拖动平移、滚轮缩放，点击圆点展开或收起")) + '"></svg><p class="pn-map-empty">' + PR.t("写下笔记，思维导图会自动出现在这里。") + '</p></div></section></div>';
     },
     mount(body) {
-      richSource = body; firstMap = true; mapBody = null;
+      richSource = body; firstMap = true; mapBody = null; mapFolded = true;
       workspace().style.setProperty("--note-zoom", PR.ls.get("easyread-note-zoom", 100) / 100);
       rich = libraries.createEditor({
         element: workspace().querySelector(".pn-rich"), content: body,
@@ -203,7 +226,7 @@
         onMathClick: (node, pos, display) => openFormula(node.attrs.latex, pos, display),
       });
       unmountToolbar = libraries.mountNoteToolbar(workspace().querySelector(".pn-format"), rich, () => openFormula());
-      map = libraries.Markmap.create(workspace().querySelector("svg"), { duration: 0, maxWidth: 220, paddingX: 10, spacingVertical: 8 });
+      map = libraries.Markmap.create(workspace().querySelector(".pn-map-svg"), { duration: 0, maxWidth: 220, paddingX: 10, spacingVertical: 8 });
       setMode(mode); setSplit(split); setLayout();
       observer = new ResizeObserver(() => { if (!workspace().querySelector(".pn-mindmap").hidden && map && !firstMap) map.fit(); });
       observer.observe(workspace().querySelector(".pn-map"));
@@ -259,6 +282,8 @@
         rich.chain().focus().setTextSelection(range).scrollIntoView().run();
       }
     },
+    isExpanded: () => expanded,
+    collapse() { if (!expanded) return false; expanded = false; setLayout(); return true; },
     getBody: () => rich ? PR.$("#paperNote").value : null,
     documentForMap: body => rich ? rich.markdown.parse(body) : null,
     update: updateSoon,
@@ -309,12 +334,25 @@
       libraries.exportXmind(libraries.toMindMap(doc, title), title.replace(/[\\/:*?"<>|]/g, "")).catch(error => PR.toast(error.message)); return;
     }
     if (e.target.closest("[data-note-map-export]")) { exportMap(); return; }
+    if (e.target.closest("[data-note-map-toggle]")) {
+      if (expanded) { focus = focus === "note" ? "both" : "note"; setLayout(); return; }
+      setMapVisible(!mapVisible);
+      PR.ls.set("easyread-note-map-visible", mapVisible);
+      return;
+    }
     if (e.target.closest(".pn-prose")) { revealSelection(); return; }
     if (e.target.closest("[data-note-math-cancel]")) { workspace().querySelector(".pn-formula").hidden = true; rich.commands.focus(); return; }
     const node = e.target.closest(".markmap-node");
     if (node && !e.target.closest("circle")) { selectNote(map.svg.select(() => node).datum()); return; }
     const modeButton = e.target.closest("[data-note-mode]");
     if (modeButton) { setMode(modeButton.dataset.noteMode); return; }
+    const foldButton = e.target.closest("[data-note-fold]");
+    if (foldButton && map && map.state?.data) {
+      mapFolded = foldButton.dataset.noteFold === "collapse";
+      setTreeFold(map.state.data, mapFolded);
+      map.renderData().then(() => map.fit());
+      return;
+    }
     const zoomButton = e.target.closest("[data-note-zoom]");
     if (zoomButton && map) {
       if (zoomButton.dataset.noteZoom === "fit") map.fit();

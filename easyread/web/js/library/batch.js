@@ -47,9 +47,11 @@
       '<span class="grow"></span><div class="batch-tools"' + (n ? "" : " data-empty") + ">" +
       tool("cat", PR.t("加入分类"), "folder") +
       (L.tag || L.view === "starred" ? tool("uncat", PR.t("移出“{name}”", { name: L.tag ? PR.catTree.leaf(L.tag) : PR.t("星标") }), "x") : "") +
+      (L.view === "archived" ? tool("unarchive", PR.t("移出封存"), "archive") : tool("archive", PR.t("封存"), "archive")) +
       tool("status", PR.t("切换状态"), "book") +
       tool("translate", PR.t("翻译"), "sparkle") +
       (pickedItems().some(L.modelBusy) ? tool("stop", PR.t("停止翻译"), "stop") : "") +
+      tool("compare", PR.t("跨論文比較"), "copy", PR.t("選擇 2 至 5 篇已完成全文整理的論文，前往比較設定")) +
       tool("cite", PR.t("导出引用"), "copy") +
       tool("trash", "", "trash", PR.t("移到回收站")) + "</div>" +
       '<button class="btn sm accent" data-b="done">' + PR.t("完成") + "</button>";
@@ -106,7 +108,7 @@
   function statusMenu(at) {
     const its = pickedItems(), total = its.length;
     const status = (s, label, icon) => ({ label, icon, kbd: its.every((i) => (i.status || "unread") === s) ? "✓" : "", fn: setFields({ status: s }, PR.t("{n} 篇已标为{status}", { n: total, status: label })) });
-    PR.menu(at, [status("reading", PR.t("在读"), "book"), status("unread", PR.t("未读"), "book"), status("done", PR.t("已读"), "check")]);
+    PR.menu(at, (L.statuses || [{ id: "unread", label: PR.t("待閱讀") }, { id: "reading", label: PR.t("閱讀中") }, { id: "organizing", label: PR.t("待整理") }, { id: "done", label: PR.t("已完成") }]).filter((s) => s.id !== "paused").map((s) => status(s.id, PR.t(s.label), s.id === "done" ? "check" : "book")));
   }
   async function translateAll(at) {
     if (L.engine === "none") return PR.toast(PR.t("当前没有开启翻译引擎，去设置里选一个。"));
@@ -141,12 +143,42 @@
     PR.toast(PR.t("已把 {n} 篇移到回收站", { n: its.length - failed }) + (failed ? PR.t("，{n} 篇没删成", { n: failed }) : ""), names.length ? { label: PR.t("撤销"), fn: undo } : null);
   }
 
+  async function compareAll(at) {
+    const its = pickedItems();
+    if (its.length < 2 || its.length > 5) return PR.toast(PR.t("跨論文比較需要選擇 2 至 5 篇論文。"));
+    if (its.some((item) => Number(item.parsed_blocks || 0) <= 0)) return PR.toast(PR.t("所選論文都必須先完成 PDF 與全文整理，才能比較。"));
+    L.endPick();
+    const ids = encodeURIComponent(its.map((item) => item.id).join(","));
+    PR.navigateWorkspace("/research?mode=comparisons&papers=" + ids);
+  }
+
+  function archiveAll() {
+    const its = pickedItems();
+    const toArchive = its.filter((i) => !i.archived);
+    if (!toArchive.length) return PR.toast(PR.t("所选论文都已经在封存区了"));
+    L.patchMany(toArchive.map((i) => [i.id, { archived: true }]));
+    PR.toast(PR.t("已封存 {n} 篇", { n: toArchive.length }));
+    L.endPick();
+  }
+
+  function unarchiveAll() {
+    const its = pickedItems();
+    const toRestore = its.filter((i) => i.archived);
+    if (!toRestore.length) return PR.toast(PR.t("所选论文未在封存区"));
+    L.patchMany(toRestore.map((i) => [i.id, { archived: false }]));
+    PR.toast(PR.t("已解除封存 {n} 篇，恢復當時狀態", { n: toRestore.length }));
+    L.endPick();
+  }
+
   function run(act, at) {
     if (act === "cat") catMenu(at);
     else if (act === "uncat") removeCurrent();
+    else if (act === "archive") archiveAll();
+    else if (act === "unarchive") unarchiveAll();
     else if (act === "status") statusMenu(at);
     else if (act === "translate") translateAll(at);
     else if (act === "stop") PR.stopJobs(pickedItems(), at);
+    else if (act === "compare") compareAll(at).catch((error) => { const message = error.message || PR.t("跨論文比較無法開始。"); PR.toast(PR.t(message)); });
     else if (act === "cite") PR.openCiteExport(pickedItems(), L.tag ? PR.catTree.leaf(L.tag) : PR.$("#viewTitle").textContent);
     else if (act === "trash") trashAll(at);
   }
@@ -188,6 +220,7 @@
     PR.menu(at, [
       { label: PR.t("加入分类…"), icon: "folder", fn: () => catMenu(at) },
       ...(L.tag || L.view === "starred" ? [{ label: PR.t("移出“{name}”", { name: L.tag ? PR.catTree.leaf(L.tag) : PR.t("星标") }), icon: "x", fn: removeCurrent }] : []),
+      ...(L.view === "archived" ? [{ label: PR.t("移出封存（恢復）"), icon: "archive", fn: unarchiveAll }] : [{ label: PR.t("封存論文"), icon: "archive", fn: archiveAll }]),
       { label: PR.t("切换状态…"), icon: "book", fn: () => statusMenu(at) },
       { label: PR.t("翻译"), icon: "sparkle", fn: () => translateAll(at) },
       ...(pickedItems().some(L.modelBusy) ? [{ label: PR.t("停止翻译"), icon: "stop", fn: () => PR.stopJobs(pickedItems(), at) }] : []),

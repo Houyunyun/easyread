@@ -12,6 +12,7 @@ import json
 import os
 import time
 from contextlib import contextmanager
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -115,7 +116,7 @@ def file_version(path: Path) -> str:
 
 
 def empty_reader() -> dict:
-    return {"schema": SCHEMA, "rev": 0, "edits": {}, "notes": {}, "paper_note": {}, "progress": {}}
+    return {"schema": SCHEMA, "rev": 0, "edits": {}, "notes": {}, "ai_annotations": {}, "ink": {}, "stickers": {}, "paper_note": {}, "progress": {}}
 
 
 def empty_discussion() -> dict:
@@ -165,6 +166,9 @@ def apply_ops(reader: dict, ops: list[dict]) -> list[str]:
             if not cur or _newer(at, cur.get("updated")):
                 notes[nid] = {**(cur or {"id": nid}), "deleted": True, "updated": at}
                 applied.append(f"note_del:{nid}")
+        elif kind in ("ai_annotation", "ink", "ink_del", "sticker", "sticker_del"):
+            from .research_ops import apply_research_op
+            applied.extend(apply_research_op(reader, op, at))
         elif kind == "paper_note":
             cur = reader.get("paper_note") or {}
             if _newer(at, cur.get("at")):
@@ -186,7 +190,7 @@ def apply_ops(reader: dict, ops: list[dict]) -> list[str]:
 class Workspace:
     """一篇论文的目录。"""
 
-    PARTS = ("paper", "discussion", "reader", "layout")
+    PARTS = ("paper", "discussion", "reader", "layout", "item")
 
     def __init__(self, root: Path):
         self.root = Path(root).resolve()
@@ -238,8 +242,17 @@ class Workspace:
         return v
 
     def apply_reader_ops(self, ops: list[dict], client: str = "") -> dict:
+        return self.update_reader_ops(lambda _reader: ops, client)
+
+    def update_reader_ops(self, make_ops: Callable[[dict], list[dict]], client: str = "") -> dict:
+        """Derive operations from current reader data under the journal's write lock.
+
+        Internal callers may compare a pre-model snapshot here or append to the
+        current note. The callback must not call a model or acquire this lock again.
+        """
         with dir_lock(self.root):
             reader = self.load("reader")
+            ops = make_ops(reader)
             applied = apply_ops(reader, ops)
             if applied:
                 self._journal(ops, client)
@@ -273,7 +286,8 @@ class Workspace:
             return result
 
     def patch_item(self, fields: dict) -> dict:
-        allowed = {"tags", "status", "starred", "rating", "last_opened", "meta_override", "archived"}
+        allowed = {"tags", "status", "starred", "rating", "last_opened", "meta_override", "archived",
+                   "reading_plan", "interested", "manual_order", "paper_ref"}
 
         def apply(item):
             for k, v in fields.items():

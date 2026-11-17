@@ -52,6 +52,9 @@ class PreparationTest(unittest.TestCase):
         handler = object.__new__(server.Handler)
         handler.app = SimpleNamespace(location=SimpleNamespace(request=lambda *args: nullcontext()))
         handler.command, handler.path = "GET", "/api/library"
+        from email.message import Message
+        handler.headers = Message()
+        handler.headers["Host"] = "127.0.0.1"
         with patch.object(handler, "_get", side_effect=ConnectionAbortedError()), \
                 patch.object(handler, "_json") as response, patch.object(server.log, "exception") as logged:
             handler.do_GET()

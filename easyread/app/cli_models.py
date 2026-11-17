@@ -109,11 +109,12 @@ def _probe(exe: str, version: str) -> None:
 
 
 def listing() -> dict:
-    catalog = {"claude": claude(), "codex": codex()}
+    from . import config, agent_models
+    catalog = {"claude": claude(), "codex": codex(), "agy": agent_models.antigravity(config.load().get("agy") or {})}
     for engine in engines.agent_cli.ENGINES:
         last = chat_models.actual_of("last-default:" + engine)
         if last:
-            catalog[engine] = {"last_used": last}
+            catalog.setdefault(engine, {})["last_used"] = last
     return catalog
 
 

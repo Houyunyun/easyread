@@ -17,15 +17,16 @@
 
   function leafRow(i, d) {
     const t = PR.titles(i);
-    return '<div class="srow tree leaf' + (L.selected === i.id ? " sel" : "") + '" data-leaf="' + i.id + '" draggable="true"' + lvl(d) + ' title="' + PR.esc(t.main) + '">' + PR.foldSlot(false) + PR.icon("page", "sm") +
-      '<span class="t">' + PR.esc(t.short) + "</span>" + more + "</div>";
+    const tip = PR.titleText ? PR.titleText(t.main) : t.main;
+    return '<div class="srow tree leaf' + (L.selected === i.id ? " sel" : "") + '" data-leaf="' + i.id + '" draggable="true"' + lvl(d) + ' title="' + PR.esc(tip) + '">' + PR.foldSlot(false) + PR.icon("page", "sm") +
+      '<span class="t">' + (PR.titleHtml ? PR.titleHtml(t.short) : PR.esc(t.short)) + "</span>" + more + "</div>";
   }
   const moreRow = (c, n, d) => '<div class="srow tree show-all" data-all-in="' + PR.esc(c) + '"' + lvl(d) + ">" + PR.foldSlot(false) + '<span class="t">' + PR.t("还有 {n} 篇", { n }) + "</span></div>";
 
   /* o.catRow(c, kids, open)、o.addRow(depth)：sidebar.js 给；o.skip(c)：隐藏、置顶的分类不画；o.addUnder：正在它下面新建子分类，先展开 */
   PR.sideTreeHtml = function (cats, o) {
     const byTitle = (a, b) => PR.titles(a).short.localeCompare(PR.titles(b).short, PR.lang);
-    const items = L.items.filter((i) => (i.tags || []).length).sort(byTitle);
+    const items = L.items.filter((i) => !i.archived && (i.tags || []).length).sort(byTitle);
     const rows = T.rows(cats, items, { open: (c) => L.isOpen(c) || o.addUnder === c, skip: o.skip, limit: LIMIT, full: (c) => full.has(c) });
     return rows.map((r) => {
       if (r.type === "paper") return leafRow(r.item, r.depth);

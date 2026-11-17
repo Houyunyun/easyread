@@ -104,8 +104,12 @@
   };
   PR.$('[data-act="drawer"]').innerHTML = PR.icon("menu");
   PR.$('[data-act="dock"]').innerHTML = PR.icon("page", "sm") + "<span>" + PR.t("侧栏") + "</span>";
+  const researchButton = PR.$('[data-act="research"]');
+  if (researchButton) researchButton.innerHTML = PR.icon("book", "sm") + "<span>" + PR.t("研究") + "</span>";
   PR.applyFeatures = function () {
     PR.syncDockFeatures?.();
+    const research = PR.$('[data-act="research"]');
+    if (research) research.hidden = !PR.feature("research") || !PR.researchAvailable?.();
   };
   PR.on("ui-changed", () => { PR.applyFeatures(); PR.hideBlockbar && PR.hideBlockbar(); PR.renderMargin && PR.renderMargin(); });
   PR.$("#bar").addEventListener("click", (e) => {
@@ -116,6 +120,7 @@
     if (!a) return;
     const act = a.dataset.act;
     if (act === "drawer") PR.toggleDrawer();
+    if (act === "research") PR.toggleResearch();
     if (act === "dock") PR.toggleDock();
     if (act === "settings") { PR.renderSettings(); PR.$("#settings").classList.toggle("open"); }
   });
@@ -207,9 +212,10 @@
   }
   function termsHtml() {
     const g = S.paper.glossary || [];
-    return '<p class="hint" style="margin:0 0 10px">' + PR.t("译法不合心意？改右边的译法，再点“替换”，会把正文里的旧译法换成新的（记为你的修改，公式不动，随时可在段落右键“恢复译者稿”）。") + "</p>" +
+    const html = '<p class="hint" style="margin:0 0 10px">' + PR.t("译法不合心意？改右边的译法，再点“替换”，会把正文里的旧译法换成新的（记为你的修改，公式不动，随时可在段落右键“恢复译者稿”）。") + "</p>" +
       (g.length ? '<table class="terms-t">' + g.map((t, i) => "<tr><td>" + PR.esc(t.en) + '</td><td><input class="input term-in" data-i="' + i + '" value="' + PR.esc(t.zh) + '"></td><td><button class="btn sm line" data-term="' + i + '">' + PR.t("替换") + "</button></td></tr>").join("") + "</table>" : '<p class="hint">' + PR.t("这篇论文还没有术语表。") + "</p>") +
       '<div class="term-free"><div class="hint" style="margin:14px 0 6px">' + PR.t("任意替换") + '</div><div style="display:flex;gap:6px"><input class="input" id="tFrom" placeholder="' + PR.t("原译法") + '"><input class="input" id="tTo" placeholder="' + PR.t("新译法") + '"><button class="btn sm line" data-term="free">' + PR.t("替换") + "</button></div></div>";
+    return PR.readerKeywords ? PR.readerKeywords.html(html) : html;
   }
   function aboutHtml() {
     const tr = S.paper.translation || {};

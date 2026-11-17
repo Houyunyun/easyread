@@ -60,6 +60,15 @@ class AnswerStyleTest(unittest.TestCase):
                 self.assertIn("不要把英文的词数限制机械地套到中文", ste)
                 self.assertIn("不要声称", ste)
 
+    def test_deep_and_ste_styles_respect_each_papers_language(self):
+        from easyread.translate import langs
+        for language in ("en", "zh-Hant", "ja"):
+            self.ws.update("paper", lambda paper: paper["meta"].update(target=language))
+            for style in ("xray", "ste100"):
+                text = chat.prompt(self.ws, [{"role": "user", "content": "Explain"}], None, "", "openai", answer_style=style)
+                self.assertIn(langs.prompt_name(language), text)
+                self.assertNotIn("只输出中文回答", text)
+
     def test_standard_question_keeps_later_sections_with_or_without_selection(self):
         for engine in ("openai", "claude", "codex", "opencode", "zcode"):
             for anchor, quote in ((None, ""), ("b", "A source fact")):

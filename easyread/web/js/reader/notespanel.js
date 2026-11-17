@@ -24,6 +24,9 @@
     PR.renderNotesPanel();
   };
 
+  PR.openPaperNotes = PR.openPaperNote;
+  PR.openAnnotations = () => { PR.finishPanelNote(); tab = "notes"; PR.openSide("notes"); PR.renderNotesPanel(); };
+
   function sectionOf(id) {
     let cur = null;
     for (const b of S.paper.blocks || []) {
@@ -46,6 +49,8 @@
     const order = (a) => (a === "head" ? -1 : PR.order[a] ?? 1e9);
     return out.filter(keep).sort((a, b) => order(a.anchor) - order(b.anchor) || (a.t < b.t ? -1 : 1));
   }
+
+  PR.annotationItems = () => { const previous = filter; filter = "all"; const result = items(); filter = previous; return result; };
 
   function jump(it) {
     if (!it || !document.getElementById("b-" + it.anchor)) return;
@@ -88,7 +93,7 @@
     } else {
       const chips = [["all", PR.t("全部")], ["mine", PR.t("我的笔记")], ["hl", PR.t("划线")], ["agent", "AI"], ["open", PR.t("待回答")]]
         .map(([k, l]) => '<button data-nf="' + k + '" class="' + (filter === k ? "on" : "") + '">' + l + "</button>").join("");
-      h += '<div class="np-filters">' + chips + '</div><div class="np-list">';
+      h += '<div class="np-filters">' + chips + '</div>' + (PR.store.mode === "server" && PR.feature("chat") && PR.smartAnnotations ? '<div class="np-add"><button class="btn sm line" data-np-act="smart">' + PR.icon("sparkle", "sm") + PR.t("智慧標註") + '</button></div>' + PR.smartAnnotations.html() : '') + '<div class="np-list">';
       let lastSec = null;
       for (const it of list) {
         const sec = it.anchor === "head" ? PR.t("论文开头") : PR.t("第 {page} 页", { page: (PR.blockById[it.anchor] || {}).page }) + " · " + sectionOf(it.anchor);
@@ -176,32 +181,4 @@
   window.addEventListener("beforeunload", () => savePaperNote.flush());
   document.addEventListener("visibilitychange", () => { if (document.hidden) savePaperNote.flush(); });
 
-  /* 导出的 Markdown：论文笔记 + 按原文顺序的批注 */
-  /* pick：{paper, note, highlight, question, ai, chat, quote}，不传就全要 */
-  PR.notesMarkdown = function (pick, chat) {
-    pick = pick || { paper: true, note: true, highlight: true, question: true, ai: true, quote: true };
-    const m = S.paper.meta || {};
-    const link = m.url || (m.arxiv ? "https://arxiv.org/abs/" + String(m.arxiv).replace(/^arXiv:/i, "").split(/[\sv]/)[0] : "");
-    const out = ["# " + (m.title_zh || m.title_en || ""), "", m.title_en ? "*" + m.title_en + "*  " : "", [m.authors, m.date, link].filter(Boolean).join(" · "), ""];
-    const pn = (S.reader.paper_note || {}).body;
-    if (pick.paper && pn) out.push("## " + PR.t("论文笔记"), "", pn, "");
-    const want = (it) => it.src === "mine" ? !!pick[it.data.kind === "question" ? "question" : it.data.kind === "highlight" ? "highlight" : "note"] : !!pick.ai;
-    const list = (() => { const f = filter; filter = "all"; const r = items().filter(want); filter = f; return r; })();
-    if (list.length) out.push("## " + PR.t("批注"), "");
-    let lastSec = "";
-    for (const it of list) {
-      const sec = it.anchor === "head" ? PR.t("论文开头") : sectionOf(it.anchor);
-      if (sec !== lastSec) { out.push("### " + sec, ""); lastSec = sec; }
-      const d = it.data;
-      const q = pick.quote && d.quote ? PR.t("「{q}」", { q: d.quote }) + (it.src === "mine" && d.side === "en" ? PR.t("（原文）") : "") : "";
-      if (it.src === "mine") out.push("- **" + ({ question: PR.t("我的问题"), highlight: PR.t("划线") }[d.kind] || PR.t("我的笔记")) + "**" + q + (d.body ? PR.t("：") + d.body : ""));
-      else out.push("- **AI" + (d.kind === "reply" ? " " + PR.t("回答") : "") + (d.title ? PR.t("：") + d.title : "") + "**" + q + (d.q ? PR.t("（问：{q}）", { q: d.q }) : "") + "\n\n  " + (d.body || "").replace(/\n/g, "\n  "));
-      if (it.src === "mine" && PR.noteMedia.has(d)) out.push(PR.noteMedia.markdown(d));
-    }
-    if (pick.chat && chat && chat.length) {
-      out.push("", "## " + PR.t("问 AI 的对话"), "");
-      for (const c of chat) out.push(c.role === "user" ? PR.t("**我**：") + c.content : PR.t("**AI**（{model}）：", { model: c.model || "" }) + c.content, "");
-    }
-    return PR.unlink(out.join("\n"));
-  };
 })(window.PR);

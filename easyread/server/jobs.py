@@ -38,6 +38,7 @@ class Jobs:
         self.bulk: queue.Queue[str] = queue.Queue()
         self.small: queue.Queue[dict] = queue.Queue()
         self.cancels: dict[str, threading.Event] = {}
+        self.small_cancels: dict[str, threading.Event] = {}
         self.recent: list[dict] = []  # 小任务的状态，给页面轮询
         self.lock = threading.Lock()
         self._resume()
@@ -298,11 +299,36 @@ class Jobs:
     # ---------- 小任务 ----------
     def submit_small(self, kind: str, pid: str, **kw) -> dict:
         job = {"id": "j" + uuid4().hex, "kind": kind, "pid": pid, "state": "queued", "message": tr("排队中"),
-               "at": now_iso(), **kw}
+               "done": 0, "total": 0, "at": now_iso(), **kw}
         with self.lock:
             self.recent = ([job] + self.recent)[:50]
+        cancel_evt = self.small_cancels.setdefault(job["id"], threading.Event())
+        if kind == "smart-annotate":
+            try:
+                from ..research import tasks as rtasks
+                scope = rtasks.scope_id(self.lib.root)
+                rtasks.register_external(job["id"], "smart-annotate", scope=scope, key=pid, paper_id=pid,
+                                         title=kw.get("title", ""), cancel_event=cancel_evt)
+            except Exception:
+                pass
         self.small.put(job)
         return job
+
+    def cancel_small(self, job_id: str) -> bool:
+        """取消仍在執行的小任務；已寫入的候選會保留。"""
+        with self.lock:
+            job = next((x for x in self.recent if x.get("id") == job_id), None)
+            if not job or job.get("state") not in ("queued", "running"):
+                return False
+            self.small_cancels.setdefault(job_id, threading.Event()).set()
+            job["message"] = tr("正在取消")
+            if job.get("kind") == "smart-annotate":
+                try:
+                    from ..research import tasks as rtasks
+                    rtasks.update_external(job_id, state="cancelling", phase="cancelling", message=tr("正在取消工作…"))
+                except Exception:
+                    pass
+            return True
 
     def small_status(self, pid: str | None = None) -> list[dict]:
         with self.lock:
@@ -316,20 +342,5 @@ class Jobs:
             return any(j["state"] in ("queued", "running") for j in self.recent)
 
     def _small_loop(self):
-        while True:
-            job = self.small.get()
-            ws = self.lib.ws(job["pid"])
-            if not ws:
-                job["state"], job["message"] = "error", tr("文献已移除，无法执行任务")
-                continue
-            job["state"], job["message"] = "running", tr("模型思考中")
-            try:
-                cfg = config.load()
-                if job["kind"] == "answer":
-                    translate.answer(ws, cfg, job["note"], None)
-                elif job["kind"] == "retranslate":
-                    translate.retranslate(ws, cfg, job["key"], job.get("hint", ""), None)
-                job["state"], job["message"] = "done", tr("完成")
-            except Exception as e:  # noqa: BLE001
-                job["state"], job["message"] = "error", str(e)[:500]
-                log.exception("小任务出错 %s", job.get("kind"))
+        from .small_jobs import run
+        run(self)

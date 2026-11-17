@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from ..zotero import locate
+from ..app import prefs
+from ..app.i18n import tr
+from . import sync
 from .runner import Migration
 
 
@@ -14,6 +17,8 @@ def _mig(app) -> Migration:
 def get(app, path: str):
     if path == "/api/zotero/detect":
         return {"candidates": locate.candidates()}
+    if path == "/api/zotero/sync-config":
+        return {"config": (prefs.load().get("import") or {}).get("zotero_sync") or {}}
     if path == "/api/migrate/status":
         return _mig(app).status
     return None
@@ -21,6 +26,21 @@ def get(app, path: str):
 
 def post(app, path: str, body: dict):
     source, where, base = str(body.get("source") or "zotero"), str(body.get("path") or ""), str(body.get("base") or "")
+    if path in ("/api/zotero/sync", "/api/zotero/sync-preview"):
+        saved = (prefs.load().get("import") or {}).get("zotero_sync") or {}
+        where = where or saved.get("path", "")
+        base = base if body.get("path") else saved.get("base", "")
+        if not where:
+            raise ValueError(tr("请先设置 Zotero 文件夹。"))
+        tags = body.get("tags", saved.get("tags", True)) is not False
+        if path.endswith("sync-preview"):
+            result = _mig(app).sync_preview(where, base)
+            prefs.save({"import": {"zotero_sync": {"path": str(locate.resolve(where)), "base": base, "tags": tags}}})
+            return result
+        if body.get("library_token") != sync.library_token(app.lib):
+            raise ValueError(tr("文献库已变更，请重新开始同步。"))
+        return _mig(app).start("zotero", where, base, with_tags=tags, sync=True,
+                               selected=body.get("selected", []), library_token=body.get("library_token", ""))
     if path == "/api/migrate/scan":
         return _mig(app).scan(source, where, base)
     if path == "/api/migrate/start":
@@ -32,5 +52,5 @@ def post(app, path: str, body: dict):
     return None
 
 
-GET = {"/api/zotero/detect", "/api/migrate/status"}
-POST = {"/api/migrate/scan", "/api/migrate/start", "/api/migrate/stop"}
+GET = {"/api/zotero/detect", "/api/zotero/sync-config", "/api/migrate/status"}
+POST = {"/api/zotero/sync", "/api/zotero/sync-preview", "/api/migrate/scan", "/api/migrate/start", "/api/migrate/stop"}

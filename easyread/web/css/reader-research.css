@@ -1,0 +1,197 @@
+.research-v2-head { display:flex; align-items:center; justify-content:space-between; min-height:50px; padding:0 14px; border-bottom:1px solid var(--rule); flex:none; }
+.research-v2-head button { width:30px; height:30px; border-radius:7px; color:var(--ink-3); font-size:22px; }
+.research-v2-body { overflow:auto; padding:15px; display:flex; flex-direction:column; gap:10px; }
+.research-v2-body label { display:flex; flex-direction:column; gap:5px; color:var(--ink-3); font-size:12px; }
+.research-v2-body input[type="date"], .research-v2-body select { min-height:34px; border:1px solid var(--rule); border-radius:7px; background:var(--bg); color:var(--ink); padding:5px 8px; }
+.research-v2-body .rp-current { font:600 15px/1.45 var(--serif-zh); color:var(--ink); }
+.research-v2-body .rp-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.research-v2-body .rp-rem, .research-v2-body .rp-cat { display:flex; flex-direction:row; align-items:center; gap:7px; color:var(--ink-2); }
+.research-v2-body .rp-cats { display:flex; flex-direction:column; gap:6px; padding:10px 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+.research-v2-body .btn { justify-content:center; }
+.research-v2-body .hint { color:var(--ink-3); font-size:11px; }
+
+#researchpanel { display:flex; flex-direction:column; }
+#researchpanel .research-v2-body { min-height:0; }
+#readerDock [data-rp-close] { display:none; }
+
+.mm-edit-tools { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.mm-edit-tools [hidden] { display:none; }
+.mm-edit-status { max-width:24em; font:12px/1.5 var(--ui); color:var(--ink-3); }
+
+.terms-view { margin-bottom:10px; }
+.terms-keywords { display:grid; gap:7px; }
+.terms-keywords > div { display:grid; gap:2px; padding:8px 9px; border:1px solid var(--rule); border-radius:7px; background:var(--surface-2); }
+.terms-keywords b { color:var(--ink); font-size:13px; }
+.terms-keywords small { color:var(--ink-3); font:11px/1.45 var(--ui); overflow-wrap:anywhere; }
+.kw-item details { margin:2px 0; } .kw-item summary { cursor:pointer; color:var(--ink-3); font:11px/1.5 var(--ui); } .kw-item blockquote { margin:4px 0; padding-left:8px; border-left:2px solid var(--rule); color:var(--ink-2); font:12px/1.5 var(--ui); overflow-wrap:anywhere; } .kw-item li { list-style:none; } .kw-item ul { padding:0; margin:4px 0; } .kw-item .row { display:flex; flex-wrap:wrap; gap:6px; } .kw-new { display:grid; gap:6px; margin-top:12px; }
+
+
+/* 頂欄筆記按鈕：AI 正在背景起草或修改筆記時的動態呼吸點 */
+[data-act="notes"] {
+  position: relative;
+}
+[data-act="notes"].is-running::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: nh-pulse 1.6s ease-in-out infinite;
+}
+@keyframes nh-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.35); opacity: 0.45; }
+}
+
+/* 術語表行內即時編輯與微動畫 */
+.terms-t td.term-en {
+  font: 13px/1.4 var(--serif-en);
+  color: var(--ink-2);
+  padding-right: 8px;
+  width: 44%;
+  overflow-wrap: anywhere;
+}
+.terms-t td.term-zh-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+}
+.terms-t td.term-zh-cell .term-in {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  font-size: 13px;
+  border-radius: 5px;
+  padding: 2px 7px;
+  transition: all .15s ease;
+}
+.terms-t td.term-zh-cell .term-in:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.term-replaced-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #15803d;
+  background: #dcfce7;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: termPop .22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .term-replaced-badge {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.22);
+}
+@keyframes termPop {
+  0% { transform: scale(0.75); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 我的關鍵字頂部新增輸入框 */
+.kw-top-bar {
+  margin-bottom: 12px;
+}
+.kw-add-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.kw-add-input {
+  width: 100%;
+  height: 34px;
+  font-size: 12.5px;
+  padding-left: 28px;
+  padding-right: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  color: var(--ink);
+  transition: all .15s ease;
+  box-sizing: border-box;
+}
+.kw-add-input:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  outline: none;
+}
+.kw-add-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--ink-3);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.kw-add-btn {
+  position: absolute;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.kw-add-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 我的關鍵字底部次要連結 */
+.kw-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+}
+.kw-footer-count {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.kw-footer-link {
+  margin-left: auto;
+  color: var(--ink-2);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  transition: all .15s ease;
+}
+.kw-footer-link:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.paper-head .title-edit-btn { display:inline-flex; align-items:center; padding:4px; margin-left:8px; color:var(--ink-3); vertical-align:middle; opacity:0; }
+.paper-head h1:hover .title-edit-btn, .paper-head .title-edit-btn:focus-visible { opacity:1; }
+.title-editor-wrap .editor { font:inherit; width:100%; }
+@media (pointer:coarse) { .paper-head .title-edit-btn { opacity:1; } }

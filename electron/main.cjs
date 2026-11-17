@@ -1,4 +1,4 @@
-const { app, BrowserWindow, crashReporter, dialog, Menu, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, crashReporter, dialog, Menu, shell, ipcMain, screen } = require("electron");
 const { execFileSync, spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
@@ -11,6 +11,7 @@ const { registerUpdates } = require("./desktop-updates.cjs");
 const { registerExports } = require("./desktop-exports.cjs");
 const deepLink = require("./deep-link.cjs");
 const desktopTabs = require("./desktop-tabs.cjs");
+const { registerTabWindows } = require("./desktop-tab-windows.cjs");
 const dataDir = require("./data-dir.cjs");
 
 // 窗口缓存等放 %APPDATA%\EasyRead（默认会用 package.json 的 name，叫 easyread-desktop）。
@@ -34,6 +35,7 @@ startup.mark(app, "electron-entry");
 const isZh = () => app.getLocale().toLowerCase().startsWith("zh");
 let backend;
 let mainWindow;
+let tabWindows;
 let backendReady;
 let windowOpening = false;
 let backendUrl;
@@ -170,7 +172,11 @@ async function stopBackendGracefully() {
 
 /* 退出前先让页面把没落盘的东西写回去再停后端；页面没应就照常退出 */
 function savePageState() {
-  const wc = mainWindow && mainWindow.webContents;
+  return Promise.all([mainWindow, ...(tabWindows?.all() || [])].filter(Boolean).map(saveWindow));
+}
+
+function saveWindow(window) {
+  const wc = window && window.webContents;
   if (!wc || wc.isDestroyed() || wc.isCrashed?.()) return Promise.resolve();
   return new Promise((resolve, reject) => {
     let timer;
@@ -190,7 +196,7 @@ function savePageState() {
 }
 
 function trustedWindow(event) {
-  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame ||
+  if ((event.sender !== mainWindow?.webContents && !tabWindows?.owns(event.sender)) || event.senderFrame !== event.sender.mainFrame ||
       !backendUrl || new URL(event.senderFrame.url).origin !== backendUrl) {
     throw new Error("Untrusted IPC sender");
   }
@@ -366,6 +372,8 @@ if (!app.requestSingleInstanceLock()) {
     openLink(deepLink.openPath(link));
   });
   app.whenReady().then(() => {
+    tabWindows = registerTabWindows({ BrowserWindow, screen, ipcMain, shell, dialog,
+      getMainWindow: () => mainWindow, getBackendUrl: () => backendUrl, trustedWindow, saveWindow, isQuitting: () => quitting });
     registerExports({ app, ipcMain, dialog, getWindow: () => mainWindow, trustedWindow });
     deepLink.register(app, process);
     registerUpdates({

@@ -1,6 +1,6 @@
 /* 阅读页的数据与保存。
    - paper / discussion / layout / job 来自翻译方，只读；
-   - reader（我的修改、笔记、论文笔记、进度）只通过“操作”改：先进浏览器里的待存队列，再发给本地服务，
+   - reader（我的修改、笔记、手写、论文笔记、进度）只通过“操作”改：先进浏览器里的待存队列，再发给本地服务，
      服务确认写进 reader.json 后才从队列删。断网、服务没开、页面崩了，队列都还在，下次自动补发。
    - 离线版（导出的单文件）没有服务，队列本身就是存储，可导出后并回。 */
 (function (PR) {
@@ -23,6 +23,9 @@
   function applyOps(reader, ops) {
     reader.edits = reader.edits || {};
     reader.notes = reader.notes || {};
+    reader.ai_annotations = reader.ai_annotations || {};
+    reader.ink = reader.ink || {};
+    reader.stickers = reader.stickers || {};
     reader.progress = reader.progress || {};
     for (const op of ops) {
       const at = op.at || PR.nowIso();
@@ -42,6 +45,25 @@
       } else if (op.op === "note_del") {
         const cur = reader.notes[op.id];
         if (!cur || at >= (cur.updated || "")) reader.notes[op.id] = { ...(cur || { id: op.id }), deleted: true, updated: at };
+      } else if (op.op === "ai_annotation") {
+        const annotation = op.annotation || {};
+        const id = annotation.annotation_id || annotation.id;
+        const cur = id && reader.ai_annotations[id];
+        if (id && (!cur || (annotation.updated_at || at) >= (cur.updated_at || ""))) reader.ai_annotations[id] = { ...annotation, annotation_id: id };
+      } else if (op.op === "ink" || op.op === "ink_del") {
+        const stroke = op.op === "ink" ? op.stroke : { id: op.id };
+        const id = stroke && String(stroke.id || "");
+        const cur = id && reader.ink[id];
+        if (id && (!cur || at >= (cur.updated || ""))) reader.ink[id] = op.op === "ink"
+          ? { ...stroke, updated: at }
+          : { ...(cur || { id }), deleted: true, updated: at };
+      } else if (op.op === "sticker" || op.op === "sticker_del") {
+        const sticker = op.op === "sticker" ? op.sticker : { id: op.id };
+        const id = sticker && String(sticker.id || "");
+        const cur = id && reader.stickers[id];
+        if (id && (!cur || at >= (cur.updated || ""))) reader.stickers[id] = op.op === "sticker"
+          ? { ...sticker, updated: at }
+          : { ...(cur || { id }), deleted: true, updated: at };
       } else if (op.op === "paper_note") {
         const cur = reader.paper_note || {};
         if (at >= (cur.at || "")) reader.paper_note = { body: op.body || "", at };
@@ -76,6 +98,18 @@
     const previous = noteId && S.reader.notes?.[noteId];
     // 同一目标还没发出去的旧操作合并掉，避免队列无限长
     if (op.op === "note") outbox = outbox.filter((o) => !(o.op === "note" && o.note.id === op.note.id));
+    if (op.op === "ink" || op.op === "ink_del") {
+      const id = op.op === "ink" ? op.stroke.id : op.id;
+      const current = S.reader.ink && S.reader.ink[id];
+      if (current && (current.updated || "") > op.at) return;
+      outbox = outbox.filter(o => !(o.op === op.op && (op.op === "ink" ? o.stroke.id : o.id) === id));
+    }
+    if (op.op === "sticker" || op.op === "sticker_del") {
+      const id = op.op === "sticker" ? op.sticker.id : op.id;
+      const current = S.reader.stickers && S.reader.stickers[id];
+      if (current && (current.updated || "") > op.at) return;
+      outbox = outbox.filter(o => !(o.op === op.op && (op.op === "sticker" ? o.sticker.id : o.id) === id));
+    }
     if (op.op === "edit") outbox = outbox.filter((o) => !(o.op === "edit" && o.block === op.block));
     if (op.op === "progress" || op.op === "paper_note") outbox = outbox.filter((o) => o.op !== op.op);
     outbox.push(op);
@@ -162,7 +196,7 @@
     if (embedded) {
       const d = JSON.parse(embedded.textContent);
       mode = "static";
-      Object.assign(S, { paper: d.paper, web_snapshot: d.web_snapshot || "", discussion: d.discussion || { entries: [] }, layout: d.layout || {}, images: d.images || {}, item: d.item || {}, chat: d.chat || null, demo: d.demo || null });
+      Object.assign(S, { paper: d.paper, web_snapshot: d.web_snapshot || "", stickerAssets: d.stickerAssets || [], mindmap: d.mindmap || null, deep_analysis: d.deep_analysis || null, discussion: d.discussion || { entries: [] }, layout: d.layout || {}, images: d.images || {}, item: d.item || {}, chat: d.chat || null, demo: d.demo || null });
       serverReader = d.reader || {};
       PR.pid = PR.pid || (S.paper.meta.source_sha256 || "paper").slice(0, 12);
     } else {
@@ -177,6 +211,9 @@
     }
     const ov = (S.item || {}).meta_override || {};
     for (const [k, v] of Object.entries(ov)) if (v) S.paper.meta[k] = v;
+    if (ov.title_zh && !ov.short_zh) {
+      S.paper.meta.short_zh = PR.deriveShortTitle ? PR.deriveShortTitle(ov.title_zh, true) : ov.title_zh;
+    }
     outboxKey = "pr-outbox-" + PR.pid + (mode === "static" ? "-static" : "");
     PR.paperKey = PR.pid;
     outbox = PR.ls.get(outboxKey, []);
@@ -201,7 +238,7 @@
       return;
     }
     const changed = [];
-    for (const name of ["paper", "discussion", "layout", "reader", "job"]) if (v[name] && v[name] !== S.versions[name]) changed.push(name);
+    for (const name of ["paper", "discussion", "layout", "reader", "job", "item"]) if (v[name] && v[name] !== S.versions[name]) changed.push(name);
     const imagesChanged = S.figure_images_enabled !== (v.figure_images_enabled === true);
     S.figure_images_enabled = v.figure_images_enabled === true;
     if (!changed.length) { if (imagesChanged) PR.emit("figure-images-setting"); return; }
@@ -211,7 +248,13 @@
       S.versions[name] = d.version;
       if (name === "reader") { serverReader = d.data; rebuildReader(); } else S[name] = d.data || {};
     }
-    if (changed.includes("paper")) { const ov = (S.item || {}).meta_override || {}; for (const [k, val] of Object.entries(ov)) if (val) S.paper.meta[k] = val; }
+    if (changed.includes("paper") || changed.includes("item")) {
+      const ov = (S.item || {}).meta_override || {};
+      for (const [k, val] of Object.entries(ov)) if (val) S.paper.meta[k] = val;
+      if (ov.title_zh && !ov.short_zh) {
+        S.paper.meta.short_zh = PR.deriveShortTitle ? PR.deriveShortTitle(ov.title_zh, true) : ov.title_zh;
+      }
+    }
     PR.emit("remote", changed);
     if (imagesChanged) PR.emit("figure-images-setting");
   }
@@ -256,6 +299,13 @@
     const ops = [];
     for (const [block, e] of Object.entries(S.reader.edits || {})) if (e.zh != null) ops.push({ op: "edit", block, zh: e.zh, base: e.base, at: e.at });
     for (const n of Object.values(S.reader.notes || {})) ops.push({ op: "note", note: n, at: n.updated });
+    for (const annotation of Object.values(S.reader.ai_annotations || {})) ops.push({ op: "ai_annotation", annotation, at: annotation.updated_at });
+    for (const stroke of Object.values(S.reader.ink || {})) ops.push(stroke.deleted
+      ? { op: "ink_del", id: stroke.id, at: stroke.updated }
+      : { op: "ink", stroke, at: stroke.updated });
+    for (const sticker of Object.values(S.reader.stickers || {})) ops.push(sticker.deleted
+      ? { op: "sticker_del", id: sticker.id, at: sticker.updated }
+      : { op: "sticker", sticker, at: sticker.updated });
     if ((S.reader.paper_note || {}).body) ops.push({ op: "paper_note", body: S.reader.paper_note.body, at: S.reader.paper_note.at });
     return { paper: PR.paperKey, exported: PR.nowIso(), ops };
   };

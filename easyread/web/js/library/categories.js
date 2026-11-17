@@ -68,7 +68,7 @@
   L.moveCatTo = (c, parent) => L.renameCat(c, (parent ? parent + T.SEP : "") + T.leaf(c));
 
   L.deleteCat = async function (name, at) {
-    const n = L.items.filter((i) => L.inCat(i, name)).length;
+    const n = L.items.filter((i) => !i.archived && L.inCat(i, name)).length;
     const subs = L.cats().filter((c) => c !== name && T.under(c, name)).length;
     const body = (subs ? PR.t("它下面的 {n} 个子分类也会一起删掉。", { n: subs }) : "") + (n ? PR.t("里面的 {n} 篇论文不会删，只是不再属于这个分类。", { n }) : "");
     if (!(await PR.confirm({ title: PR.t("删除分类“{name}”？", { name: T.label(name) }), body, ok: PR.t("删除"), danger: true, at }))) return;

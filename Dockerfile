@@ -2,7 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /opt/easyread
 
-# The base includes CA certificates; PDF/image wheels bundle their native libs.
+# FastEmbed/ONNX uses OpenMP; PDF/image wheels bundle their other native libs.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 # The repository includes the built editor assets; Node/Electron is not needed.
 COPY pyproject.toml README.md LICENSE ./
 COPY easyread ./easyread

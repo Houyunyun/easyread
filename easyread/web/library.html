@@ -7,6 +7,8 @@
 <script src="/web/js/common/desktop-bridge.js"></script>
 <link rel="icon" href="/web/favicon.svg">
 <link rel="stylesheet" href="/web/css/base.css">
+<link rel="stylesheet" href="/web/css/dropdown.css">
+<link rel="stylesheet" href="/web/css/research-task-monitor.css">
 <link rel="stylesheet" href="/web/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/web/css/library.css">
 <link rel="stylesheet" href="/web/css/cite-export.css">
@@ -30,8 +32,12 @@
     <input id="q" type="search" placeholder="搜索标题、作者、分类、摘要" autocomplete="off">
     <kbd>/</kbd>
   </label>
-  <button class="btn line" id="libraryAskBtn">全库问 AI</button>
   <span class="grow"></span>
+  <nav class="library-workspaces" aria-label="工作区">
+    <button class="btn line" id="libraryAskBtn">全库问 AI</button>
+    <a class="btn line" href="/research">研究探索</a>
+    <a class="btn line" href="/web/tabs.html" id="workspaceBtn">多标签阅读</a>
+  </nav>
   <button class="engine-chip" id="engineChip"></button>
   <button class="btn accent" id="importBtn"></button>
   <button class="btn icon lang-btn" id="langBtn"></button>
@@ -88,6 +94,7 @@
 <script src="/web/vendor/katex/katex.min.js"></script>
 <script src="/web/js/common/i18n.js"></script>
 <script src="/web/js/common/util.js"></script>
+<script src="/web/js/common/dropdown.js"></script>
 <script src="/web/js/common/markup.js"></script>
 <script src="/web/js/common/library-nav.js"></script>
 <script src="/web/js/common/presence.js"></script>
@@ -129,5 +136,6 @@
 <script src="/web/js/library/help.js"></script>
 <script src="/web/js/library/update.js"></script>
 <script src="/web/js/library/trash.js"></script>
+<script src="/web/js/common/research-task-monitor.js"></script>
 </body>
 </html>

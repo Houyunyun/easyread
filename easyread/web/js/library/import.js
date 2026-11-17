@@ -33,7 +33,8 @@
       '<button class="btn accent" id="arxivGo">' + PR.t("导入") + "</button></div></label>" +
       '<label class="field"><span>' + PR.t("链接类型") + '</span><select class="input" id="impKind"><option value="auto">' + PR.t("自动识别") + '</option><option value="web">' + PR.t("网页 / 博客（保留原排版）") + '</option><option value="pdf">' + PR.t("PDF 论文") + '</option></select><span class="hint">' + PR.t("博客保留网页排版、图片和链接；页码范围仅用于 PDF。读博客原文无需模型。") + '</span></label>' +
       '<div class="imp-bulk"><button class="linkish" id="folderGo">' + PR.icon("folder", "sm") + PR.t("导入整个文件夹") + "</button>" +
-      '<button class="linkish" id="zoteroGo">' + PR.icon("upload", "sm") + PR.t("从 Zotero 迁移整个文献库") + "</button></div>" +
+      '<button class="linkish" id="zoteroGo">' + PR.icon("upload", "sm") + PR.t("从 Zotero 迁移整个文献库") + "</button>" +
+      '<span class="imp-sync-grp"><button class="linkish" id="zoteroSync">' + PR.icon("sync", "sm") + PR.t("同步 Zotero") + '</button><button class="imp-icon-btn" id="zoteroSyncSettings" title="' + PR.t("設定 Zotero 同步") + '" aria-label="' + PR.t("設定 Zotero 同步") + '">' + PR.icon("gear", "sm") + "</button></span></div>" +
       '<div class="imp-opts"><span class="imp-lbl">' + PR.t("导入后") + '</span><div class="seg" id="afterSeg">' + AFTER.map(([k, l, tip]) => '<button data-after="' + k + '" title="' + PR.esc(tip) + '" class="' + (after === k ? "on" : "") + '"' + (off && k !== "none" ? " disabled" : "") + ">" + l + "</button>").join("") + "</div>" +
         '<select class="input imp-target" id="impTarget" title="' + PR.t("译成哪种语言") + '"' + (after === "translate" ? "" : " hidden") + ">" + PR.opt(PR.TARGETS, PR.target) + "</select></div>" +
       '<p class="hint" id="enTargetHint"' + (after === "translate" && PR.target === "en" ? "" : " hidden") + '>' + PR.t("原文本来就是英文的话，选“读英文原文”就行，不用翻译，更省用量。") + "</p>" +
@@ -85,6 +86,8 @@
     if (e.target.closest("#arxivGo")) importRef(PR.$("#arxivRef").value);
     if (e.target.closest("#impEngine")) { close(); PR.openSettings(); }
     if (e.target.closest("#zoteroGo")) { close(); PR.openZotero(); }
+    if (e.target.closest("#zoteroSync")) { close(); PR.openZoteroSync(); }
+    if (e.target.closest("#zoteroSyncSettings")) { close(); PR.openZotero(true); }
     if (e.target.closest("#folderGo")) { close(); PR.openFolderImport(!!pref().keepFilename); }
     const a = e.target.closest("[data-after]");
     if (a && !a.disabled) {

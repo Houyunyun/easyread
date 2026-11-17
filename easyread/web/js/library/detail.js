@@ -11,11 +11,10 @@
 
   /* 标题可以直接改；哪个在上面看 PR.titles（英文界面看中文译文时英文原标题在上） */
   function titleFields(i) {
-    const tr = '<div class="%c" contenteditable="plaintext-only" data-meta="title_zh" lang="' + (i.target || "zh") + '" spellcheck="false">' + PR.esc(i.title_zh || "") + "</div>";
-    const en = '<div class="%c" contenteditable="plaintext-only" data-meta="title_en" lang="en" spellcheck="false">' + PR.esc(i.title_en || "") + "</div>";
-    if (i.display_title) {
-      return '<div class="title-main" contenteditable="plaintext-only" data-meta="display_title" spellcheck="false">' + PR.esc(i.display_title) + "</div>" + tr.replace("%c", "title-sub") + en.replace("%c", "title-sub");
-    }
+    const field = (cls, key, value, lang = "") => '<div class="' + cls + '" contenteditable="plaintext-only" data-meta="' + key + '" data-title-source="' + PR.esc(value || "") + '" lang="' + lang + '" spellcheck="false">' + PR.titleHtml(value || "") + "</div>";
+    const tr = field("%c", "title_zh", i.title_zh, i.target || "zh");
+    const en = field("%c", "title_en", i.title_en, "en");
+    if (i.display_title) return field("title-main", "display_title", i.display_title) + tr.replace("%c", "title-sub") + en.replace("%c", "title-sub");
     return PR.titles(i).main === i.title_zh && i.title_zh ? tr.replace("%c", "title-main") + en.replace("%c", "title-sub") : en.replace("%c", "title-main") + tr.replace("%c", "title-sub");
   }
 
@@ -26,7 +25,7 @@
     const pct = j.total ? Math.round((j.done / j.total) * 100) : 0;
     let h = '<div class="jobbox">';
     if (running) {
-      h += '<div><span class="spin"></span> ' + PR.esc(j.message || PR.t("处理中")) + (j.total ? (j.type === "figure-images" ? PR.t("（{done}/{total} 张）", {done: j.done, total: j.total}) : PR.t("（{done}/{total} 页）", { done: j.done, total: j.total })) : "") + "</div>" +
+      h += '<div><span class="spin"></span> ' + PR.esc(PR.formatJobMessage(j)) + (j.total ? (j.type === "figure-images" ? PR.t("（{done}/{total} 张）", {done: j.done, total: j.total}) : PR.t("（{done}/{total} 页）", { done: j.done, total: j.total })) : "") + "</div>" +
         (PR.usageShort(j.usage) ? '<div class="hint">' + PR.esc(PR.usageShort(j.usage)) + "</div>" : "") +
         '<div class="bar"><i style="width:' + pct + '%"></i></div><div class="row2"><button class="btn sm line" data-d="cancel">' + PR.t("取消") + "</button>" +
         '<button class="btn sm" data-d="read">' + PR.t("边译边读") + "</button></div>";
@@ -74,21 +73,23 @@
     if (box.contains(document.activeElement) && document.activeElement.matches("[contenteditable], input")) return; // 正在编辑，不打断
     const thumb = i.thumb ? '<div class="thumb" style="background-image:url(' + i.thumb + ')"></div>' : '<div class="thumb blank">' + PR.icon("pdf") + "</div>";
     const readLabel = i.progress > 0.02 ? PR.t("继续阅读 · {pct}%", { pct: Math.round(i.progress * 100) }) : PR.t("开始阅读");
-    const status = [["unread", PR.t("未读")], ["reading", PR.t("在读")], ["done", PR.t("已读")]].map(([k, l]) =>
-      '<button data-status="' + k + '" class="' + ((i.status || "unread") === k ? "on" : "") + '">' + l + "</button>").join("");
+    const status = (L.statuses || [{ id: "unread", label: PR.t("待閱讀") }, { id: "reading", label: PR.t("閱讀中") }, { id: "organizing", label: PR.t("待整理") }, { id: "done", label: PR.t("已完成") }]).filter((s) => s.id !== "paused").map(({ id: k, label: l }) =>
+      '<button data-status="' + k + '" class="' + ((i.status || "unread") === k ? "on" : "") + '">' + PR.esc(PR.t(l)) + "</button>").join("");
     // 分类：全部分类都列出来，点一下放进 / 拿出
     const cats = L.cats().map((c) => '<button class="catchip' + ((i.tags || []).includes(c) ? " on" : "") + '" data-cattoggle="' + PR.esc(c) + '">' + PR.icon((i.tags || []).includes(c) ? "check" : "folder", "sm") + PR.esc(PR.catTree.label(c)) + "</button>").join("");
     box.innerHTML = '<div class="detail-head"><span>' + PR.t("论文详情") + '</span><button class="detail-close" data-d="close" title="' + PR.t("收起（Esc）") + '">' + PR.icon("x", "sm") + "</button></div>" +
       '<div class="detail-inner">' +
+      (i.archived ? '<div class="archived-banner">' + PR.icon("archive", "sm") + '<span>' + PR.t("此論文目前已封存，不會出現在閱讀看板中。") + '</span><button class="btn sm accent" data-d="unarchive">' + PR.t("恢復論文") + '</button></div>' : "") +
       '<div class="cover">' + thumb + '<div class="actions">' +
       '<a class="btn accent" href="/read/' + i.id + '">' + PR.icon("book", "sm") + readLabel + "</a>" +
       '<a class="btn line" href="/p/' + i.id + '/' + (i.source_type === "web" ? "source.html" : "source.pdf") + '" target="_blank" rel="noopener">' + PR.icon("pdf", "sm") + (i.source_type === "web" ? PR.t("打开原网页") : PR.t("打开原 PDF")) + "</a>" +
       '<div class="act-row"><button class="btn line" data-d="cite" title="' + PR.t("复制参考文献格式：GB/T 7714、APA、BibTeX") + '">' + PR.icon("copy", "sm") + PR.t("复制引用") + "</button>" +
       '<button class="btn icon line" data-d="star" title="' + PR.t("星标（S）") + '" style="color:' + (i.starred ? "#c9a24a" : "") + '">' + PR.icon("star", "sm").replace('class="i sm"', 'class="i sm"' + (i.starred ? ' style="fill:currentColor"' : "")) + "</button>" +
+      '<button class="btn icon line' + (i.archived ? " on" : "") + '" data-d="archive" title="' + (i.archived ? PR.t("移出封存（恢復）") : PR.t("封存論文（移出看板）")) + '">' + PR.icon("archive", "sm") + "</button>" +
       '<button class="btn icon line" data-d="more" title="' + PR.t("更多：导出、打开文件夹、回收站") + '">' + PR.icon("more", "sm") + "</button></div></div></div>" +
       titleFields(i) +
       '<div class="cats">' + cats + '<button class="catchip add" data-d="newcat">' + PR.icon("plus", "sm") + PR.t("新分类") + "</button>" +
-      '<input id="catInput" class="catchip" placeholder="' + PR.t("分类名，回车确定") + '" maxlength="30" hidden></div>' +
+      '<input id="catInput" class="catchip" placeholder="' + PR.t("分类名，回车确定") + '" maxlength="' + (PR.catTree ? PR.catTree.MAX_PATH : 120) + '" hidden></div>' +
       '<div class="seg">' + status + "</div>" +
       '<div class="kv"><span>' + PR.t("作者") + '</span><span contenteditable="plaintext-only" data-meta="authors">' + PR.esc(i.authors) + "</span>" +
       '<span>' + PR.t("年份") + '</span><span contenteditable="plaintext-only" data-meta="year">' + PR.esc(i.year) + "</span>" +
@@ -116,10 +117,29 @@
     if (key === "doi") el.textContent = val;
     if ((i[key] || "") === val) return;
     const override = Object.assign({}, { [key]: val });
-    await L.patch(i.id, { meta_override: Object.assign({}, i.meta_override || {}, override) });
+    if (key === "title_zh") {
+      override.short_zh = PR.deriveShortTitle ? PR.deriveShortTitle(val, true) : val;
+    }
+    const fullOv = Object.assign({}, i.meta_override || {}, override);
+    await L.patch(i.id, { meta_override: fullOv });
+    try {
+      const bus = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("paperread-tabs-bus") : null;
+      bus?.postMessage({
+        type: "pr:paper-updated",
+        pid: i.id,
+        title_zh: fullOv.title_zh || i.title_zh,
+        short_zh: fullOv.short_zh || i.short_zh,
+        title_en: fullOv.title_en || i.title_en,
+        meta_override: fullOv
+      });
+      bus?.close();
+    } catch (_) {}
   }
 
   const box = PR.$("#detail");
+  box.addEventListener("focusin", (e) => {
+    if (e.target.matches("[data-title-source]")) e.target.textContent = e.target.dataset.titleSource || "";
+  });
   box.addEventListener("focusout", (e) => { if (e.target.matches("[data-meta]")) saveMeta(e.target); });
   box.addEventListener("keydown", (e) => {
     if (e.target.matches("[data-meta]") && e.key === "Enter") { e.preventDefault(); e.target.blur(); }
@@ -148,6 +168,12 @@
     if (act === "newcat") { d.hidden = true; const inp = PR.$("#catInput"); inp.hidden = false; inp.focus(); return; }
     if (act === "close") L.select(null);
     else if (act === "star") L.patch(i.id, { starred: !i.starred });
+    else if (act === "archive") {
+      const willArchive = !i.archived;
+      L.patch(i.id, { archived: willArchive });
+      PR.toast(willArchive ? PR.t("已移至封存區") : PR.t("已解除封存，恢復當時狀態"));
+    }
+    else if (act === "unarchive") { L.patch(i.id, { archived: false }); PR.toast(PR.t("已解除封存，恢復當時狀態")); }
     else if (act === "read") L.openReader(i.id);
     else if (act === "model-settings") PR.openSettings("chat");
     else if (act === "abs") { PR.$("#abs").classList.toggle("open"); d.textContent = PR.$("#abs").classList.contains("open") ? PR.t("收起") : PR.t("展开全文"); }
@@ -186,14 +212,19 @@
       { label: (i.source_type === "web" ? PR.t("打开原网页") : PR.t("打开原 PDF")), icon: "pdf", fn: () => window.open("/p/" + id + (i.source_type === "web" ? "/source.html" : "/source.pdf")) },
       "-",
       { label: i.starred ? PR.t("取消星标") : PR.t("加星标"), icon: "star", kbd: "S", fn: () => L.patch(id, { starred: !i.starred }) },
+      { label: i.archived ? PR.t("移出封存（恢復）") : PR.t("封存論文"), icon: "archive", fn: () => {
+        const willArchive = !i.archived;
+        L.patch(id, { archived: willArchive });
+        PR.toast(willArchive ? PR.t("已移至封存區") : PR.t("已解除封存，恢復當時狀態"));
+      } },
       { label: L.side.pinned.includes("p:" + id) ? PR.t("取消置顶") : PR.t("置顶到侧栏"), icon: "pin", fn: () => L.togglePin("p:" + id) },
       "-",
       ...L.catMenuItems(id),
-      { label: PR.t("标为未读"), fn: setStatus("unread") }, { label: PR.t("标为在读"), fn: setStatus("reading") }, { label: PR.t("标为已读"), fn: setStatus("done") },
+      ...(L.statuses || [{ id: "unread", label: PR.t("待閱讀") }, { id: "reading", label: PR.t("閱讀中") }, { id: "organizing", label: PR.t("待整理") }, { id: "done", label: PR.t("已完成") }]).filter((s) => s.id !== "paused").map((s) => ({ label: PR.t("標為{status}", { status: PR.t(s.label) }), fn: setStatus(s.id) })),
       "-",
       { label: PR.t("复制 BibTeX"), icon: "copy", fn: () => copy(PR.cite(i, "bibtex"), " BibTeX") },
-      { label: PR.t("导出离线 HTML（可发给别人）"), icon: "download", fn: () => { PR.toast(PR.t("正在打包…")); location.href = "/api/p/" + id + "/export"; } },
-      { label: PR.t("导出手机版（只读，体积小）"), icon: "download", fn: () => { PR.toast(PR.t("正在打包…")); location.href = "/api/p/" + id + "/export?mobile=1"; } },
+      { label: PR.t("导出离线 HTML（可发给别人）"), icon: "download", fn: () => { PR.toast(PR.t("正在打包…")); location.href = "/api/p/" + id + "/export?lang=" + encodeURIComponent(PR.lang || ""); } },
+      { label: PR.t("导出手机版（只读，体积小）"), icon: "download", fn: () => { PR.toast(PR.t("正在打包…")); location.href = "/api/p/" + id + "/export?mobile=1&lang=" + encodeURIComponent(PR.lang || ""); } },
       { label: PR.t("打开所在文件夹"), icon: "folder", fn: () => PR.api("/api/p/" + id + "/reveal", { method: "POST", body: {} }).catch((e) => PR.toast(PR.esc(e.message))) },
       { label: PR.t("全部重新翻译"), icon: "redo", fn: () => retranslateAll(i) },
       { label: PR.t("翻译记录"), icon: "log", fn: async () => { const r = await PR.api("/api/p/" + id + "/log"); PR.showText(PR.t("翻译记录"), r.text); } },

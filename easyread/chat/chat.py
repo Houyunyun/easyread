@@ -189,8 +189,9 @@ def prompt(ws: Workspace, messages: list[dict], anchor: str | None, quote: str, 
         tool = "需要看全文或节选中省略的内容时，可以只读当前目录的 paper.json（blocks 里是译文和原文）；读者的全部标记在 reader.json 的 notes 里。\n"  # i18n-ok
     want, colors = wants_marks(ask)
     marks = _marks(ws, colors) if want else _marks_summary(ws)
-    style = {answer_styles.STE100: answer_styles.STE100_INSTRUCTIONS,
-             answer_styles.XRAY: answer_styles.XRAY_INSTRUCTIONS}.get(answer_style) or (
+    meta = ws.load("paper").get("meta")
+    style = {answer_styles.STE100: answer_styles.ste100_instructions(meta),
+             answer_styles.XRAY: "用" + langs.reply_lang(meta) + "回答。\n" + answer_styles.XRAY_INSTRUCTIONS}.get(answer_style) or (  # i18n-ok: model instructions
              "用" + langs.reply_lang(ws.load("paper").get("meta")) + "，直接、具体，能举例就举例。\n")  # i18n-ok
     if context_scope not in ("paper", "selection"):
         raise ValueError("Invalid paper context scope")

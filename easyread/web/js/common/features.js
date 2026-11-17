@@ -6,14 +6,19 @@
 
   /* [id, 名字, 默认开关, 说明] */
   PR.FEATURES = [
+    ["research", PR.t("研究"), true, PR.t("阅读页的研究面板、侧栏入口和研究快捷键")],
     ["chat", PR.t("问 AI"), true, PR.t("阅读页右侧边读边问；段落操作条、选中文字、笔记卡片上的“问 AI”")],
     ["edit", PR.t("改译文"), true, PR.t("段落操作条里的“改译文”（也可以双击段落）")],
     ["en", PR.t("展开英文原文"), true, PR.t("段落操作条里的“原文”")],
     ["pages", PR.t("原页面板"), true, PR.t("右上角“原页”，对照 PDF 原页")],
     ["retranslate", PR.t("让模型重译一段"), false, PR.t("会花 token，容易误点，默认关；开了之后在段落的“⋯”菜单里")],
+    ["autohide_tabs", PR.t("自动隐藏多标签页"), false, PR.t("移出标签列时自动收合，鼠标移至顶部边缘时滑出，提供更开阔的阅读视野")],
   ];
   /* [id, 名字, 默认键, 分组, 依赖的功能] */
   PR.KEY_ACTIONS = [
+    ["research", PR.t("研究"), "r", PR.t("面板"), "research"],
+    ["inkToggle", PR.t("切換手寫"), "w", PR.t("手寫工具")], ["inkEraser", PR.t("切換橡皮擦"), "x", PR.t("手寫工具")],
+    ["stickerToggle", PR.t("貼紙素材庫"), "s", PR.t("手寫工具")],
     ["next", PR.t("下一段"), "j", PR.t("阅读")], ["prev", PR.t("上一段"), "k", PR.t("阅读")],
     ["mode", PR.t("单语 / 双语"), "b", PR.t("阅读")], ["toc", PR.t("目录"), "t", PR.t("阅读")],
     ["fontUp", PR.t("字号变大"), "=", PR.t("阅读")], ["fontDown", PR.t("字号变小"), "-", PR.t("阅读")], ["fontReset", PR.t("恢复默认字号"), "0", PR.t("阅读")],
@@ -26,11 +31,17 @@
   ];
   const DEF_KEYS = Object.fromEntries(PR.KEY_ACTIONS.map(([id, , k]) => [id, k]));
   const DEF_FEATURES = Object.fromEntries(PR.FEATURES.map(([id, , on]) => [id, on]));
+  const avoidInkKeyConflicts = keys => {
+    for (const id of ["inkToggle", "inkEraser", "stickerToggle"]) {
+      if (keys[id] && Object.entries(keys).some(([other, key]) => other !== id && key === keys[id])) keys[id] = "";
+    }
+    return keys;
+  };
 
   const ui = PR.ls.get("easyread-ui", {});
   PR.features = Object.assign({}, DEF_FEATURES, ui.features || {});
   PR.keysOn = ui.keys_on !== false;
-  PR.keymap = Object.assign({}, DEF_KEYS, PR.ls.get("easyread-keys", {}));
+  PR.keymap = avoidInkKeyConflicts(Object.assign({}, DEF_KEYS, PR.ls.get("easyread-keys", {})));
 
   PR.feature = (id) => PR.features[id] !== false;
   const show = (k) => (!k ? "" : k === " " ? PR.t("空格") : k.length === 1 ? k.toUpperCase() : k);
@@ -48,7 +59,7 @@
   PR.applyUi = function (next, persist) {
     if (next.features) PR.features = Object.assign({}, DEF_FEATURES, next.features);
     if (next.keys_on != null) PR.keysOn = !!next.keys_on;
-    if (next.keys) PR.keymap = Object.assign({}, DEF_KEYS, next.keys);
+    if (next.keys) PR.keymap = avoidInkKeyConflicts(Object.assign({}, DEF_KEYS, next.keys));
     const diff = Object.fromEntries(Object.entries(PR.keymap).filter(([id, k]) => DEF_KEYS[id] !== k));
     PR.ls.set("easyread-ui", { features: PR.features, keys_on: PR.keysOn });
     PR.ls.set("easyread-keys", diff);
