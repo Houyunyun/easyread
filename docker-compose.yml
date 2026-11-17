@@ -7,6 +7,9 @@ services:
       args:
         CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
         CODEX_VERSION: ${CODEX_VERSION:-latest}
+        PIP_INDEX_URL: ${EASYREAD_PIP_INDEX_URL:-https://pypi.org/simple}
+        NO_PROXY: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
+        no_proxy: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
         HTTP_PROXY: ${EASYREAD_BUILD_PROXY:-}
         HTTPS_PROXY: ${EASYREAD_BUILD_PROXY:-}
         http_proxy: ${EASYREAD_BUILD_PROXY:-}

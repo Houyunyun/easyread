@@ -112,7 +112,8 @@ class AccessHTTPTest(unittest.TestCase):
     def test_login_page_and_api_are_gated_without_browser_basic_popup(self):
         code, headers, _ = self.request('GET','/')
         self.assertEqual(code,302); self.assertTrue(headers['Location'].startswith('/login?'))
-        for path in ('/api/library','/api/config','/api/prefs','/terminal/not-real/'):
+        for path in ('/api/library','/api/config','/api/prefs','/terminal/not-real/',
+                     '/api/research/v1/status','/api/research/v2/init'):
             self.assertEqual(self.request('GET',path)[0],401)
         self.assertEqual(self.request('GET','/healthz')[0],200)
         self.assertIn(b'accessForm',self.request('GET','/login')[2])
@@ -120,6 +121,20 @@ class AccessHTTPTest(unittest.TestCase):
         cookie=self.login()
         self.assertEqual(self.request('GET','/api/library',cookie=cookie)[0],200)
         self.assertEqual(self.request('GET','/api/access',cookie=cookie)[0],200)
+        self.assertEqual(self.request('GET','/research?mode=path')[0],302)
+        self.assertEqual(self.request('GET','/research?mode=path',cookie=cookie)[0],200)
+        self.assertEqual(self.request('GET','/api/research/v2/init',cookie=cookie)[0],200)
+        body = {'title': 'Protected goal', 'start_date': '2026-11-17'}
+        self.assertEqual(self.request('POST','/api/research/v2/milestones',body,cookie=cookie)[0],403)
+        self.assertEqual(self.request('POST','/api/research/v2/milestones',body,cookie=cookie,token=self.app.token)[0],200)
+
+    def test_cli_updates_are_rejected_while_research_work_is_active(self):
+        cookie = self.login()
+        with patch('easyread.research.tasks.busy', return_value=True), \
+             patch.object(self.app.terminals, 'open') as opened:
+            self.assertEqual(self.request('POST','/api/terminal/open',{'action':'codex-update'},
+                                          cookie=cookie,token=self.app.token)[0],400)
+            opened.assert_not_called()
 
     def test_rotation_revokes_other_browser_and_disabled_mode_still_requires_csrf(self):
         first,second=self.login(),self.login()
@@ -128,6 +143,7 @@ class AccessHTTPTest(unittest.TestCase):
         result, headers, _=self.request('POST','/api/access',{'enabled':True,'current_code':'alpha-code','code':'next-code'},cookie=first,token=token)
         self.assertEqual(result,200)
         self.assertEqual(self.request('GET','/api/library',cookie=second)[0],401)
+        self.assertEqual(self.request('GET','/api/research/v2/init',cookie=second)[0],401)
         current=headers['Set-Cookie'].split(';')[0]
         self.assertEqual(self.request('POST','/api/access',{'enabled':False,'current_code':'next-code'},cookie=current,token=token)[0],200)
         self.assertEqual(self.request('GET','/api/library')[0],200)

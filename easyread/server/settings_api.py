@@ -1,6 +1,7 @@
 """设置页的保存类接口（POST）。server.py 按路径转过来，每个函数收请求体、返回要回给页面的 JSON。"""
 from __future__ import annotations
 
+import copy
 from urllib.parse import urlsplit
 
 from ..chat import chat_models
@@ -77,9 +78,24 @@ def save_chat_models(body: dict) -> dict:
 
 
 def test_engine(body: dict) -> dict:
-    cfg = config.load()
-    if body.get("engine"):
-        cfg["engine"] = body["engine"]
+    cfg = copy.deepcopy(config.load())
+    engine = body.get("engine") or cfg["engine"]
+    if engine not in (*engines.CLI_ENGINES, "openai", "none"):
+        raise ValueError("Unknown model engine")
+    cfg["engine"] = engine
+    if engine == "openai" and "openai" in body:
+        supplied = body["openai"]
+        if not isinstance(supplied, dict):
+            raise ValueError("Expected API model settings")
+        allowed = {"preset", "base_url", "api", "model", "api_key", "vision", "timeout"}
+        options = {key: value for key, value in supplied.items() if key in allowed}
+        cfg[engine] = {**cfg[engine], **config.with_key(options)}
+    if engine != "none":
+        for key in ("model", "reasoning_effort", "service_tier"):
+            if key in body:
+                if not isinstance(body[key], str):
+                    raise ValueError("Model options must be strings")
+                cfg[engine][key] = body[key]
     return engines.test(cfg)
 
 

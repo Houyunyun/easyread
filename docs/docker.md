@@ -96,7 +96,35 @@ EASYREAD_HTTP_PROXY=http://172.16.1.116:7890
 EASYREAD_HTTPS_PROXY=http://172.16.1.116:7890
 ```
 
+Python 依赖下载慢时，可使用国内镜像（完整版和轻量版均支持）：
+
+```dotenv
+EASYREAD_PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple
+EASYREAD_BUILD_NO_PROXY=localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn
+```
+
+也可将索引换成 `https://pypi.tuna.tsinghua.edu.cn/simple`。国内源直连，海外 CLI 下载仍走构建代理；这些配置只影响镜像构建，不更改模型 API 地址，也不关闭 TLS 校验。
+
 构建代理不替代 Docker daemon 拉基础镜像时的代理配置。宿主机代理/Ollama 可使用 `host.docker.internal`，容器的 `127.0.0.1` 不是宿主机。
+
+## 研究工作区与 Obsidian
+
+完整版和轻量版都包含 PaperRead 迁入的研究工作区、阅读路径、可编辑导图、批注、跨论文分析及 Markdown 导出。访问 `/research`，或从文献库点击「研究探索」；它们沿用同一访问授权码。AI 功能仍需在设置里选择已登录的 CLI 或可用 API。
+
+语义检索首次使用会下载固定版本的多语向量模型（约 250 MB），缓存在 `/data/EasyRead/.research-os/`，随应用数据卷保留。下载失败可配置代理后重试；模型准备过程中先提供关键词检索。
+
+Obsidian Vault 必须是容器内的**可写**目录。不需要与宿主机直接共享时，可以填写 `/data/EasyRead/vault`，导出会保存在现有数据卷中。要连接宿主机的 Vault，可创建 `docker-compose.override.yml`，挂入同一个服务：
+
+```yaml
+services:
+  easyread:
+    volumes:
+      - ./vault:/vault
+```
+
+确保宿主机 `./vault` 存在且容器 UID/GID 1000 有读写权限，再运行 `docker compose up -d`。在研究设置或首次导出时填写 `/vault`，不是客户端电脑上的路径；没有系统文件夹窗口时，页面会让你手动输入。不要使用论文导入示例中的 `:ro` 只读挂载作为 Vault。
+
+导出会保留用户在托管区块之外的内容；思维导图同时保留 PNG 预览和可编辑 Mermaid 源码。完整说明见[研究功能指南](research.md)。
 
 ## 数据和更新
 

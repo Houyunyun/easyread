@@ -9,22 +9,39 @@
 (function (PR) {
   "use strict";
   const L = PR.lib;
-  const BUILTIN = [
-    ["all", PR.t("全部"), "book", () => true],
-    ["reading", PR.t("在读"), "book", (i) => i.status === "reading"],
-    ["unread", PR.t("未读"), "book", (i) => (i.status || "unread") === "unread"],
-    ["done", PR.t("已读"), "check", (i) => i.status === "done"],
-    ["starred", PR.t("星标"), "star", (i) => i.starred],
+  const ALL = ["all", PR.t("全部"), "book", (i) => !i.archived];
+  const STARRED = ["starred", PR.t("星標"), "star", (i) => !i.archived && i.starred];
+  const DEFAULT_STATUS = [
+    { id: "unread", label: PR.t("未读") }, { id: "reading", label: PR.t("在读") }, { id: "organizing", label: PR.t("待整理") },
+    { id: "done", label: PR.t("已读") },
   ];
+  let BUILTIN = [ALL].concat(DEFAULT_STATUS.map((s) => [s.id, s.label, s.id === "done" ? "check" : "book", (i) => !i.archived && (i.status || "unread") === s.id]), [STARRED]);
   const AUTO = [  // 有内容时才出现，不用管理
-    ["questions", PR.t("有待回答的问题"), "question", (i) => i.open_questions > 0],
-    ["translating", PR.t("翻译中"), "sparkle", (i) => i.job && ["queued", "running"].includes(i.job.state) && i.job.type !== "prepare"],  // 只准备原页（导入不翻译、Zotero 迁移）不算
+    ["questions", PR.t("有待回答的问题"), "question", (i) => !i.archived && i.open_questions > 0],
+    ["translating", PR.t("翻译中"), "sparkle", (i) => !i.archived && i.job && ["queued", "running"].includes(i.job.state) && i.job.type !== "prepare"],  // 只准备原页（导入不翻译、Zotero 迁移）不算
   ];
-  L.VIEWS = BUILTIN.concat(AUTO);
+  const ARCHIVED = ["archived", PR.t("已封存"), "archive", (i) => Boolean(i.archived)];
+  L.VIEWS = BUILTIN.concat(AUTO, [ARCHIVED]);
+  L.updateStatusViews = function (statuses) {
+    const states = (statuses && statuses.length ? statuses : DEFAULT_STATUS).filter((s) => s.id !== "paused");
+    BUILTIN = [ALL].concat(states.map((s) => [s.id, PR.t(s.label), s.id === "done" ? "check" : "book", (i) => !i.archived && (i.status || "unread") === s.id]), [STARRED]);
+    L.VIEWS = BUILTIN.concat(AUTO, [ARCHIVED]);
+  };
+  const statusMap = () => Object.fromEntries((L.statuses && L.statuses.length ? L.statuses : DEFAULT_STATUS).map((s) => [s.id, PR.t(s.label)]));
   const RECENT_SHORT = 5, RECENT_MAX = 10;
   const ui = { adding: false, addUnder: "", renaming: null, recentOpen: false };
-  const T = PR.catTree;
-  const isPinned = L.isPinned;
+  const T = PR.catTree || {
+    depth: () => 0,
+    leaf: (c) => c,
+    label: (c) => c,
+    under: () => false,
+    parent: () => "",
+    children: () => [],
+    MAX_NAME: 30,
+    MAX_PATH: 120,
+  };
+  const isPinned = L.isPinned || ((key) => (L.side && L.side.pinned ? L.side.pinned : []).includes(key));
+  const foldSlot = (kids, open) => (PR.foldSlot ? PR.foldSlot(kids, open) : '<span class="fold-slot"></span>');
 
   /* ---------- 画面 ---------- */
   const count = (fn) => L.items.filter(fn).length;
@@ -32,56 +49,63 @@
   /* “分类”这一组的行（内置分类和自建分类树）左边都留箭头槽，图标对齐；置顶、最近阅读不留 */
   function viewRow(v, pinnedRow) {
     const [k, label, icon, fn] = v;
-    return '<div class="srow' + (pinnedRow ? "" : " tree") + (L.view === k && !L.tag ? " on" : "") + '" data-view="' + k + '"' + (pinnedRow ? " data-pinrow" : "") + ">" + (pinnedRow ? "" : PR.foldSlot(false)) + PR.icon(icon, "sm") + "<span class=\"t\">" + label +
+    const statusAttr = (L.statuses || []).some((s) => s.id === k) ? " data-status-view" : "";
+    return '<div class="srow' + (pinnedRow ? "" : " tree") + (L.view === k && !L.tag ? " on" : "") + '" data-view="' + k + '"' + statusAttr + (pinnedRow ? " data-pinrow" : "") + ">" + (pinnedRow ? "" : foldSlot(false)) + PR.icon(icon, "sm") + "<span class=\"t\">" + label +
       '</span><span class="n">' + count(fn) + "</span>" + (k === "all" && !pinnedRow ? "" : more) + "</div>";
   }
   const lvl = (d) => (d ? ' style="--lvl:' + d + '"' : "");
   function catRow(c, pinnedRow, kids, open) {
     const d = pinnedRow ? 0 : T.depth(c);
-    const slot = pinnedRow ? "" : PR.foldSlot(kids, open), tree = pinnedRow ? "" : " tree";
+    const slot = pinnedRow ? "" : foldSlot(kids, open), tree = pinnedRow ? "" : " tree";
     if (ui.renaming === c && !pinnedRow) return '<div class="srow tree editing"' + lvl(d) + ">" + slot + PR.icon("folder", "sm") + '<input class="side-input" data-rename="' + PR.esc(c) + '" value="' + PR.esc(T.leaf(c)) + '" maxlength="' + T.MAX_NAME + '"></div>';
     return '<div class="srow' + tree + (L.tag === c ? " on" : "") + '" data-cat="' + PR.esc(c) + '"' + (pinnedRow ? " data-pinrow" : "") + lvl(d) + ' title="' + PR.esc(T.label(c)) + '">' + slot + PR.icon("folder", "sm") +
-      '<span class="t">' + PR.esc(pinnedRow ? T.label(c) : T.leaf(c)) + '</span><span class="n">' + count((i) => L.inCat(i, c)) + "</span>" + more + "</div>";
+      '<span class="t">' + PR.esc(pinnedRow ? T.label(c) : T.leaf(c)) + '</span><span class="n">' + count((i) => !i.archived && L.inCat(i, c)) + "</span>" + more + "</div>";
   }
-  const addRow = (d) => '<div class="srow tree editing"' + lvl(d) + ">" + PR.foldSlot(false) + PR.icon("folder", "sm") + '<input class="side-input" data-new placeholder="' + (ui.addUnder ? PR.t("子分类名，回车") : PR.t("分类名，回车")) + '" maxlength="' + T.MAX_PATH + '"></div>';
+  const addRow = (d) => '<div class="srow tree editing"' + lvl(d) + ">" + foldSlot(false) + PR.icon("folder", "sm") + '<input class="side-input" data-new placeholder="' + (ui.addUnder ? PR.t("子分类名，回车") : PR.t("分类名，回车")) + '" maxlength="' + T.MAX_PATH + '"></div>';
   /* 自建分类的树（sidebar-tree.js）：隐藏的分类连同子分类都不画；置顶的只出现在“置顶”里 */
-  const catTree = (cats) => PR.sideTreeHtml(cats, {
+  const catTree = (cats) => PR.sideTreeHtml ? PR.sideTreeHtml(cats, {
     catRow: (c, kids, open) => catRow(c, false, kids, open), addRow,
-    skip: (c) => isPinned("c:" + c) || L.side.hidden.includes("c:" + c),
+    skip: (c) => isPinned("c:" + c) || ((L.side && L.side.hidden) ? L.side.hidden : []).includes("c:" + c),
     addUnder: ui.adding ? ui.addUnder : null,
-  });
+  }) : cats.map((c) => catRow(c)).join("");
   /* 侧栏放短标题（PR.titles 里定：翻译时起的短标题，或主标题冒号前那半句） */
   const shortTitle = (i) => PR.titles(i).short;
   function paperRow(i, pinnedRow) {
     const title = PR.titles(i).main;
-    return '<a class="srow paper" href="/read/' + i.id + '" data-paper="' + i.id + '"' + (pinnedRow ? " data-pinrow" : "") + ' title="' + PR.esc(title) + (i.last_opened ? PR.t("（{time}打开）", { time: PR.esc(PR.relTime(i.last_opened)) }) : "") + '">' +
-      (pinnedRow ? PR.icon("pin", "sm") : "") + '<span class="t">' + PR.esc(shortTitle(i)) + "</span>" + (i.progress > 0.02 ? "<em>" + Math.round(i.progress * 100) + "%</em>" : "") + more + "</a>";
+    const short = shortTitle(i);
+    const tip = PR.titleText ? PR.titleText(title) : title;
+    return '<a class="srow paper" href="/read/' + i.id + '" data-paper="' + i.id + '"' + (pinnedRow ? " data-pinrow" : "") + ' title="' + PR.esc(tip) + (i.last_opened ? PR.t("（{time}打开）", { time: PR.esc(PR.relTime(i.last_opened)) }) : "") + '">' +
+      (pinnedRow ? PR.icon("pin", "sm") : "") + '<span class="t">' + (PR.titleHtml ? PR.titleHtml(short) : PR.esc(short)) + "</span>" + (i.progress > 0.02 ? "<em>" + Math.round(i.progress * 100) + "%</em>" : "") + more + "</a>";
   }
 
   PR.renderSide = function () {
     const box = PR.$("#side");
     if (box.contains(document.activeElement) && document.activeElement.matches(".side-input")) return;  // 正在输入分类名
-    const cats = L.cats();
-    const pinned = L.side.pinned.map((key) => {
+    const cats = typeof L.cats === "function" ? L.cats() : (L.side && L.side.cats ? L.side.cats : []);
+    const pinnedList = (L.side && L.side.pinned) ? L.side.pinned : [];
+    const pinned = pinnedList.map((key) => {
       const [t, v] = [key.slice(0, 1), key.slice(2)];
       if (t === "p") { const it = L.byId(v); return it ? paperRow(it, true) : ""; }
       if (t === "c") return cats.includes(v) ? catRow(v, true) : "";
       const view = L.VIEWS.find((x) => x[0] === v);
       return view ? viewRow(view, true) : "";
     }).join("");
+    const hiddenList = (L.side && L.side.hidden) ? L.side.hidden : [];
     let h = pinned ? '<h3>' + PR.t("置顶") + '</h3><div class="sgroup">' + pinned + "</div>" : "";
     h += '<h3>' + PR.t("分类") + '<button class="h-add" data-add title="' + PR.t("新建分类") + '">' + PR.icon("plus", "sm") + "</button></h3><div class=\"sgroup\" data-drop-zone>" +
-      BUILTIN.filter(([k]) => k === "all" || (!L.side.hidden.includes(k) && !isPinned("v:" + k))).map((v) => viewRow(v)).join("") +
-      AUTO.filter(([k, , , fn]) => count(fn) && !L.side.hidden.includes(k)).map((v) => viewRow(v)).join("") +
+      BUILTIN.filter(([k]) => k === "all" || (!hiddenList.includes(k) && !isPinned("v:" + k))).map((v) => viewRow(v)).join("") +
+      AUTO.filter(([k, , , fn]) => count(fn) && !hiddenList.includes(k)).map((v) => viewRow(v)).join("") +
       catTree(cats) +
       (ui.adding && !ui.addUnder ? addRow(0) : "") +
-      (!ui.adding ? '<button class="srow tree hint-row" data-add>' + PR.foldSlot(false) + PR.icon("plus", "sm") + '<span class="t">' + (cats.length ? PR.t("新建分类") : PR.t("新建分类，把论文拖进来")) + "</span></button>" : "") + "</div>";
-    const recent = L.items.filter((i) => i.last_opened && !isPinned("p:" + i.id)).sort((a, b) => String(b.last_opened).localeCompare(String(a.last_opened)));
+      (!ui.adding ? '<button class="srow tree hint-row" data-add>' + foldSlot(false) + PR.icon("plus", "sm") + '<span class="t">' + (cats.length ? PR.t("新建分类") : PR.t("新建分类，把论文拖进来")) + "</span></button>" : "") + "</div>";
+    const recent = L.items.filter((i) => !i.archived && i.last_opened && !isPinned("p:" + i.id)).sort((a, b) => String(b.last_opened).localeCompare(String(a.last_opened)));
     if (recent.length) {
       const shown = recent.slice(0, ui.recentOpen ? RECENT_MAX : RECENT_SHORT);
       h += '<h3>' + PR.t("最近阅读") + '</h3><div class="sgroup">' + shown.map((i) => paperRow(i)).join("") +
         (recent.length > RECENT_SHORT ? '<button class="srow toggle-more" data-recent>' + (ui.recentOpen ? PR.t("收起") : PR.t("展开更多（{n}）", { n: Math.min(recent.length, RECENT_MAX) - RECENT_SHORT })) + "</button>" : "") + "</div>";
     }
+    h += '<div class="sgroup side-archive"><div class="srow' + (L.view === "archived" && !L.tag ? " on" : "") + '" data-view="archived">' + PR.icon("archive", "sm") +
+      '<span class="t">' + PR.t("已封存") + '</span><span class="n">' + count((i) => i.archived) + "</span>" + more + "</div></div>";
     if (L.trashCount) h += '<div class="sgroup side-trash"><button class="srow" data-trash>' + PR.icon("trash", "sm") + '<span class="t">' + PR.t("回收站") + '</span><span class="n">' + L.trashCount + "</span></button></div>";
     box.innerHTML = h;
     const inp = PR.$(".side-input", box);
@@ -91,7 +115,7 @@
   /* ---------- 菜单 ---------- */
   const startAdd = (under, paper) => { ui.adding = paper || true; ui.addUnder = under || ""; L.render(); };
   /* 移到…：放到哪个分类下面（不能是自己或自己的子分类，也不用是现在的父分类），或者移到最外层 */
-  const moveTargets = (c) => L.cats().filter((x) => !T.under(x, c) && x !== T.parent(c));
+  const moveTargets = (c) => (typeof L.cats === "function" ? L.cats() : (L.side && L.side.cats ? L.side.cats : [])).filter((x) => !T.under(x, c) && x !== T.parent(c));
   function moveMenu(c, where) {
     PR.menu(where, (T.parent(c) ? [{ label: PR.t("移到最外层"), icon: "folder", fn: () => L.moveCatTo(c, "") }, "-"] : [])
       .concat(moveTargets(c).map((x) => ({ label: "　".repeat(T.depth(x)) + T.leaf(x), icon: "folder", fn: () => L.moveCatTo(c, x) }))));
@@ -100,7 +124,7 @@
     if (row.dataset.view) {
       const k = row.dataset.view, key = "v:" + k;
       const items = [{ label: isPinned(key) ? PR.t("取消置顶") : PR.t("置顶"), icon: "pin", fn: () => L.togglePin(key) }];
-      if (k !== "all") items.push({ label: PR.t("在侧栏隐藏"), icon: "x", fn: () => { L.setHidden(k, true); PR.toast(PR.t("已隐藏“{name}”，可以在 设置 → 侧边栏 里再打开", { name: row.textContent.trim().replace(/\d+$/, "") })); } });
+      if (k !== "all" && k !== "archived") items.push({ label: PR.t("在侧栏隐藏"), icon: "x", fn: () => { L.setHidden(k, true); PR.toast(PR.t("已隐藏“{name}”，可以在 设置 → 侧边栏 里再打开", { name: row.textContent.trim().replace(/\d+$/, "") })); } });
       return PR.menu(where, items);
     }
     if (row.dataset.cat) {
@@ -116,7 +140,7 @@
         { label: PR.t("在侧栏隐藏"), icon: "x", fn: () => { L.setHidden("c:" + c, true); PR.toast(PR.t("已隐藏“{name}”，可以在 设置 → 侧边栏 里再打开", { name: PR.esc(T.label(c)) })); } },
         "-",
         { label: PR.t("批量操作这个分类的论文"), icon: "check", fn: () => { L.tag = c; L.view = "all"; L.startPick(L.filtered().map((paper) => paper.id)); } },
-        { label: PR.t("导出这个分类的引用"), icon: "copy", fn: () => PR.openCiteExport(L.items.filter((paper) => L.inCat(paper, c)), T.leaf(c)) },
+        { label: PR.t("导出这个分类的引用"), icon: "copy", fn: () => PR.openCiteExport(L.items.filter((paper) => !paper.archived && L.inCat(paper, c)), T.leaf(c)) },
         { label: PR.t("删除分类"), icon: "trash", fn: () => L.deleteCat(c) },
       ]);
     }
@@ -204,9 +228,9 @@
   let dragId = null;
   document.addEventListener("dragstart", (e) => { const r = e.target.closest && e.target.closest(".row[data-id], .srow[data-leaf]"); if (r) { dragId = r.dataset.id || r.dataset.leaf; e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "copy"; side.classList.add("dragging"); } });
   document.addEventListener("dragend", () => { dragId = null; side.classList.remove("dragging"); PR.$$(".srow.drop", side).forEach((x) => x.classList.remove("drop")); });
-  /* 能放的地方：自建分类、在读 / 未读 / 已读（改状态）、星标、“新建分类” */
-  const STATUS = { reading: PR.t("在读"), unread: PR.t("未读"), done: PR.t("已读") };
-  const dropTarget = (e) => dragId && e.target.closest(".srow[data-cat], .srow[data-view='starred'], .srow[data-view='reading'], .srow[data-view='unread'], .srow[data-view='done'], .srow[data-add]");
+  /* 能放的地方：自建分类、在读 / 未读 / 已读（改状态）、星标、已封存、“新建分类” */
+  const STATUS = statusMap;
+  const dropTarget = (e) => dragId && e.target.closest(".srow[data-cat], .srow[data-view='starred'], .srow[data-status-view], .srow[data-view='archived'], .srow[data-add]");
   side.addEventListener("dragover", (e) => {
     const row = dropTarget(e);
     PR.$$(".srow.drop", side).forEach((x) => x !== row && x.classList.remove("drop"));
@@ -222,12 +246,21 @@
     // 多选时拖的是勾着的一篇，就把勾着的全部一起放过去
     const its = (L.picking && L.picked.has(dragId) ? Array.from(L.picked) : [dragId]).map(L.byId).filter(Boolean);
     const v = row.dataset.view, c = row.dataset.cat, n = its.length;
-    if (v === "starred") { L.patchMany(its.filter((i) => !i.starred).map((i) => [i.id, { starred: true }])); PR.toast(n > 1 ? PR.t("{n} 篇已加星标", { n }) : PR.t("已加星标")); }
-    else if (STATUS[v]) { L.patchMany(its.filter((i) => i.status !== v).map((i) => [i.id, { status: v }])); PR.toast(n > 1 ? PR.t("{n} 篇已标为{status}", { n, status: STATUS[v] }) : PR.t("已标为{status}", { status: STATUS[v] })); }
+    if (v === "archived") {
+      const toArchive = its.filter((i) => !i.archived);
+      if (toArchive.length) {
+        L.patchMany(toArchive.map((i) => [i.id, { archived: true }]));
+        PR.toast(n > 1 ? PR.t("{n} 篇已封存", { n }) : PR.t("已封存"));
+      } else {
+        PR.toast(PR.t("已經在封存區了"));
+      }
+    }
+    else if (v === "starred") { L.patchMany(its.filter((i) => !i.starred).map((i) => [i.id, { starred: true }])); PR.toast(n > 1 ? PR.t("{n} 篇已加星标", { n }) : PR.t("已加星标")); }
+    else if (STATUS()[v]) { L.patchMany(its.map((i) => [i.id, { status: v, archived: false }])); PR.toast(n > 1 ? PR.t("{n} 篇已標為{status}", { n, status: STATUS()[v] }) : PR.t("已標為{status}", { status: STATUS()[v] })); }
     else {
       const add = its.filter((i) => !(i.tags || []).includes(c));
       const name = PR.esc(T.label(c));
-      if (add.length) { L.patchMany(add.map((i) => [i.id, { tags: (i.tags || []).concat(c) }])); PR.toast(n > 1 ? PR.t("已把 {n} 篇放进“{name}”", { n, name }) : PR.t("已放进“{name}”", { name })); }
+      if (add.length) { L.patchMany(add.map((i) => [i.id, { tags: (i.tags || []).concat(c), archived: false }])); PR.toast(n > 1 ? PR.t("已把 {n} 篇放进“{name}”", { n, name }) : PR.t("已放进“{name}”", { name })); }
       else PR.toast(PR.t("已经在“{name}”里了", { name }));
     }
   });

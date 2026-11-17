@@ -50,7 +50,7 @@
 
   /* ---------- 快捷键 ---------- */
   document.addEventListener("keydown", (e) => {
-    if (e.target.closest("textarea, input, [contenteditable]") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.defaultPrevented || e.target.closest("textarea, input, select, [contenteditable]") || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (PR.keysOn) {
       // An active IME can report "Process" outside editors. Resolve physical
@@ -69,6 +69,10 @@
     if (k === "escape") {
       if (e.defaultPrevented || e.repeat) return;
       e.preventDefault();
+      for (const id of ["deepReportDlg", "mindmapDlg"]) {
+        const dlg = document.getElementById(id);
+        if (dlg?.classList.contains("open")) { dlg.classList.remove("open"); return; }
+      }
       if (PR.$("#settings").classList.contains("open") || PR.$("#popover").classList.contains("open") || body.classList.contains("drawer-open")) {
         PR.toggleDrawer(false); PR.hidePopover(); PR.$("#settings").classList.remove("open");
       } else if (PR.currentBlock()) PR.setCurrent(null);
@@ -95,7 +99,7 @@
     if (body.classList.contains("drawer-open")) PR.renderDrawer();
   }, 80);
   PR.on("reader", (op) => {
-    if (op?.op === "progress") return;
+    if (["progress", "ink", "ink_del", "sticker", "sticker_del"].includes(op?.op)) return;
     if (busy()) {
       if (op?.highlightBlocks) setTimeout(() => op.highlightBlocks.forEach(id => PR.applyMarks(id)), 0);
       return;
@@ -105,6 +109,11 @@
     refreshNotes();
   });
 
+  PR.updateTitle = () => {
+    const m = S.paper.meta || {}, title = m.short_zh || m.title_zh || m.title_en || PR.t("论文");
+    document.title = (PR.titleText ? PR.titleText(title) : title) + " · EasyRead";
+    PR.$(".bar-title").innerHTML = PR.titleHtml(title);
+  };
   const seen = new Set();
   PR.on("remote", (changed) => {
     if (changed.includes("job")) PR.renderJobState();
@@ -113,6 +122,8 @@
         PR.rerenderKeepingPlace();
         const m = S.paper.meta || {};
         PR.$(".bar-title").innerHTML = PR.titleHtml(m.short_zh || m.title_zh || m.title_en || "");
+      } else if (changed.includes("item")) {
+        PR.updateTitle(); PR.renderPaperHead();
       } else if (changed.includes("job")) {
         const pend = PR.$(".pending-pages .pending, .page-cap");
         if (pend || (S.job || {}).state === "confirm" || (S.job || {}).type === "figure-images" || PR.$(".figure-job")) PR.rerenderKeepingPlace();
@@ -155,11 +166,12 @@
     if (PR.store.mode === "static") PR.$("#backBtn").style.display = "none";
     PR.applyFeatures();
     const m = S.paper.meta || {};
-    document.title = (m.short_zh || m.title_zh || m.title_en || PR.t("论文")) + " · EasyRead";
-    PR.$(".bar-title").innerHTML = PR.titleHtml(m.short_zh || m.title_zh || m.title_en || "");
+    PR.updateTitle();
     PR.ls.get("pr-seen-" + PR.paperKey, (S.discussion.entries || []).map((e) => e.id)).forEach((id) => seen.add(id));
     PR.ls.set("pr-seen-" + PR.paperKey, Array.from(seen));
     PR.renderPaper(true);
+    PR.renderInk?.();
+    PR.emit("reader-ready");
     PR.citationNav.setup();
     PR.$('[data-act="dock"]').disabled = false;
     PR.setupDemo();  // 署名要放在论文标题下面，得等正文渲染出来

@@ -6,8 +6,9 @@
   PR.applyTheme(prefs.theme);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => PR.applyTheme(PR.ls.get("easyread-prefs", {}).theme));
 
-
   PR.$("#importBtn").innerHTML = PR.icon("plus", "sm") + "<span>" + PR.t("导入论文") + "</span>";
+  const workspaceBtn = PR.$("#workspaceBtn");
+  if (workspaceBtn && window.parent !== window && window.parent?.easyreadTabs) workspaceBtn.hidden = true;
   PR.$("#settingsBtn").innerHTML = PR.icon("gear");
   PR.$(".search .si").outerHTML = PR.icon("search");
   PR.$("#sort").value = L.sort;
@@ -23,6 +24,7 @@
       offset: rect && rect.top >= bounds.top && rect.bottom <= bounds.bottom ? rect.top - bounds.top : null,
     });
   }
+  L.readerUrl = readerUrl;
   L.openReader = (id) => { location.href = readerUrl(id); };
   function prepareReaderLink(e) {
     const link = e.target.closest("a[href]");
@@ -33,7 +35,17 @@
   ["click", "auxclick", "contextmenu"].forEach((name) => document.addEventListener(name, prepareReaderLink, true));
   L.patch = async function (id, fields) {
     const it = L.byId(id);
-    if (it) { Object.assign(it, fields.meta_override ? {} : fields); L.render(); }  // 先改界面，再存盘
+    if (it) {
+      if (fields.meta_override) {
+        it.meta_override = Object.assign({}, it.meta_override || {}, fields.meta_override);
+        if (fields.meta_override.title_zh) it.title_zh = fields.meta_override.title_zh;
+        if (fields.meta_override.short_zh) it.short_zh = fields.meta_override.short_zh;
+        if (fields.meta_override.title_en) it.title_en = fields.meta_override.title_en;
+      } else {
+        Object.assign(it, fields);
+      }
+      L.render();
+    }  // 先改界面，再存盘
     try { await PR.api("/api/p/" + id + "/item", { method: "POST", body: fields }); }
     catch (e) { PR.toast(PR.t("保存失败：{msg}", { msg: PR.esc(e.message) })); }
     await L.load();
@@ -95,9 +107,11 @@
   };
   function apply(d, cached = false) {
     const changed = cached || L.loadStatus !== "ready" ||
-      JSON.stringify([L.items, L.engine, L.engineLabel, L.firstRun, L.version, L.trashCount]) !==
-      JSON.stringify([d.items, d.engine, d.engine_label, d.first_run, d.version, d.trash || 0]);
-    L.lastData = d;  // 切换界面语言前存一份，刷新后先拿它画列表，不闪空白（lang-toggle.js）
+      JSON.stringify([L.items, L.engine, L.engineLabel, L.firstRun, L.version, L.trashCount, L.statuses]) !==
+      JSON.stringify([d.items, d.engine, d.engine_label, d.first_run, d.version, d.trash || 0, d.research_statuses || []]);
+    L.lastData = d;
+    L.statuses = d.research_statuses || L.statuses || [];
+    if (L.updateStatusViews) L.updateStatusViews(L.statuses);
     L.loadStatus = cached ? "loading" : "ready"; L.loadError = "";
     if (!cached) PR.token = d.token;
     L.engine = d.engine;
@@ -124,7 +138,7 @@
     const view = L.VIEWS.find((v) => v[0] === L.view) || L.VIEWS[0];
     const q = L.q.trim().toLowerCase();
     let list = L.items.filter(view[3]);
-    if (L.tag) list = list.filter((i) => L.inCat(i, L.tag));  // 含子分类里的
+    if (L.tag) list = list.filter((i) => !i.archived && L.inCat(i, L.tag));  // 含子分类里的
     if (q) list = list.filter((i) => [i.display_title, i.title_zh, i.title_en, i.authors, i.venue, i.arxiv, i.abstract, (i.tags || []).join(" "), i.year]
       .join(" ").toLowerCase().includes(q));
     const key = { opened: (i) => i.last_opened || i.added, added: (i) => i.added, year: (i) => String(i.year || ""), title: (i) => PR.titles(i).main };
@@ -135,8 +149,12 @@
   L.filtered = filtered;
 
   function statusPill(i) {
-    const m = { unread: PR.t("未读"), reading: PR.t("在读"), done: PR.t("已读") };
-    return '<span class="pill ' + (i.status || "unread") + '">' + (m[i.status] || m.unread) + "</span>";
+    const status = (L.statuses || []).find((s) => s.id === (i.status || "unread"));
+    const state = i.status === "paused" ? "unread" : (i.status || "unread");
+    const m = { unread: PR.t("待閱讀"), reading: PR.t("閱讀中"), organizing: PR.t("待整理"), done: PR.t("已完成") };
+    const basePill = '<span class="pill ' + state + '">' + PR.esc(status && status.id !== "paused" ? PR.t(status.label) : PR.t(m[state] || m.unread)) + "</span>";
+    if (i.archived) return '<span class="pill archived">' + PR.t("已封存") + "</span>" + basePill;
+    return basePill;
   }
   L.jobLine = function (i) {
     if (i.load_error) return '<span class="stat err">' + PR.t("数据文件无法读取") + "</span>";
@@ -144,7 +162,7 @@
     if (j && j.state === "confirm") return '<span class="stat">' + PR.t("等你确认") + "</span>";
     if (j && ["queued", "running"].includes(j.state)) {
       const pct = j.total ? " " + (j.type === "figure-images" ? PR.t("（{done}/{total} 张）", {done: j.done, total: j.total}) : PR.t("{done}/{total} 页", { done: j.done, total: j.total })) : "";
-      return '<span class="stat job"><span class="spin"></span>' + PR.esc(j.state === "queued" ? PR.t("排队中") : (j.message || PR.t("处理中"))) + pct + "</span>";
+      return '<span class="stat job"><span class="spin"></span>' + PR.esc(PR.formatJobMessage ? PR.formatJobMessage(j) : (j.message || PR.t("处理中"))) + pct + "</span>";
     }
     if (j && j.state === "error") return '<span class="stat err">' + (j.read ? PR.t("整理原文出错") : PR.t("翻译出错")) + "</span>";
     if (j && j.state === "partial") return '<span class="stat err">' + (j.type === "figure-images" ? PR.esc(j.message || "") : j.read ? PR.t("{n} 页没整理成功", { n: Object.keys(j.failed || {}).length }) : PR.t("{n} 页没译成功", { n: Object.keys(j.failed || {}).length })) + "</span>";
@@ -189,6 +207,7 @@
     return '<span class="spin"></span> ' + (L.items.length ? PR.t("正在更新文献库…") : PR.t("正在加载文献库…"));
   }
   function emptyHtml() {
+    if (L.view === "archived") return '<div class="empty-state"><div class="big">' + PR.t("封存区是空的") + "</div>" + PR.t("可以將已看完或暫不需要的論文拖曳到左側「已封存」，或在選單中封存。") + "</div>";
     if (!L.items.length && L.loadStatus !== "ready") return '<div class="empty-state" role="status">' + loadHtml() + "</div>";
     if (L.items.length) return '<div class="empty-state"><div class="big">' + PR.t("没有符合条件的论文") + "</div>" + PR.t("换个关键词或筛选试试。") + "</div>";
     const ok = L.engineReady;
@@ -257,10 +276,10 @@
     const r = e.target.closest(".row");
     if (r) L.select(r.dataset.id);
   });
-  /* 点列表空白处、侧栏、标题栏空白：收起右侧详情 */
+  /* 点列表空白处、侧栏空白：收起右侧详情（排除工具列、排序選單與標題列） */
   document.addEventListener("click", (e) => {
-    if (!L.selected || e.target.closest(".row, .srow[data-leaf], #detail, .dialog-backdrop, .menu, #toast, .topbar button, .topbar input, select")) return;
-    if (e.target.closest(".main, .side, .topbar")) L.select(null);
+    if (!L.selected || e.target.closest(".row, .srow[data-leaf], #detail, .dialog-backdrop, .menu, #toast, .topbar, .list-head, select, label, button, input")) return;
+    if (e.target.closest("#list, .side")) L.select(null);
   });
   PR.$("#list").addEventListener("dblclick", (e) => { const r = e.target.closest(".row"); if (r) L.openReader(r.dataset.id); });
   PR.$("#list").addEventListener("contextmenu", (e) => {
@@ -304,4 +323,22 @@
     } catch (e) { /* 没有就等下面取 */ }
     L.load();
   });
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const bus = new BroadcastChannel("paperread-tabs-bus");
+      bus.addEventListener("message", (e) => {
+        if (e.data?.type === "pr:paper-updated" && e.data.pid) {
+          const it = L.byId(e.data.pid);
+          if (it) {
+            if (e.data.title_zh) it.title_zh = e.data.title_zh;
+            if (e.data.short_zh) it.short_zh = e.data.short_zh;
+            if (e.data.title_en) it.title_en = e.data.title_en;
+            if (e.data.meta_override) it.meta_override = e.data.meta_override;
+            L.render();
+            if (L.selected === e.data.pid && PR.renderDetail) PR.renderDetail();
+          }
+        }
+      });
+    } catch (_) {}
+  }
 })(window.PR);

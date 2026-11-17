@@ -26,7 +26,7 @@
 
   /* 模型：推荐的 + 接口里拉到的，做成下拉框，最后一项“手填”；都没有（自定义、LM Studio）或选了手填时是输入框 */
   function modelField(s, a, p) {
-    const rec = (p && p.models) || [];
+    const rec = a.preset === "ollama" ? [] : (p && p.models) || [];
     let got = found[(a.base_url || "").trim()] || [];
     if (!got.length && a.preset === "ollama" && s.found && s.found.ollama) got = s.found.ollama.models;
     if (s.apiTyping || (!rec.length && !got.length)) {
@@ -81,7 +81,7 @@
     s.fetchMsg = null; s.apiTyping = false;
     if (p) {
       const om = id === "ollama" && s.found && s.found.ollama && s.found.ollama.models;
-      Object.assign(a, { base_url: p.base_url, api: p.api || "chat", model: om && om.length && !om.includes(p.model) ? om[0] : p.model });
+      Object.assign(a, { base_url: p.base_url, api: p.api || "chat", model: id === "ollama" ? (om && om.length ? om[0] : "") : p.model });
       const m = p.models.find((x) => x.id === a.model);
       a.vision = !!(m && m.vision);
     } else if (prev) Object.assign(a, { base_url: "", api: "chat", model: "", vision: false });

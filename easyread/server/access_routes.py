@@ -6,7 +6,7 @@ from urllib.parse import quote, urlsplit
 from ..app import config, i18n
 from ..app.i18n import tr
 from .access import Access
-from . import terminal
+from . import terminal, activity
 
 PUBLIC = {"/login", "/web/css/access.css", "/web/js/common/access.js", "/web/favicon.svg"}
 
@@ -100,8 +100,8 @@ def post(handler, path):
         set_cookie(handler, "")
         handler._json(200, {"ok": True})
     elif path == "/api/terminal/open":
-        if data.get("action", "shell").endswith("-update") and (app.jobs.busy() or app.babeldoc.running):
-            raise ValueError(tr("请等待翻译或 PDF 任务完成后再更新 CLI"))
+        if data.get("action", "shell").endswith("-update") and activity.model_work(app):
+            raise ValueError(tr("请等待翻译、研究分析或 PDF 任务完成后再更新 CLI"))
         handler._json(200, app.terminals.open(handler.access_sid, data.get("action", "shell")))
     else:
         app.terminals.close(handler.access_sid, data.get("url"))

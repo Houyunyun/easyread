@@ -6,10 +6,11 @@ const { test } = require("node:test");
 
 const source = fs.readFileSync(path.join(__dirname, "../../easyread/web/js/common/presence.js"), "utf8");
 
-function run(protocol) {
+function run(protocol, embedded = false) {
   const sockets = [], timers = [];
   vm.runInNewContext(source, {
     location: { protocol, host: "easyread.example:8443" },
+    document: { getElementById: id => embedded && id === 'pr-data' ? {} : null },
     WebSocket: class { constructor(url) { this.url = url; sockets.push(this); } },
     setTimeout(fn, delay) { timers.push({ fn, delay }); },
   });
@@ -23,6 +24,13 @@ test("presence uses ws for HTTP and wss for HTTPS", () => {
 
 test("offline exports do not open a presence socket", () => {
   assert.equal(run("file:").sockets.length, 0);
+});
+
+test("HTTP-hosted offline HTML does not connect to an application backend", () => {
+  assert.equal(run("http:", true).sockets.length, 0);
+  assert.equal(run("https:", true).sockets.length, 0);
+  const monitor = fs.readFileSync(path.join(__dirname, '../../easyread/web/js/common/research-task-monitor.js'), 'utf8');
+  vm.runInNewContext(monitor, { window: {PR: {}}, document: {getElementById: () => ({})} });
 });
 
 test("HTTPS presence reconnects after a disconnect", () => {

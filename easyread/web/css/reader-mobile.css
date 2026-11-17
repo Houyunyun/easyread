@@ -35,3 +35,5 @@ body.mobile-read #toast button { white-space: nowrap; }
 /* 笔记默认展开；点段落右上角的数字收起（notes-open 在这里当“收起”用） */
 body.mobile-read .blk > .inline-notes { display: block; }
 body.mobile-read .blk.notes-open > .inline-notes { display: none; }
+
+body.mobile-read #inkTools, body.mobile-read #stickerPanel, body.mobile-read #stickerTools { display:none !important; }

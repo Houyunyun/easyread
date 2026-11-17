@@ -56,3 +56,22 @@ easyread://open?id=<论文 id>
 ## 数据格式
 
 `part/*` 返回的 JSON 结构见 [data-format.md](data-format.md)。其中字段只会增加，不会改名或改含义；改了算不兼容，按上面的规则升 API 版本。
+
+## 研究工作区内部接口
+
+以下是随 PaperRead 功能迁入的界面内部接口，不改变上述公开 API v1 约定。所有 POST 仍要求 Host 白名单与 `X-Token`，沿用文献库切换保护。
+
+| 前缀 / 路径 | 用途 |
+| --- | --- |
+| `/research`、`/web/tabs.html` | 研究工作区与多标签分屏页面 |
+| `/api/research/v1` | Vault 设置、跨论文比较、提案审核、后台任务查询/取消/确认 |
+| `/api/research/v2` | 论文发现、候选/阅读计划、路径、关键词与跨论文检索 |
+| `/api/research/v2/paper/{id}/mindmap` | GET 读取已保存导图；POST 重新生成 |
+| `/api/research/v2/paper/{id}/mindmap/save` | POST `{mermaid, revision?}`，保存用户编辑；陈旧版本不得覆盖较新编辑 |
+| `/api/research/v2/paper/{id}/deep-analysis` | GET 读取深度报告；对应 `/tasks` 发起后台分析 |
+| `/api/research/v2/milestones`、`/follows` | 研究里程碑和关注主题/作者；对应 `/delete` 删除 |
+| `/api/research/v2/reminders/claim` | POST `{candidates:[{key,...}]}`，返回 `{claimed:[]}`，避免重复提醒 |
+| `/api/research/v2/export/obsidian`、`/export/zip` | 结构化知识库导出 |
+| `/api/zotero/sync-config`、`/sync-preview`、`/sync` | 读取同步设置、预览和单向导入；启动时携带预览的 `library_token` 与显式重导入的 `selected` 指纹 |
+
+研究任务的完成、取消、失败状态以 API 返回值为准；返回任务 ID 不表示结果已经生成。模型凭证复用现有模型配置，接口不会在导出里包含凭证。

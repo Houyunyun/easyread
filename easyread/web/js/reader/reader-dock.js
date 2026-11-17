@@ -2,9 +2,9 @@
 (function (PR) {
   "use strict";
   const dock = PR.$("#readerDock"), toggle = PR.$('[data-act="dock"]');
-  const names = { pages: "PDF", gallery: PR.t("图表"), notes: PR.t("笔记"), map: PR.t("思维导图"), chat: PR.t("问 AI") };
+  const names = { pages: "PDF", gallery: PR.t("图表"), research: PR.t("研究脈絡"), notes: PR.t("笔记"), map: PR.t("思维导图"), chat: PR.t("问 AI") };
   const isResource = key => key === "map" || key === "gallery" || key.startsWith("fig:");
-  const views = new Map([["pages", PR.$("#pageview")], ["notes", PR.$("#notespanel")], ["chat", PR.$("#chatpanel")]]);
+  const views = new Map([["pages", PR.$("#pageview")], ["notes", PR.$("#notespanel")], ["chat", PR.$("#chatpanel")], ["research", PR.$("#researchpanel")]]);
   const MIME = "application/x-easyread-panel", MEDIA = "application/x-easyread-media";
   let current = 0, shown = new Set(), ratio = 50;
   const divider = document.createElement("div");
@@ -28,6 +28,7 @@
   PR.dockVisible = key => shown.has(key);
   const owner = key => groups.findIndex(g => g.tabs.includes(key));
   const allowed = key => (key !== "pages" || (PR.feature("pages") && PR.state.paper?.meta?.source_type !== "web")) &&
+    (key !== "research" || (PR.feature("research") && PR.researchAvailable?.())) &&
     (key !== "chat" || (PR.feature("chat") && PR.chatView?.()));
   function title(key) {
     const block = PR.blockById?.[key.slice(4)];
@@ -79,6 +80,7 @@
     PR.side = dock.hidden ? null : groups[current].active;
     toggle.setAttribute("aria-expanded", String(!dock.hidden));
     PR.setSideSpace(!dock.hidden);
+    if (next.has("research") && !previous.has("research")) PR.renderResearch?.();
     if (next.has("notes") && !previous.has("notes")) PR.renderNotesPanel();
     if (next.has("pages") && !previous.has("pages") && !(PR.$(".pv-scroll .pv-page img")?.getAttribute("src"))) PR.syncPage(true);
     for (const key of next) if (isResource(key)) PR.renderDockResource(key, view(key));
@@ -111,7 +113,7 @@
     PR.openSide(groups[current].active || (allowed("pages") ? "pages" : "notes"));
   };
   PR.syncDockFeatures = () => {
-    for (const key of ["pages", "chat"]) if (!allowed(key) && owner(key) >= 0) PR.closeDockTab(key);
+    for (const key of ["pages", "chat", "research"]) if (!allowed(key) && owner(key) >= 0) PR.closeDockTab(key);
     if (!dock.hidden) draw();
   };
   PR.pinDockFigure = id => { if (PR.media.isMedia(PR.blockById[id])) PR.openSide("fig:" + id); };

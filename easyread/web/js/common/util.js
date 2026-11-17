@@ -24,6 +24,40 @@ window.PR = window.PR || {};
   // 按钮上（“翻译成中文”）简体照旧叫中文，只在选语言的下拉里分简繁
   PR.targetName = (code) => code === "zh" || !code ? PR.t("中文") : (PR.TARGETS.find(([k]) => k === code) || PR.TARGETS[0])[1];
 
+  function splitShort(text, isZh) {
+    if (!text) return "";
+    let inMath = false;
+    for (let i = 0; i < text.length - 1; i++) {
+      if (text[i] === "$" && (i === 0 || text[i - 1] !== "\\")) {
+        inMath = !inMath;
+      } else if (!inMath) {
+        if (isZh && (text[i] === "：" || (text[i] === ":" && /\s/.test(text[i + 1])))) { // i18n-ok: punctuation parsing
+          return text.slice(0, i).trim();
+        }
+        if (!isZh && text[i] === ":" && /\s/.test(text[i + 1])) {
+          return text.slice(0, i).trim();
+        }
+      }
+    }
+    return text.trim();
+  }
+
+  PR.deriveShortTitle = function (title, isZh) {
+    if (!title) return "";
+    const maxLen = isZh ? 16 : 36;
+    const s = splitShort(title, isZh);
+    if (s && s !== title && s.length <= maxLen) return s;
+    const parts = title.split(/[？?！!———–\-]/);
+    if (parts.length > 1) {
+      const p2 = parts[1].trim();
+      if (p2 && p2.length >= 2 && p2.length <= maxLen) return p2;
+      const p1 = parts[0].trim();
+      if (p1 && p1.length >= 2 && p1.length <= maxLen) return p1;
+    }
+    if (title.length <= maxLen) return title;
+    return title.slice(0, maxLen - 1) + "…";
+  };
+
   /* 论文标题哪个当主标题：译文语言和界面语言一样时用译文标题（中文界面看中文译文），
      繁体也算中文；否则用英文原标题，译文标题放第二行。short 是侧栏用的短标题。
      译成英文时原标题可能是别的语言，不标 lang；原文本来就是英文、标题照抄的，第二行不重复 */
@@ -33,12 +67,14 @@ window.PR = window.PR || {};
       const sub = tr && PR.lang.split("-")[0] === lang.split("-")[0] ? tr : en;
       return { main: i.display_title, short: i.display_title, sub: sub === i.display_title ? "" : sub, subLang: sub === tr ? lang : "" };
     }
-    if (tr && (PR.lang.split("-")[0] === lang.split("-")[0] || !en)) return { main: tr, sub: tr === en ? "" : en, subLang: lang === "en" ? "" : "en", short: i.short_zh || tr.split(/[：:]/)[0] };
-    return { main: en || PR.t("（未命名）"), sub: tr, subLang: lang, short: en.split(/:\s/)[0] || PR.t("（未命名）") };
+    const shortZh = i.meta_override?.title_zh && !i.meta_override.short_zh ? PR.deriveShortTitle(tr, true) : i.short_zh || splitShort(tr, true);
+    if (tr && (PR.lang.split("-")[0] === lang.split("-")[0] || !en)) return { main: tr, sub: tr === en ? "" : en, subLang: lang === "en" ? "" : "en", short: shortZh };
+    return { main: en || PR.t("（未命名）"), sub: tr, subLang: lang, short: splitShort(en, false) || PR.t("（未命名）") };
   };
 
   PR.esc = (s) => String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  PR.escAttr = (s) => PR.esc(s).replace(/'/g, "&#39;");
 
   /* 和 Python store.text_hash 一致：FNV-1a 32 位，按 UTF-16 码元 */
   PR.hashText = function (s) {
@@ -141,6 +177,8 @@ window.PR = window.PR || {};
   /* 图标：线性 20×20 */
   const P = {
     menu: "M3 5.5h14M3 10h14M3 14.5h9",
+    sun: "M10 13.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM10 2v1.6M10 16.4V18M2 10h1.6M16.4 10H18M4.3 4.3l1.2 1.2M14.5 14.5l1.2 1.2M15.7 4.3l-1.2 1.2M5.5 14.5l-1.2 1.2",
+    moon: "M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8z",
     back: "M12.5 4.5L7 10l5.5 5.5",
     search: "M9 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM13.5 13.5L17 17",
     plus: "M10 4v12M4 10h12",
@@ -151,8 +189,10 @@ window.PR = window.PR || {};
     en: "M8.5 5h-5v10h5M3.5 10h4.5M12 9v6M12 11c.6-1.3 1.5-2 2.7-2 1.1 0 1.8.8 1.8 2.1V15",
     page: "M5 2.5h6.5L15 6v11.5H5zM11 2.5V6h4",
     redo: "M15.5 8.5A6 6 0 1 0 16 12M16 4v4.5h-4.5",
+    sync: "M16 8.5A6.2 6.2 0 0 0 5.5 5.6L4 7M4 3.5V7h3.5M4 11.5A6.2 6.2 0 0 0 14.5 14.4L16 13M16 16.5V13h-3.5",
     copy: "M7 7h9v9H7zM4 13V4h9",
     trash: "M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10",
+    archive: "M3 4h14v3.5H3zM4.5 7.5h11V16h-11zM7.5 10.5h5",
     pdf: "M5 2.5h6.5L15 6v11.5H5zM7.5 10h5M7.5 13h5",
     book: "M3.5 4.5c2.5-.8 4.8-.5 6.5.8 1.7-1.3 4-1.6 6.5-.8v11c-2.5-.8-4.8-.5-6.5.8-1.7-1.3-4-1.6-6.5-.8zM10 5.3v11",
     panel: "M3.5 4h13v12h-13zM12 4v12",
@@ -174,24 +214,88 @@ window.PR = window.PR || {};
     link: "M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1",
     sparkle: "M10 3v4M10 13v4M3 10h4M13 10h4M5.5 5.5l2 2M12.5 12.5l2 2M14.5 5.5l-2 2M7.5 12.5l-2 2",
     question: "M7.5 7.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.8M10 14.5v.01M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16z",
+    paperclip: "M17.9 9.2l-7.7 7.7a5 5 0 0 1-7.1-7.1l7.1-7.1a3.3 3.3 0 0 1 4.7 4.7l-7.2 7.1a1.7 1.7 0 0 1-2.4-2.4l7.1-7.1",
   };
   PR.HL_COLORS = [["yellow", PR.t("黄")], ["green", PR.t("绿")], ["blue", PR.t("蓝")], ["pink", PR.t("红")]];  // pink 历史上叫粉，现在画成红
   PR.logo = (cls) => '<svg class="' + (cls || "mark") + '" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="#2d6173"/><path d="M16 10.5C13.6 8.8 10.4 8.3 7 8.6v14.2c3.4-.3 6.6.2 9 1.9 2.4-1.7 5.6-2.2 9-1.9V8.6c-3.4-.3-6.6.2-9 1.9z" fill="#f6f3ec"/><path d="M16 10.5v14.2" stroke="#2d6173" stroke-width="1.2"/><path d="M9.4 13.4h4M9.4 16.4h4M9.4 19.4h2.6" stroke="#9fb7bf" stroke-width="1.6" stroke-linecap="round"/><path d="M18.6 13.4h4M18.6 16.4h4M18.6 19.4h2.6" stroke="#e0a84f" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  P.settings = P.gear;
   PR.icon = (name, cls) => '<svg class="i' + (cls ? " " + cls : "") + '" viewBox="0 0 20 20" aria-hidden="true"><path d="' + (P[name] || "") + '"/></svg>';
   PR.icons = { menu: PR.icon("menu"), edit: PR.icon("edit", "sm"), note: PR.icon("note", "sm") };
+
+  PR.formatJobMessage = function (jobOrMsg) {
+    if (!jobOrMsg) return "";
+    const raw = typeof jobOrMsg === "string" ? jobOrMsg : (jobOrMsg.message || "");
+    const read = typeof jobOrMsg === "object" && jobOrMsg ? !!jobOrMsg.read : false;
+    const isEn = PR.lang === "en";
+    if (!raw) {
+      if (typeof jobOrMsg === "object" && jobOrMsg && jobOrMsg.state === "queued") return PR.t("排队中");
+      return PR.t("处理中");
+    }
+    const trimmed = raw.trim();
+    const direct = PR.t(trimmed);
+    if (direct !== trimmed) return direct;
+
+    const pageMatch = trimmed.match(/^(正在(?:翻译|翻譯)|正在整理原文|Translating|Processing original)\s*(.*)$/);
+    if (pageMatch) {
+      const verbRaw = pageMatch[1];
+      const rest = pageMatch[2].trim();
+      const isRead = read || verbRaw.includes("整理") || verbRaw.includes("original"); // i18n-ok: message keyword parsing
+      const verb = isEn ? (isRead ? "Processing original" : "Translating") : (isRead ? PR.t("正在整理原文") : PR.t("正在翻译"));
+      if (!rest) return verb;
+
+      const ranges = [];
+      const rangeRegex = /(\d+)(?:\s*[–—-]\s*(\d+))?/g;
+      let m;
+      while ((m = rangeRegex.exec(rest)) !== null) {
+        if (m[2]) ranges.push({ a: m[1], b: m[2] });
+        else ranges.push({ a: m[1] });
+      }
+
+      if (ranges.length > 0) {
+        if (isEn) {
+          const formattedRanges = ranges.map(r => r.b ? `${r.a}–${r.b}` : `${r.a}`).join(", ");
+          const pageWord = ranges.length > 1 || ranges.some(r => r.b) ? "pages" : "page";
+          return `${verb} ${pageWord} ${formattedRanges}`;
+        } else {
+          const formattedRanges = ranges.map(r => r.b ? PR.t("第 {a}–{b} 页", { a: r.a, b: r.b }) : PR.t("第 {page} 页", { page: r.a })).join(PR.t("、"));
+          return verb + formattedRanges;
+        }
+      }
+      return isEn ? `${verb} ${rest}` : `${verb}${rest}`;
+    }
+
+    return trimmed;
+  };
 
   PR.toast = function (html, action, ms) {
     let t = PR.$("#toast");
     if (!t) { t = PR.el("div", { id: "toast", role: "status" }); document.body.appendChild(t); }
-    t.innerHTML = "<span>" + html + "</span>";
+    const translatedHtml = typeof html === "string" && !html.includes("<") ? PR.t(html) : html;
+    t.innerHTML = "<span>" + translatedHtml + "</span>";
     if (action) {
-      const b = PR.el("button", { text: action.label });
+      const actLabel = action.label ? PR.t(action.label) : "";
+      const b = PR.el("button", { text: actLabel });
       b.onclick = () => { t.classList.remove("open"); action.fn(); };
       t.appendChild(b);
     }
     t.classList.add("open");
+    if (PR.translateDom) PR.translateDom(t);
     clearTimeout(PR._toastT);
     PR._toastT = setTimeout(() => t.classList.remove("open"), ms || 4200);
+  };
+
+  /* Browser fetch errors are usually English and give no useful next step. */
+  PR.errorText = function (error) {
+    const message = error && error.message != null ? String(error.message) : String(error || "");
+    if (error instanceof TypeError && /^(failed to fetch|networkerror when attempting to fetch resource\.?|load failed|network request failed)$/i.test(message.trim()))
+      return PR.t("无法连接到 EasyRead 本地服务。请确认 EasyRead 正在运行后重试。");
+    return message;
+  };
+
+  PR.navigateWorkspace = function (url) {
+    const shell = window.parent !== window ? window.parent?.easyreadTabs : null;
+    if (shell) return shell.open(url);
+    location.href = url;
   };
 
   /* 服务接口：写操作带页面加载时拿到的令牌 */
@@ -201,10 +305,23 @@ window.PR = window.PR || {};
     let body = opts.body;
     if (body != null && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) { body = JSON.stringify(body); headers["Content-Type"] = "application/json"; }
     if (opts.method && opts.method !== "GET") headers["X-Token"] = PR.token || "";
-    const r = await fetch(path, { method: opts.method || "GET", headers, body, cache: "no-store" });
+    let r;
+    try { r = await fetch(path, { method: opts.method || "GET", headers, body, cache: "no-store" }); }
+    catch (error) { throw new Error(PR.errorText(error)); }
     const data = await r.json().catch(() => ({}));
     if (r.status === 401 && data.login_required) location.assign("/login?next=" + encodeURIComponent(location.pathname + location.search + location.hash));
-    if (!r.ok) throw new Error(data.error || PR.t("请求失败 {status}", { status: r.status }));
+    if (!r.ok) {
+      if (r.status === 403 && data.error === "bad token" && !opts._retry) {
+        try {
+          const lib = await (await fetch("/api/library", { cache: "no-store" })).json();
+          if (lib && lib.token) {
+            PR.token = lib.token;
+            return await PR.api(path, Object.assign({}, opts, { _retry: true }));
+          }
+        } catch (_) {}
+      }
+      throw new Error(data.error || PR.t("请求失败 {status}", { status: r.status }));
+    }
     return data;
   };
 
@@ -224,7 +341,7 @@ window.PR = window.PR || {};
     let m = PR.$("#ctxmenu");
     if (!m) { m = PR.el("div", { id: "ctxmenu", class: "menu" }); document.body.appendChild(m); }
     m.innerHTML = '<div class="menu-list">' + items.map((it, i) => it === "-" ? "<hr>" :
-      '<button data-i="' + i + '"' + (it.disabled ? " disabled" : "") + ">" + (it.icon ? PR.icon(it.icon, "sm") : "") + "<span>" + PR.esc(it.label) + "</span>" +
+      '<button data-i="' + i + '"' + (it.disabled ? " disabled" : "") + (it.danger ? ' class="danger"' : "") + ">" + (it.icon ? PR.icon(it.icon, "sm") : "") + "<span>" + PR.esc(it.label) + "</span>" +
       (it.kbd ? '<span class="kbd">' + PR.esc(it.kbd) + "</span>" : "") + "</button>").join("") + "</div>";
     m.onclick = (e) => {
       const b = e.target.closest("[data-i]"); if (!b) return;

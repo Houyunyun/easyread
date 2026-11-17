@@ -19,7 +19,7 @@ from ..app import cli_models, config, i18n, open_link, prefs, updates
 from ..engines import detect, engines, usage
 from ..translate import langs
 from ..library import citations, trash
-from . import settings_api, library_api, jobs_api, paper_api, wsock, network, access_routes
+from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes
 from .access import Access
 from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
@@ -53,6 +53,7 @@ class App:
         self.babeldoc = BabelDocJobs()
         self.token = os.urandom(12).hex()
         self.location = library_api.LibraryLocation(self)
+        research_api.recover(self)
         self.presence = None  # presence.Presence，serve() 里设
 
 
@@ -177,6 +178,11 @@ class Handler(BaseHTTPRequestHandler):
         app, lib = self.app, self.app.lib
         if access_routes.get(self, path):
             return
+        research = research_api.get(app, path + ("?" + url.query if url.query else ""))
+        if research is not None:
+            return self._json(200, research)
+        if path == "/research":
+            return self._page(WEB / "research.html")
         if path in ("/", "/index.html"):
             return self._page(WEB / "library.html")
         if path in ("/babeldoc", "/web/babeldoc.html"):
@@ -203,11 +209,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"items": lib.list(), "token": app.token, "jobs": app.jobs.small_status(),
                                     "library_status": app.location.status, "other_device": app.location.marker.other_device(),
                                     "engine": cfg.get("engine"), "engine_label": cli_models.engine_label(cfg),
-                                    "first_run": config.is_first_run(), "version": __version__, "trash": len(trash.items(lib.root))})
+                                    "research_statuses": research_api.statuses(lib.root),
+                                    "first_run": config.is_first_run(), "version": __version__, "trash": len(trash.items(lib.root)) + research_api.trash_count(lib.root)})
         if path == "/api/update":  # 有没有新版本（一天最多问一次 GitHub）
             return self._json(200, updates.check(force=parse_qs(url.query).get("force") == ["1"]))
         if path == "/api/trash":
-            return self._json(200, {"items": trash.items(lib.root)})
+            return self._json(200, {"items": [{**item, "type": "paper"} for item in trash.items(lib.root)] + research_api.trash_items(lib.root)})
         if path == "/api/config":
             return self._json(200, {"config": config.public(config.load()), "presets": config.PRESETS, "groups": config.PRESET_GROUPS})
         if path == "/api/engines":
@@ -241,6 +248,8 @@ class Handler(BaseHTTPRequestHandler):
                     opened["status"] = "reading"
                 if app.location.status == "idle":
                     ws.patch_item(opened)
+                if app.location.status == "idle":
+                    research_api.refresh_annotations(ws)
                 # Take versions before reading content: concurrent preparation
                 # can then trigger a later poll, never tag old data as current.
                 versions = ws.versions()
@@ -272,7 +281,7 @@ class Handler(BaseHTTPRequestHandler):
                 from ..export.build import build
                 out = build(ws, mobile=parse_qs(url.query).get("mobile") == ["1"])
                 return self._download(out.read_bytes(), out.name, "text/html; charset=utf-8")
-            if action == "part" and len(parts) > 5 and parts[5] in ("paper", "discussion", "reader", "layout", "job"):
+            if action == "part" and len(parts) > 5 and parts[5] in ("paper", "discussion", "reader", "layout", "job", "item"):
                 version = ws.versions()[parts[5]]
                 return self._json(200, {"data": ws.load(parts[5]), "version": version})
         if path.startswith("/p/"):
@@ -340,6 +349,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if access_routes.post(self, path):
             return
+        if research_api.matches(path):
+            result = research_api.post(app, path, q, self._body())
+            return self._json(200, result)
         if path in library_api.POST:
             return self._json(200, library_api.post(app, path, json.loads(self._body() or b"{}")))
         if path in jobs_api.POST:  # 一键停止翻译
@@ -369,14 +381,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, settings_api.POST[path](json.loads(self._body() or b"{}")))
         if path == "/api/prefs":
             return self._json(200, prefs.save(json.loads(self._body() or b"{}")))
-        if path == "/api/trash":  # 回收站：restore 恢复一篇 / purge 彻底删一篇 / empty 清空
+        if path == "/api/trash":
             body = json.loads(self._body() or b"{}")
-            act, name = body.get("action"), body.get("name", "")
-            if act not in ("restore", "purge", "empty"):
-                raise ValueError(tr("action 只能是 restore / purge / empty"))
-            if act == "restore":
-                return self._json(200, {"id": trash.restore(lib.root, name)})
-            return self._json(200, {"deleted": trash.purge(lib.root, name) if act == "purge" else trash.empty(lib.root)})
+            return self._json(200, research_api.trash_post(lib.root, body))
 
         if path.startswith("/api/p/"):
             parts = path.split("/")

@@ -5,6 +5,12 @@ function shellUrl(base, target) {
   return url.href;
 }
 
+function detachedShellUrl(base, token) {
+  const url = new URL("/web/tabs.html", base);
+  url.searchParams.set("detached", token);
+  return url.href;
+}
+
 function openPaper(window, target) {
   return window.webContents.executeJavaScript(
     `window.easyreadTabs ? (window.easyreadTabs.open(${JSON.stringify(target)}), true) : false`
@@ -22,4 +28,4 @@ function bindShortcuts(window) {
   });
 }
 
-module.exports = { shellUrl, openPaper, bindShortcuts };
+module.exports = { shellUrl, detachedShellUrl, openPaper, bindShortcuts };

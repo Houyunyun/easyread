@@ -72,7 +72,7 @@
   PR.undoAnnotation = id => replay(undo, redo, true, id);
   PR.redoAnnotation = () => replay(redo, undo, false);
   document.addEventListener("keydown", e => {
-    if (e.defaultPrevented || e.isComposing || e.altKey || !(e.ctrlKey || e.metaKey) ||
+    if (PR.inkActive?.() || e.defaultPrevented || e.isComposing || e.altKey || !(e.ctrlKey || e.metaKey) ||
         e.target.closest?.("input, textarea, [contenteditable], [role=textbox]") ||
         document.body.classList.contains("mobile-read")) return;
     const key = String(e.key).toLowerCase();

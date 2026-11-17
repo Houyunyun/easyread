@@ -3,6 +3,7 @@
 (function () {
   "use strict";
   if (!["http:", "https:"].includes(location.protocol) || typeof WebSocket === "undefined") return;
+  if (typeof document !== "undefined" && document.getElementById?.("pr-data")) return;
   let retries = 0;
   function connect() {
     let ws;

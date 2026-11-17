@@ -44,6 +44,20 @@ class ParseJsonTest(unittest.TestCase):
         text = '{"blocks": [{"id": "p1-1", "zh": "第一行\n第二行"}]}'
         self.assertEqual(parse_json(text)["blocks"][0]["zh"], "第一行\n第二行")
 
+    def test_query_string_arrays_are_not_mistaken_for_numeric_citations(self):
+        self.assertEqual(parse_json('See [1, 2]. ["masked images", "segmentation"]'),
+                         ["masked images", "segmentation"])
+
+    def test_single_slash_tex_commands_are_not_json_control_characters(self):
+        raw = r'{"quote": "$\frac{\beta}{\theta}+\nabla f(\rho)=\text{const}$"}'
+        self.assertEqual(parse_json(raw)["quote"],
+                         r"$\frac{\beta}{\theta}+\nabla f(\rho)=\text{const}$")
+
+    def test_valid_escapes_and_escaped_tex_remain_unchanged(self):
+        import json
+        data = {"quote": "$\\frac{a}{b}$", "text": "first\nnext\tindented\rreturn", "unicode": "你好"}
+        self.assertEqual(parse_json(json.dumps(data)), data)
+
     def test_refusal_prose_has_no_json(self):
         text = "**结论：** 这两页不输出译文。下面是页面结构，见 [1] 和 [2]。"
         with self.assertRaisesRegex(EngineError, "没有 JSON"):

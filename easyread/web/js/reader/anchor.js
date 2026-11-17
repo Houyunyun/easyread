@@ -79,6 +79,7 @@
     }
     const math = document.getElementById("b-" + n.anchor)?.querySelector(".math-body");
     if (math) {
+      if (n.target === "formula" && n.quote === PR.blockById[n.anchor]?.tex) return { el: math, i: 0, length: fullText(math).length };
       const i = findQuote(fullText(math), n.quote, n.prefix, n.suffix, n.start);
       return i >= 0 ? { el: math, i } : null;
     }
@@ -116,7 +117,7 @@
       seen.add(id);
       const at = locate(p);
       if (!at) { miss.add(id); continue; }
-      wrap(at.el, at.i, at.i + p.quote.length, attrs);
+      wrap(at.el, at.i, at.i + (at.length ?? p.quote.length), attrs);
     }
     seen.forEach((id) => (miss.has(id) ? lost.add(id) : lost.delete(id)));
     PR.applyMirrors && PR.applyMirrors(scope);

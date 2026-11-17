@@ -68,6 +68,7 @@ async function desktop(platform = "darwin", lock = true, ready = true, argv = []
     : name === "./startup-feedback.cjs" ? { ...require("../../electron/startup-feedback.cjs"), mark(_app, stage) { stages.push(stage); }, loginShellPath: async () => "/usr/bin:/bin" }
     : name === "./desktop-updates.cjs" ? { registerUpdates() {} }
     : name === "./desktop-exports.cjs" ? require("../../electron/desktop-exports.cjs")
+    : name === "./desktop-tab-windows.cjs" ? require("../../electron/desktop-tab-windows.cjs")
     : name === "./desktop-tabs.cjs" ? require("../../electron/desktop-tabs.cjs")
     : name === "./deep-link.cjs" ? require("../../electron/deep-link.cjs")
     : name === "./data-dir.cjs" ? { prepare: async () => null }

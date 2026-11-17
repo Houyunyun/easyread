@@ -4,6 +4,7 @@ node_modules/
 __pycache__/
 *.pyc
 /library/
+/.research-os/
 /config.json
 /.access.json
 /.access-*

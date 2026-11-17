@@ -64,6 +64,24 @@ def build(ws: Workspace, out: Path | None = None, assets: Path | None = None, ex
         else:
             images[rel] = _data_uri(src, mimetypes.guess_type(src.name)[0] or "image/webp")
     data = {n: ws.load(n) for n in ("discussion", "reader", "layout", "item")}
+    # Embed the catalog and attribution, so inserting and editing stickers works
+    # without contacting the application server (including a fresh offline note).
+    sticker_root = (WEB / "stickers").resolve()
+    catalog = json.loads((sticker_root / "sticker-manifest.json").read_text(encoding="utf-8"))
+    sticker_assets = []
+    for asset in catalog["assets"]:
+        rel = str(asset.get("path", "")).removeprefix("/public/stickers/")
+        file = (sticker_root / rel).resolve()
+        if not file.is_relative_to(sticker_root) or not file.is_file():
+            continue
+        mime = {".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp"}.get(file.suffix.lower())
+        if mime:
+            sticker_assets.append({**asset, "offlineData": _data_uri(file, mime)})
+    data["stickerAssets"] = sticker_assets
+    data["stickerLicenses"] = {name: (sticker_root / name).read_text(encoding="utf-8")
+                               for name in ("LICENSE-LUCIDE.txt", "LICENSE-CC-BY-SA-4.0.txt")}
+    from ..research.workspace import offline_snapshot
+    data.update(offline_snapshot(ws))
     if mobile:  # 笔记、讨论、改过的译文都带上（手机上只读）；原页定位用不上
         data["layout"] = {}
     if paper.get("meta", {}).get("source_type") == "web":

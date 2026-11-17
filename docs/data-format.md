@@ -158,3 +158,17 @@ JSON 里 TeX 的反斜杠要写两个（`\\frac`）。`\f` `\b` `\t` `\n` `\r` �
 ## 为什么用 JSON 文件而不是数据库
 
 EasyRead 是个人工具：一个人、一台电脑、几十到几百篇论文。每篇一个文件夹、几个 JSON，好处是能直接看、能直接备份和同步（网盘、git 都行），agent 在对话里也能直接读写；按“谁写哪个文件”分开之后，也不需要数据库的并发控制。文献库列表每次扫描各文件夹生成，几百篇以内是毫秒级。浏览器 localStorage 只用来暂存还没写进文件的修改和缓存偏好，不是数据的正本。
+
+## 研究工作区与画布批注
+
+PaperRead 迁移增加以下数据，不改变现有论文 JSON 的字段含义，也不迁移或重命名 EasyRead 数据目录：
+
+- `reader.json` 增加 `ink`、`stickers`、`ai_annotations` 字典。对象保留稳定 ID、更新时间与删除标记；手写保存段落锚点、参考尺寸、文字哈希和点集，贴纸/文本框保存位置、素材及可选 `groupId`。操作继续通过读者写锁、日志与本机待发送队列处理。
+- `item.json` 增加 `reading_plan`、`interested`、`paper_ref`、`manual_order` 等研究字段。版本轮询包含 `item`，`/api/p/{id}/part/item` 可读取对应最新数据。
+- `<文献库>/.paperread-planning.sqlite3` 保存候选、阅读状态、里程碑、关注、摘要与阅读路线。沿用上游文件名以兼容其数据；这与论文正文的 JSON 存储分工不同。路线和导图带版本号，陈旧页面的写入不能覆盖较新的结果。
+- `<文献库>/.research-tasks/` 保存后台研究任务状态。服务重启后标记中断任务，不静默重复模型调用。
+- EasyRead 数据目录 `.research-os/` 保存研究提案、检索模型缓存和按 Vault/文献库隔离的 SQLite 索引。提案绑定创建时的规范化 Vault 路径；切换 Vault 后不能把旧提案误写到新位置。
+- Obsidian `Research/.paperread-index.json` 记录已导出的稳定研究 ID。Markdown 的 `paperread:managed` 区块用于安全更新；区块外的用户编辑保留。不带来源 Vault 的历史提案需重新生成后再接受。
+- `<文献库>/.zotero-sync.json` 记录单向同步的 PDF 指纹，防止自动重新导入用户已删除的文献。
+
+离线 HTML 同时嵌入已保存的导图、深度报告、画布数据和贴纸资产；它不保存模型密钥。研究工作区的使用入口和导出限制见[研究指南](research.md)。

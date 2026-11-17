@@ -1,8 +1,8 @@
 /* View original figure pixels without changing paper layout or saved notes. */
 (function (PR) {
   "use strict";
-  const selector = "#paper .figure-media img, .media-preview .media-image img";
-  let dialog, image, viewport, label, origin, scale = 1, drag, suppressClick = 0;
+  const selector = "#paper .figure-media img, .media-preview .media-image img, #paper .orig-page img";
+  let dialog, image, viewport, label, origin, scale = 1, drag, suppressClick = 0, pendingPage = false, pendingBox = null;
   function setScale(next, center) {
     if (!image.naturalWidth) return;
     const old = scale;
@@ -22,6 +22,32 @@
     setScale(Math.min(1, (viewport.clientWidth - 24) / image.naturalWidth,
       (viewport.clientHeight - 24) / image.naturalHeight), true);
   }
+  function applyInitialView() {
+    if (!image.naturalWidth) return;
+    if (!pendingPage) {
+      fit();
+      return;
+    }
+    const nextScale = Math.min(1, Math.max(0.5, (viewport.clientWidth - 24) / (image.naturalWidth * 0.84)));
+    setScale(nextScale, true);
+    const imgW = Math.round(image.naturalWidth * scale);
+    const imgH = Math.round(image.naturalHeight * scale);
+    if (pendingBox) {
+      const [x0, y0, x1, y1] = pendingBox;
+      const cx = (x0 + x1) / 2;
+      const cy = (y0 + y1) / 2;
+      const boxH = (y1 - y0) * imgH;
+      viewport.scrollLeft = Math.max(0, Math.round(cx * imgW - viewport.clientWidth / 2));
+      if (boxH > viewport.clientHeight * 0.82) {
+        viewport.scrollTop = Math.max(0, Math.round(y0 * imgH - 36));
+      } else {
+        viewport.scrollTop = Math.max(0, Math.round(cy * imgH - viewport.clientHeight / 2));
+      }
+    } else {
+      viewport.scrollLeft = Math.max(0, Math.round((imgW - viewport.clientWidth) / 2));
+      viewport.scrollTop = 0;
+    }
+  }
   function create() {
     dialog = document.createElement("dialog");
     dialog.className = "figure-viewer";
@@ -38,7 +64,7 @@
     image = dialog.querySelector("img");
     viewport = dialog.querySelector(".figure-viewer-scroll");
     label = dialog.querySelector(".figure-viewer-scale");
-    image.onload = fit;
+    image.onload = applyInitialView;
     image.onerror = () => { dialog.close(); PR.toast(PR.t("图片未能加载，请查看原页")); };
     dialog.addEventListener("close", () => { drag = null; origin?.focus({ preventScroll: true }); });
     dialog.addEventListener("click", e => {
@@ -69,16 +95,51 @@
     viewport.addEventListener("pointercancel", stop);
     viewport.addEventListener("lostpointercapture", stop);
   }
-  function open(source) {
+  function pageSource(pageNum) {
+    const n = Number(pageNum);
+    if (!n || n < 1) return "";
+    const pages = (((PR.state || {}).paper || {}).meta || {}).pages || [];
+    const entry = pages.find(p => Number(p.n) === n) || pages[n - 1];
+    const rel = (entry && entry.img) || ("pages/page-" + String(n).padStart(3, "0") + ".webp");
+    return PR.imageUrl ? PR.imageUrl(rel) : rel;
+  }
+  function blockBoxOf(zoomBtn, pageNum) {
+    const blockId = (zoomBtn.dataset && zoomBtn.dataset.zoomBlock) || zoomBtn.closest?.(".blk")?.dataset?.id || "";
+    if (!blockId) return null;
+    const layout = ((PR.state || {}).layout) || {};
+    const loc = layout[blockId];
+    if (!loc || (loc.page && Number(loc.page) !== Number(pageNum))) return null;
+    const boxes = Array.isArray(loc.boxes) && loc.boxes.length
+      ? loc.boxes
+      : (Array.isArray(loc.box) && loc.box.length === 4 ? [loc.box] : []);
+    if (!boxes.length) return null;
+    return [
+      Math.min(...boxes.map(b => Number(b[0]))),
+      Math.min(...boxes.map(b => Number(b[1]))),
+      Math.max(...boxes.map(b => Number(b[2]))),
+      Math.max(...boxes.map(b => Number(b[3]))),
+    ];
+  }
+  function open(source, customSrc, customAlt, isPage, focusBox) {
     if (!dialog) create();
     origin = source;
-    image.alt = source.alt || PR.t("查看图片");
-    image.src = source.currentSrc || source.src;
+    pendingPage = !!isPage; pendingBox = focusBox || null;
+    image.alt = customAlt || source.alt || PR.t("查看图片");
+    image.src = customSrc || source.currentSrc || source.src;
     scale = 1;
     dialog.showModal();
-    if (image.complete && image.naturalWidth) fit();
+    if (image.complete && image.naturalWidth) applyInitialView();
   }
   function prepare() {
+    document.querySelectorAll("#paper .blk-figure, #paper .blk-table").forEach(block => {
+      const data = PR.blockById?.[block.dataset.id];
+      if ((PR.feature && !PR.feature("pages")) || !data?.page || block.querySelector("[data-zoom-page]") || !pageSource(data.page) || PR.state.paper?.meta?.source_type === "web") return;
+      const button = document.createElement("button"); button.type = "button"; button.className = "fig-zoom-btn";
+      button.dataset.zoomPage = data.page; button.dataset.zoomBlock = data.id;
+      button.title = PR.t("放大檢視原文第 {n} 頁", { n: data.page }); button.setAttribute("aria-label", button.title);
+      button.innerHTML = PR.icon("search", "sm");
+      (block.querySelector(".figure-media") || block).append(button);
+    });
     document.querySelectorAll(selector).forEach(img => {
       img.tabIndex = 0;
       img.setAttribute("role", "button");
@@ -97,6 +158,18 @@
   }, true);
   document.addEventListener("dragend", () => { suppressClick = Date.now() + 300; }, true);
   document.addEventListener("click", e => {
+    const zoomBtn = e.target.closest?.("[data-zoom-page]");
+    if (zoomBtn && zoomBtn.dataset && zoomBtn.dataset.zoomPage) {
+      const pageNum = Number(zoomBtn.dataset.zoomPage);
+      const src = pageSource(pageNum);
+      if (!src) {
+        PR.toast && PR.toast(PR.t("此版本未收錄原頁圖"));
+        return;
+      }
+      e.preventDefault(); e.stopImmediatePropagation();
+      open(zoomBtn, src, PR.t("原文第 {n} 页", { n: pageNum }), true, blockBoxOf(zoomBtn, pageNum));
+      return;
+    }
     const source = e.target.closest(selector);
     if (!source || Date.now() < suppressClick) return;
     e.preventDefault(); e.stopImmediatePropagation(); open(source);

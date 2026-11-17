@@ -98,6 +98,34 @@ EASYREAD_HTTPS_PROXY=http://172.16.1.116:7890
 
 Build proxies do not configure the Docker daemon's base-image pulls. Use `host.docker.internal` for a host proxy/Ollama; container loopback is not the host.
 
+For slow Python dependency downloads, both image targets accept an optional mirror:
+
+```dotenv
+EASYREAD_PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple
+EASYREAD_BUILD_NO_PROXY=localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn
+```
+
+`https://pypi.tuna.tsinghua.edu.cn/simple` is another option. Mirror traffic is direct while overseas CLI downloads keep using the build proxy. This affects builds only, does not change model API endpoints, and does not disable TLS verification.
+
+## Research workspace and Obsidian
+
+Both full and lite images include the research workspace, reading paths, editable mind maps, annotations, cross-paper analysis and Markdown export ported from PaperRead. Open `/research` or choose **Research Explorer** in the library. Research uses the same access-code protection. AI actions still require an authenticated CLI or a configured API model.
+
+Semantic retrieval downloads a pinned multilingual model on first use (about 250 MB), cached under `/data/EasyRead/.research-os/` in the app-data volume. If downloading fails, configure the proxy and retry. Keyword retrieval remains available while the model is prepared.
+
+An Obsidian Vault must be a **writable container path**. Use `/data/EasyRead/vault` to keep exports in the existing data volume without a host bind mount. To share a host Vault, create `docker-compose.override.yml`:
+
+```yaml
+services:
+  easyread:
+    volumes:
+      - ./vault:/vault
+```
+
+Create the host `./vault` directory and give container UID/GID 1000 read/write permission, then run `docker compose up -d`. Enter `/vault` in research settings or the first export prompt, not a path on the browser computer. Headless containers offer a manual path prompt. Do not use the read-only `:ro` import mount for a Vault.
+
+Re-export preserves user text outside managed blocks. Mind-map exports retain editable Mermaid source alongside the PNG preview. See the [research guide](research.en.md).
+
 ## Data and updates
 
 | Named volume (prefixed by Compose project) | Content |

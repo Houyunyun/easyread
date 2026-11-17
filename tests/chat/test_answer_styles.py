@@ -11,6 +11,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.http_support import anonymous_access
 from easyread.chat import answer_styles, chat, chat_store
 from easyread.server.server import Handler
 from easyread.library.store import Workspace, write_json_atomic
@@ -59,6 +60,15 @@ class AnswerStyleTest(unittest.TestCase):
                 self.assertIn("每句表达一个主要意思", ste)
                 self.assertIn("不要把英文的词数限制机械地套到中文", ste)
                 self.assertIn("不要声称", ste)
+
+    def test_deep_and_ste_styles_respect_each_papers_language(self):
+        from easyread.translate import langs
+        for language in ("en", "zh-Hant", "ja"):
+            self.ws.update("paper", lambda paper: paper["meta"].update(target=language))
+            for style in ("xray", "ste100"):
+                text = chat.prompt(self.ws, [{"role": "user", "content": "Explain"}], None, "", "openai", answer_style=style)
+                self.assertIn(langs.prompt_name(language), text)
+                self.assertNotIn("只输出中文回答", text)
 
     def test_standard_question_keeps_later_sections_with_or_without_selection(self):
         for engine in ("openai", "claude", "codex", "opencode", "zcode"):
@@ -171,7 +181,7 @@ class AnswerStyleTest(unittest.TestCase):
         ws = self.ws
 
         class TestHandler(Handler):
-            app = types.SimpleNamespace(token="test-token", lib=types.SimpleNamespace(ws=lambda pid: ws),
+            app = types.SimpleNamespace(access=anonymous_access(ws.root), token="test-token", lib=types.SimpleNamespace(ws=lambda pid: ws),
                                         location=types.SimpleNamespace(status="idle", request=lambda *a: contextlib.nullcontext()))
 
             def log_message(self, *args):

@@ -25,7 +25,7 @@
         row({ name: PR.t("全部"), sub: PR.t("始终显示"), fixed: true }) +
         BUILTIN.map(([k, name, note]) => row({ name, sub: note || PR.t("{n} 篇", { n: count((L.VIEWS.find((v) => v[0] === k) || [])[3] || (() => false)) }), pinKey: "v:" + k, hideKey: k })).join("") + "</div>" +
         '<h4 class="set-h">' + PR.t("我的分类") + '</h4><div class="sb-list">' +
-        (cats.map((c) => row({ name: c, label: PR.catTree.leaf(c), depth: PR.catTree.depth(c), sub: PR.t("{n} 篇", { n: count((x) => L.inCat(x, c)) }), pinKey: "c:" + c, hideKey: "c:" + c, custom: true, renaming: s.libRename === c })).join("") || '<p class="hint">' + PR.t("还没有自建分类。") + "</p>") +
+        (cats.map((c) => row({ name: c, label: PR.catTree.leaf(c), depth: PR.catTree.depth(c), sub: PR.t("{n} 篇", { n: count((x) => !x.archived && L.inCat(x, c)) }), pinKey: "c:" + c, hideKey: "c:" + c, custom: true, renaming: s.libRename === c })).join("") || '<p class="hint">' + PR.t("还没有自建分类。") + "</p>") +
         '</div><div class="cm-form-acts" style="margin-top:10px"><input class="input" id="libNewInput" placeholder="' + PR.t("新分类的名字，“父/子”建子分类") + '" maxlength="' + PR.catTree.MAX_PATH + '" style="max-width:280px"><button class="btn sm line" data-lib="add">' + PR.icon("plus", "sm") + PR.t("新建分类") + "</button></div>";
     },
     async click(e, s) {

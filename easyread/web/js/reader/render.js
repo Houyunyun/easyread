@@ -261,6 +261,12 @@
       (S.figure_images_enabled && !running && Object.keys(job.image_failed || {}).length ? '<button class="btn sm line" data-t="retry-figure-images">' + PR.t("重试失败的译图") + '</button>' : '') + '</div>';
   }
 
+  PR.renderPaperHead = () => {
+    const head = PR.$("#b-head");
+    if (!head) return;
+    head.outerHTML = headHtml(); PR.applyReadingLanguage?.(); PR.emit("paper-head-rendered");
+  };
+
   /* 还没译的页：放原页图，边译边读 */
   const origFig = (p) => '<figure class="orig-page" id="orig-' + p.n + '"><figcaption>' + PR.t("原文第 {n} 页", { n: p.n }) + '</figcaption><img loading="lazy" style="aspect-ratio:' + (Number(p.w) > 0 ? Number(p.w) : 612) + '/' + (Number(p.h) > 0 ? Number(p.h) : 792) + '" src="' + PR.imageUrl(p.img) + '" alt="' + PR.t("原文第 {n} 页", { n: p.n }) + '"></figure>';
   const failedOf = () => ((S.job || {}).state === "partial" && S.job.failed) || {};

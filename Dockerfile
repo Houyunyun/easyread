@@ -2,6 +2,13 @@ FROM node:22-bookworm-slim AS node
 
 FROM python:3.12-slim AS python-deps
 WORKDIR /opt/easyread
+# Semantic retrieval is available in both full and lite images.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+# Large wheels can pause behind an outbound proxy; keep retries bounded.
+ARG PIP_DEFAULT_TIMEOUT=120
+ARG PIP_RETRIES=5
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY pyproject.toml /tmp/easyread-pyproject.toml
 RUN python -c "import subprocess,sys,tomllib; subprocess.check_call([sys.executable,'-m','pip','install','--no-cache-dir',*tomllib.load(open('/tmp/easyread-pyproject.toml','rb'))['project']['dependencies']])" \
     && useradd --create-home --uid 1000 easyread \
@@ -17,6 +24,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('EASYREAD_PORT', '8765') + '/healthz', timeout=3).close()"
 
 FROM python-deps AS lite
+ARG PIP_DEFAULT_TIMEOUT=120
+ARG PIP_RETRIES=5
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY pyproject.toml README.md LICENSE ./
 COPY easyread ./easyread
 RUN python -m pip install --no-cache-dir --no-deps .
@@ -25,6 +35,9 @@ CMD ["python", "-m", "easyread", "serve"]
 
 # Heavy dependencies are independent of app source, so UI updates reuse them.
 FROM python-deps AS full-deps
+ARG PIP_DEFAULT_TIMEOUT=120
+ARG PIP_RETRIES=5
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
@@ -65,6 +78,9 @@ RUN mv /home/easyread /opt/easyread-cli-seed \
     && mkdir /home/easyread && chown easyread:easyread /home/easyread
 
 FROM full-deps AS full
+ARG PIP_DEFAULT_TIMEOUT=120
+ARG PIP_RETRIES=5
+ARG PIP_INDEX_URL=https://pypi.org/simple
 COPY pyproject.toml README.md LICENSE ./
 COPY easyread ./easyread
 RUN python -m pip install --no-cache-dir --no-deps .

@@ -26,7 +26,7 @@ function exporter(chat, mode, failure) {
     toast: text => result.notices.push(text),
   };
   const context = { window: { PR, addEventListener() {} }, document: { addEventListener() {} }, Blob };
-  for (const file of ['common/markup.js', 'reader/notespanel.js', 'common/export-dialog.js', 'reader/export.js']) {
+  for (const file of ['common/markup.js', 'reader/notespanel.js', 'reader/notes-markdown.js', 'common/export-dialog.js', 'reader/export.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../easyread/web/js', file), 'utf8'), context);
   }
   return { PR, result, click: () => handler({ target: { closest: selector => selector === '[data-export-go]' ? go : null } }) };

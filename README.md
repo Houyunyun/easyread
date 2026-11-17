@@ -34,4 +34,6 @@ docker compose up -d --build
 2. 要翻译或提问时，在设置中选择已登录的受支持 CLI，或配置模型 API。文献库存放在本机，翻译和提问会把相关内容交给所选模型处理。
 3. 在侧栏并排看 PDF、写笔记。想找以前读过的内容，在文献库点「全库问 AI」，从回答中的引文回到原段落。
 
-[完整使用指南](docs/guide.md) · [贡献指南](CONTRIBUTING.md) · [版本记录](CHANGELOG.md) · [贡献者](docs/guide.md#贡献者) · [MIT 许可及演示论文署名](docs/guide.md#许可)
+研究工作区、阅读路径、可编辑 AI 思维导图、手写与贴纸批注、深度/跨论文分析、多标签分屏和 Obsidian 导出已整合到现有阅读流程。入口与模型/数据说明见[研究功能指南](docs/research.md)。
+
+[完整使用指南](docs/guide.md) · [研究功能](docs/research.md) · [贡献指南](CONTRIBUTING.md) · [版本记录](CHANGELOG.md) · [贡献者](docs/guide.md#贡献者) · [MIT 许可及演示论文署名](docs/guide.md#许可)

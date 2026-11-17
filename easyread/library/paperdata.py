@@ -6,6 +6,7 @@ import json
 
 from ..translate import codeblocks, sentences
 from ..app.i18n import tr
+from ..app.log import log
 from .glossary import merge_glossary
 from .reference_entries import merge_references
 from .store import Workspace, now_iso
@@ -109,7 +110,9 @@ def merge_blocks(ws: Workspace, data: dict, done=None, replace_pages=None, en_on
             _scope(paper)
         return {"new": n_new, "updated": n_upd, "done_pages": tr.get("done_pages", [])}
 
-    return ws.update("paper", apply)
+    result = ws.update("paper", apply)
+    _refresh_annotations(ws, {str(b.get("id")) for b in data.get("blocks", []) if b.get("id")})
+    return result
 
 
 def _record_page_saves(translation, pages):
@@ -168,7 +171,9 @@ def fill_zh(ws: Workspace, data: dict, pages: list[int], keys: set[str], sents: 
         _scope(paper)
         return missing
 
-    return ws.update("paper", apply)
+    result = ws.update("paper", apply)
+    _refresh_annotations(ws, {str(k).partition("#")[0] for k in keys})
+    return result
 
 
 def add_discussion(ws: Workspace, items) -> tuple[int, int]:
@@ -244,7 +249,16 @@ def set_block_text(ws: Workspace, key: str, zh: str, sents=None) -> None:
             return
         raise KeyError(key)
     ws.update("paper", apply)
+    _refresh_annotations(ws, {bid})
 
 
 def dumps(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=1)
+
+
+def _refresh_annotations(ws: Workspace, block_ids: set[str]) -> None:
+    try:
+        from ..chat.smart_annotations import refresh_after_translation
+        refresh_after_translation(ws, block_ids)
+    except Exception:  # Annotation repair must not interrupt a successful translation.
+        log.exception("AI annotation source refresh failed %s", ws.id)

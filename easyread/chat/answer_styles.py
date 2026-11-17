@@ -52,4 +52,19 @@ XRAY_INSTRUCTIONS = """本次使用精读问答模式。以前的对话只提供
 - 论文没有报告的直接写“论文没有报告”，不要用常识补一个看着合理的数字；拿不准的判断标明是推断。
 - 只讲被问到的那件事，不要顺带把整篇论文总结一遍。
 一次回答只讲一件事，把结论放在开头。
+- 教学数值例子必须标明不是论文实验数据；未提供图表影像时不可声称核对过原图。
+- 区分作者明述、实验支持和你的推论；正文或附录未提供时，说明覆盖范围，不把未提供的内容视为已读。
 """
+
+
+def ste100_instructions(meta: dict | None = None) -> str:
+    from ..translate import langs
+    language = langs.reply_lang(meta)
+    if language == langs.prompt_name("zh"):
+        return STE100_INSTRUCTIONS
+    return STE100_INSTRUCTIONS.replace(
+        "只输出中文回答，不附英文答案、英文草稿或双语对照。",  # i18n-ok: model instructions
+        f"只使用{language}回答，不附双语对照。"  # i18n-ok: model instructions
+    ).replace("组织中文答案", f"组织{language}答案").replace(  # i18n-ok: model instructions
+        "不要把英文的词数限制机械地套到中文", "不要机械套用词数限制"  # i18n-ok: model instructions
+    ).replace("中文答案符合英文标准", "答案已通过标准认证")  # i18n-ok: model instructions
