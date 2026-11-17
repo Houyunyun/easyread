@@ -14,14 +14,10 @@ function settings() {
   return PR;
 }
 
-test('terminal link is deployment gated and uses a separate origin', () => {
+test('settings exposes close lifecycle and no separate terminal origin', () => {
   const PR = settings();
-  assert.equal(PR.dockerTerminalUrl({}), '');
-  assert.equal(PR.dockerTerminalUrl({ docker_terminal: { port: 8766 } }), 'https://read.example:8766/');
-  assert.equal(PR.dockerTerminalUrl({ docker_terminal: { url: 'https://cli.example/terminal/' } }), 'https://cli.example/terminal/');
-  for (const terminal of [{port: 0}, {url: 'javascript:alert(1)'}, {url: 'https://user:secret@cli.example/'}, {url: 'http://cli.example/'}, {url: 'https://read.example:8765/terminal/'}]) {
-    assert.equal(PR.dockerTerminalUrl({ docker_terminal: terminal }), '');
-  }
+  assert.equal(typeof PR.settingsClose, 'function');
+  assert.equal(PR.dockerTerminalUrl, undefined);
 });
 
 test('proxy form escapes values and collects independent HTTP/HTTPS settings', () => {

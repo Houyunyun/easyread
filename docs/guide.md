@@ -108,7 +108,7 @@ easyread
 
 浏览器会打开 `http://127.0.0.1:8765`。服务默认只监听本机。
 
-**Docker / 服务器部署**：本 fork 默认完整镜像提供 Claude Code、Codex CLI、Chromium、BabelDOC、全站 HTTPS 管理认证和独立 Web 终端。运行 `docker compose up -d --build` 后可在浏览器终端登录/更新 CLI，网页“设置 → 网络与代理”配置全局代理。持久化、首次证书和服务器访问见 [完整 Docker 部署说明](docker.md)。
+**Docker / 服务器部署**：单容器、单端口，包含 Claude Code、Codex CLI、Chromium 和 BabelDOC。在“设置 → CLI 与终端”使用内嵌终端登录/更新，在“访问保护”管理可选授权码，在“网络与代理”配置全局代理。没有账号密码弹窗或第二个终端网址。详见 [完整 Docker 部署说明](docker.md)。
 
 ## 桌面版（Electron）
 

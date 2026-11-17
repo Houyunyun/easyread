@@ -81,9 +81,10 @@ class SystemProxyTest(unittest.TestCase):
             self.assertTrue(proxy.public()["enabled"])
 
     def test_runtime_capability_is_not_a_secret(self):
-        with patch.dict(os.environ, {"EASYREAD_TERMINAL_PORT": "8766", "EASYREAD_ADMIN_PASSWORD": "DO-NOT-EXPOSE"}):
+        with patch.dict(os.environ, {"EASYREAD_TERMINAL": "1", "EASYREAD_ACCESS_CODE": "DO-NOT-EXPOSE"}):
             public = config.public(config.DEFAULTS)
-            self.assertEqual(public["docker_terminal"]["port"], 8766)
+            self.assertTrue(public["embedded_terminal"])
+            self.assertNotIn("docker_terminal", public)
             self.assertNotIn("DO-NOT-EXPOSE", str(public))
 
     def test_concurrent_saves_keep_disk_and_environment_in_the_same_order(self):

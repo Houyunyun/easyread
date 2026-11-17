@@ -133,10 +133,9 @@ def public(cfg: dict) -> dict:
         out[section]["api_key"] = ("••••" + key[-4:]) if key else ""
         out[section]["has_key"] = bool(key)
         out[section]["saved_keys"] = [k for k, v in (out[section].pop("keys", None) or {}).items() if v]
-    # Runtime-only Docker capability; never expose administrator credentials.
-    terminal_port = os.environ.get("EASYREAD_TERMINAL_PORT", "")
-    if terminal_port.isdecimal() and 1 <= int(terminal_port) <= 65535:
-        out["docker_terminal"] = {"port": int(terminal_port), "url": os.environ.get("EASYREAD_TERMINAL_URL", "")}
+    # Runtime-only capability. Codes and sessions live outside model settings.
+    out.pop("docker_terminal", None)
+    out["embedded_terminal"] = os.environ.get("EASYREAD_TERMINAL") == "1"
     return out
 
 

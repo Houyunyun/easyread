@@ -1,10 +1,12 @@
-# Full Docker deployment
+# Docker: one service, one reading space
 
 [简体中文](docker.md)
 
-The default Compose deployment includes the Python backend, existing Web UI, **Claude Code, Codex CLI, Chromium and BabelDOC**, plus an authenticated browser terminal. Host Python, Node.js and Electron are not required. For the full deployment, use Docker Engine 24+, Compose v2 and a host permitting unprivileged user namespaces; allow at least 4 GB RAM and 8 GB free disk. Large papers/concurrent jobs need more RAM.
+The full image includes **Claude Code, Codex CLI, Chromium and BabelDOC**. A single container and port serve the reader, access-code settings, CLI management and embedded Web Terminal. There are no gateway/terminal sidecars, secondary ports or browser HTTP Basic prompts.
 
-## 1. Clone and start
+## Start
+
+Use Docker Engine 24+, Compose v2, at least 4 GB RAM and 8 GB free disk.
 
 ```bash
 git clone https://github.com/Jasaxion/easyread.git
@@ -13,87 +15,80 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The first build downloads model CLIs, a browser and PDF components. Later starts can use `docker compose up -d`. Optional build proxy and CLI versions are configured in `.env`; proxy build arguments use both lowercase and uppercase forms for apt/curl/npm/pip compatibility.
+Open **http://localhost:8765**. Defaults publish only on loopback and require no username. The first build downloads CLIs, browser/PDF components and the layout model. Later starts can use `docker compose up -d`.
 
-Default URLs:
+## Access code
 
-- Reader: **https://localhost:8765**
-- CLI terminal: **https://localhost:8766**
+Use **Settings → Access protection** to enable, disable or change the code:
 
-Both ports require administrator authentication at the HTTPS gateway. Backend/ttyd ports are not published. The terminal has a separate origin, rejects foreign-origin WebSockets and cannot be embedded in the reader. HTTP requests redirect to HTTPS.
+- When enabled, visitors see a dedicated EasyRead access page. Enter one code; there is no username or HTTP Basic dialog.
+- Codes require 6–256 characters; a long random string is recommended. Only a salted hash is stored, not retrievable plaintext.
+- Changing or disabling protection requires the current code. Other browser sessions are revoked and all terminals close; the current browser stays authorized.
+- `EASYREAD_ACCESS_CODE` optionally seeds the code on first startup. Later settings take precedence; changing the environment does not overwrite the saved code.
+- Sessions use HttpOnly/SameSite cookies and expire on server restart.
 
-### First-run credentials and certificate
+Access protection defaults to off for local personal use. **Configure a code before exposing the service to a network. With protection disabled, anyone who can reach the app can read/write papers, invoke models and use the container terminal.**
 
-First startup generates a random persistent password and a local self-signed certificate in a separate authentication volume. The password is never printed in startup logs. Retrieve it explicitly:
-
-```bash
-docker compose exec gateway easyread-admin credentials
+```dotenv
+EASYREAD_BIND_IP=0.0.0.0
+EASYREAD_PORT=8765
+EASYREAD_ALLOWED_HOSTS=192.168.1.20,easyread.lan
+EASYREAD_ACCESS_CODE=replace-with-your-own-long-random-code
 ```
 
-The default username is `admin`. Alternatively, set `EASYREAD_ADMIN_USER` and `EASYREAD_ADMIN_PASSWORD` (at least 16 characters) **before the first startup**. Changing `.env` does not silently reset an existing authentication volume.
+The allowlist contains server IPs/domains, not client IPs, and is not authentication. A server administrator who forgets the code can stop the container, remove only `/data/EasyRead/.access.json`, set a new `EASYREAD_ACCESS_CODE`, and restart. Do not remove the library.
 
-Your browser will initially warn that the certificate is not trusted by a public CA. Proceed only after confirming this is your deployment. You can check its fingerprint:
+### Remote access
+
+For SSH access without public exposure:
 
 ```bash
-docker compose exec gateway openssl x509 -in /auth/tls.crt -noout -fingerprint -sha256
+ssh -N -L 8765:127.0.0.1:8765 user@your-server
 ```
 
-Trust only your own certificate, not arbitrary certificate warnings. Public deployments should use a trusted certificate/HTTPS proxy.
+Then open localhost. Use an external HTTPS reverse proxy for public/untrusted networks. Preserve Host, Origin, Cookie and WebSocket Upgrade/Connection, disable streaming-response buffering and allow required uploads (up to 200 MiB). Deploy at the domain root and forward `/terminal/` to the same backend. Automatic self-signed certificates are no longer used; local HTTP avoids certificate warnings but does not encrypt transport.
 
-## 2. CLI login and updates in the browser
+## CLI and terminal inside Settings
 
-Choose **CLI login & terminal** at the bottom of Settings, or open the terminal URL. ttyd provides terminal input, clipboard support and resizing.
+Open **Settings → CLI & terminal**:
+
+- Claude Code / Codex cards show installed versions.
+- **Sign in**, **Login status** and **Update** run directly in the embedded terminal.
+- **Open terminal** starts an interactive shell; no second website or password.
+- Open CLI login links in your own browser and paste verification codes when requested. Codex uses device authentication rather than a publicly exposed OAuth callback.
+- **Disconnect**, switching tabs or closing Settings ends the terminal and unfinished commands. Complete login/update operations first.
+
+Available terminal commands:
 
 ```bash
 easyread-cli status
-
 easyread-cli login claude
 easyread-cli login codex
-
 easyread-cli auth-status claude
 easyread-cli auth-status codex
-
-# Update only while translation/AI/PDF jobs are idle
 easyread-cli update all
-# Or update individually
-easyread-cli update claude
-easyread-cli update codex
 ```
 
-Open Claude's login URL in your own browser and paste a verification code back if prompted. Codex uses `login --device-auth`, avoiding a publicly exposed OAuth callback port. Some accounts/workspaces require enabling device login. If unavailable, follow the [official Codex authentication documentation](https://developers.openai.com/codex/auth) and tunnel its local callback over SSH; do not publicly publish OAuth callback ports.
+Installation does not prove login, account entitlement, regional availability or quotas. Host logins are not copied and paid model calls are not made automatically. Update CLIs while model/PDF jobs are idle.
 
-Users complete their own login. No host credentials are copied or baked into images. Installation does not prove login, subscription entitlement, regional availability or model access.
+ttyd is reused internally, launched on demand on container loopback only and reached through the main site's access/origin checks. This is a personal administrator shell, not a multi-user sandbox. Do not share library write access with untrusted people.
 
-Disconnecting the terminal ends its shell and unfinished login/update commands, so finish them before closing the page. The reader stays running. Return to model Settings, choose **Detect again**, and select the desired translation/Ask AI model.
+## Optional global proxy
 
-### Persistence and update precedence
-
-App and terminal share UID/GID 1000, HOME and PATH:
-
-- App data: `/data/EasyRead`
-- CLI HOME: `/home/easyread`
-- Claude native binaries/updates: `~/.local/`; settings/login: `~/.claude/`, `~/.claude.json`
-- Codex npm binaries/updates: `~/.npm-global/`; settings/login: `~/.codex/`
-
-Startup fills only missing first-initialization files and never overwrites existing user files. CLI updates and logins survive container recreation. Consequently, rebuilding the app image does **not** replace persisted CLI versions: use the update commands to upgrade them. Keep HOME writable by UID/GID 1000.
-
-## 3. Optional global system proxies
-
-Use **Settings → Network & proxy** to enable and configure each field:
+**Settings → Network & proxy** controls `http_proxy`, `https_proxy` and `no_proxy`:
 
 ```text
 http_proxy  = http://172.16.1.116:7890
 https_proxy = http://172.16.1.116:7890
-no_proxy    = localhost,127.0.0.1,host.docker.internal
 ```
 
-That IP is a local testing example, not a universally available proxy. HTTPS requests using HTTP CONNECT can still use an `http://` proxy URL.
+The IP above is only a local test example. HTTPS targets use HTTP CONNECT, so both fields can use `http://`. TLS-to-proxy `https://` URLs and SOCKS are not currently supported.
 
-**Test proxy connection** checks network reachability to the Claude download service and OpenAI. HTTP 401/403/404 can demonstrate transport reachability but do **not** verify accounts, keys, model access or quotas. Saved settings affect new app/API/import requests, new CLI calls and newly connected terminals. Existing processes are not interrupted. Reconnect an existing shell or use `easyread-cli`, which reloads saved proxy settings for each action.
+Settings persist in the app-data volume and affect new API/CLI/import requests. Reopen existing terminals after changing them. Disabling proxies clears the app's proxy variables; unset settings inherit the process environment. Internal connections bypass external proxies. Host settings and other containers are unchanged.
 
-Settings persist in the app-data volume and populate lowercase/uppercase HTTP/HTTPS proxy variables. Internal app/container services always bypass external proxies. The two fields are independent; Proxy server URLs must use `http://`. Both HTTP and HTTPS targets are supported (HTTPS uses CONNECT with destination TLS verification); TLS-to-proxy `https://` URLs and SOCKS are not supported. Credential-bearing proxy URLs are redacted in configuration responses. Chromium receives explicit proxy flags, but authenticated proxy URLs are not currently supported for dynamic-page rendering; use a proxy without embedded credentials there.
+**Test proxy connection** tests network reachability to the Claude download service and OpenAI, not model accounts or quotas. Proxy credentials are redacted; Chromium dynamic imports do not support proxy URLs containing credentials.
 
-Environment defaults can also be set before startup:
+Before building/starting, `.env` can supply defaults:
 
 ```dotenv
 EASYREAD_BUILD_PROXY=http://172.16.1.116:7890
@@ -101,92 +96,33 @@ EASYREAD_HTTP_PROXY=http://172.16.1.116:7890
 EASYREAD_HTTPS_PROXY=http://172.16.1.116:7890
 ```
 
-Build proxies affect dependency downloads, not the Docker daemon's base-image pull configuration. Saved Web settings take precedence over runtime environment defaults. Disabling proxies clears the proxy variables for new app calls. This does not modify the host OS or other containers.
+Build proxies do not configure the Docker daemon's base-image pulls. Use `host.docker.internal` for a host proxy/Ollama; container loopback is not the host.
 
-For a host proxy or Ollama, use `host.docker.internal` and ensure the service listens on a container-reachable address. Container `127.0.0.1` is not the host.
+## Data and updates
 
-## 4. Remote, LAN and public access
-
-Default published ports are loopback-only. On your own computer:
-
-```bash
-ssh -N -L 8765:127.0.0.1:8765 -L 8766:127.0.0.1:8766 user@your-server
-```
-
-Open the two localhost HTTPS URLs. For a trusted LAN, change `.env`:
-
-```dotenv
-EASYREAD_BIND_IP=0.0.0.0
-EASYREAD_ALLOWED_HOSTS=192.168.1.20,easyread.lan
-```
-
-Set the server IPs/domains **before first startup**; these also enter the generated certificate. Adding names later requires reissuing the certificate or using external certificates. Host allowlisting is not authentication; gateway credentials provide authentication. Never publish backend/ttyd ports to bypass the gateway.
-
-For public deployment, prefer separate trusted HTTPS domains:
-
-```dotenv
-EASYREAD_ALLOWED_HOSTS=read.example.com,terminal.example.com
-EASYREAD_TERMINAL_URL=https://terminal.example.com
-```
-
-Forward each domain to its gateway port, preserving Host, Authorization and WebSocket Upgrade/Connection. Disable streaming-response buffering, extend timeouts, and permit uploads up to 200 MiB. Trust and verify the gateway's upstream TLS certificate. Export its public certificate for your proxy:
-
-```bash
-docker compose cp gateway:/auth/tls.crt ./easyread-gateway.crt
-```
-
-A containerized proxy should share a network and use `https://gateway:8080` / `https://gateway:8081`, not its own loopback. Upstream verification can use the certificate's `localhost` name. The reader expects a domain-root deployment; keep terminal content on a separate origin.
-
-The terminal is an administrator shell with access to papers, model credentials and writable CLI binaries. It is not a multi-user isolation boundary. No Docker socket, host HOME, privileged mode or sudo is supplied, but that does not make sharing administrator credentials safe.
-
-## 5. Included features and boundaries
-
-- Native Claude Code and npm Codex are installed. Administrators may install other supported CLIs into HOME and configure their command paths.
-- Chromium and Chinese fonts are included. Dynamic imports use a separate temporary browser profile, not a daily browser login. Compose uses a Moby-default-based seccomp policy, additionally allowing only clone/setns/unshare for Chromium user namespaces; the browser sandbox stays enabled, without privileged mode or SYS_ADMIN. Hosts that prohibit user namespaces require an administrator policy adjustment, not a `--no-sandbox` workaround. Attribution and Apache license are in `docker/seccomp.LICENSE`. Login/captcha-protected pages remain unsupported.
-- Isolated BabelDOC 0.6.4, ONNX Runtime 1.23.2 and a preloaded layout model are included. Fonts/additional assets may download on first use and cache under HOME. PDF generation still needs a working translation model.
-- Paid image APIs are never invoked automatically. Codex image generation depends on CLI/account/provider support; compatible image APIs can be configured separately.
-- Folder imports, Zotero migration and linked PDFs use **container paths**. For example, mount `./papers:/papers:ro` and enter `/papers`; client-side native folder dialogs are unavailable.
-- Included dependencies do not grant provider permissions, Electron OS integration or PWA features. Application-level PWA offline caching/installation is not implemented.
-
-For a deliberately minimal Web/API-only environment:
-
-```bash
-docker compose -f docker-compose.lite.yml up -d --build
-```
-
-Lite uses HTTP and a loopback-only port, with no administration terminal. Do not run it concurrently on the same port/data volume as the full deployment.
-
-## 6. Data, updates and backups
-
-Compose prefixes these named volumes with the project name:
-
-| Volume | Content |
+| Named volume (prefixed by Compose project) | Content |
 | --- | --- |
-| `easyread-data` | Papers, notes, progress, API and system-proxy configuration |
-| `easyread-cli-home` | CLI binaries, login/settings and BabelDOC caches |
-| `easyread-auth` | Administrator authentication and TLS certificate |
+| `easyread-data` | Papers, notes, progress, API/proxy settings and access-code hash |
+| `easyread-cli-home` | CLI installations/updates, logins, configuration and PDF caches |
+
+Mounts are `/data/EasyRead` and `/home/easyread`, owned by non-root UID/GID 1000. Recreation preserves existing CLI HOME. User-updated CLI versions are not overwritten by app-image upgrades.
 
 ```bash
+git pull
+docker compose up -d --build --remove-orphans
 docker compose ps
 docker compose logs -f --tail=100
-
-git pull
-docker compose up -d --build
-
-docker compose down
 ```
 
-**Do not use `docker compose down -v` for routine updates: it deletes papers, notes and logins.** Keep the Compose project name stable and do not run multiple instances against the same library.
+When upgrading the older three-service deployment, `--remove-orphans` removes gateway/terminal containers. The old `easyread-auth` volume and username/password are no longer used. Existing paper and CLI HOME volumes remain shared with the new container.
 
-For a consistent backup, stop services and copy all three directories into a new restricted directory:
+Use `docker compose down` to stop/remove containers. **Do not use `down -v` for routine updates:** it deletes data. Keep the project name stable; never run simultaneous writers against the same library. Stop services when backing up both data directories and treat CLI credentials as sensitive.
 
-```bash
-mkdir -m 700 easyread-backup
-docker compose stop
-docker compose cp easyread:/data/EasyRead easyread-backup/data
-docker compose cp easyread:/home/easyread easyread-backup/cli-home
-docker compose cp gateway:/auth easyread-backup/auth
-docker compose start
-```
+## Boundaries
 
-Backups contain real model credentials and administrator passwords. Treat them as sensitive and never commit them to Git. Bind-mounted app/HOME directories must be writable by UID/GID 1000.
+- Chromium keeps its sandbox using Moby's default seccomp policy plus clone/setns/unshare for user namespaces. No privileged mode, SYS_ADMIN, Docker socket or host HOME. The host must permit user namespaces.
+- Isolated BabelDOC includes the layout model; public font assets may download on first PDF generation. A working translation model is still required.
+- Folder/Zotero imports and linked PDFs use container paths, e.g. mount `./papers:/papers:ro` and enter `/papers`.
+- Image generation depends on Codex/image API capabilities; separately billed image APIs are not invoked automatically.
+- Electron OS integration, client-native folder dialogs and PWA offline installation are not included.
+- Optional lite API image: `docker compose -f docker-compose.lite.yml up -d --build`, without an embedded terminal. Do not run both against the same port/data volume.

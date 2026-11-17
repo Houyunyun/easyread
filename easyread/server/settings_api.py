@@ -12,7 +12,10 @@ from ..app.i18n import tr
 
 
 def save_config(patch: dict) -> dict:
-    patch.pop("docker_terminal", None)  # Deployment capability comes from the process environment.
+    patch.pop("docker_terminal", None)
+    patch.pop("embedded_terminal", None)  # Runtime capabilities cannot be changed through config.
+    if "access" in patch or "access_code" in patch:
+        raise ValueError("Use /api/access to change access protection")
     if "system_proxy" in patch:
         raise ValueError("Use /api/system-proxy to change global proxies")
     patch.pop("translation_prompt_default", None)

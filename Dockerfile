@@ -14,7 +14,7 @@ ENV PYTHONUNBUFFERED=1 \
 VOLUME ["/data/EasyRead"]
 EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('EASYREAD_PORT', '8765') + '/api/version', timeout=3).close()"
+    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('EASYREAD_PORT', '8765') + '/healthz', timeout=3).close()"
 
 FROM python-deps AS lite
 COPY pyproject.toml README.md LICENSE ./

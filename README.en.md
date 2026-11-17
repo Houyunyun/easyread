@@ -22,13 +22,11 @@ cd easyread
 docker compose up -d --build
 ```
 
-The default image includes Claude Code, Codex CLI, Chromium, BabelDOC and an authenticated Web terminal. Open <https://localhost:8765> for the reader and <https://localhost:8766> for CLI login/updates. Administrator credentials and a local HTTPS certificate are generated on first startup.
+One container, one port: open <http://localhost:8765>. Claude Code, Codex CLI, Chromium and BabelDOC are included. **Settings → CLI & terminal** provides CLI login, updates and an embedded terminal.
 
-```bash
-docker compose exec gateway easyread-admin credentials
-```
+No username/password browser dialog. **Settings → Access protection** enables, disables or changes a single access code with a dedicated authorization page. Protection defaults to off with a loopback-only port; enable it before network exposure and use HTTPS where needed.
 
-Data and CLI logins persist. **Settings → Network & proxy** configures global `http_proxy` / `https_proxy`. See the [full Docker guide](docs/docker.en.md) for certificate trust, CLI authentication, proxies, remote access and backups.
+Data and CLI logins persist. **Settings → Network & proxy** configures global proxies. See the [full Docker guide](docs/docker.en.md).
 
 ## Read your first paper
 

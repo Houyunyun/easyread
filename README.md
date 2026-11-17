@@ -22,13 +22,11 @@ cd easyread
 docker compose up -d --build
 ```
 
-默认提供 Claude Code、Codex CLI、Chromium、BabelDOC 和经过认证的 Web 终端。阅读器访问 <https://localhost:8765>，CLI 登录/更新终端访问 <https://localhost:8766>；首次生成管理密码和本地 HTTPS 证书。
+一个容器、一个端口：访问 <http://localhost:8765>。包含 Claude Code、Codex CLI、Chromium 和 BabelDOC；在“设置 → CLI 与终端”直接登录、更新 CLI 或打开内嵌终端。
 
-```bash
-docker compose exec gateway easyread-admin credentials
-```
+不再使用账号密码弹窗；可在“设置 → 访问保护”开启、关闭或修改访问授权码，开启后显示独立授权页面。默认关闭且仅发布本机端口，网络部署请先设置授权码并按需配置 HTTPS。
 
-数据和 CLI 登录持久化；网页“设置 → 网络与代理”支持全局 `http_proxy` / `https_proxy`。首次证书信任、CLI 登录、代理、服务器访问和备份见 [完整 Docker 部署说明](docs/docker.md)。
+数据和 CLI 登录持久化；“设置 → 网络与代理”支持全局 `http_proxy` / `https_proxy`。详见 [完整 Docker 部署说明](docs/docker.md)。
 
 ## 读第一篇论文
 

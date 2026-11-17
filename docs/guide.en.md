@@ -94,7 +94,7 @@ easyread
 
 Your browser opens `http://127.0.0.1:8765`. By default, the server listens only on localhost.
 
-**Docker / server deployment:** The full image includes Claude Code, Codex CLI, Chromium, BabelDOC, whole-site HTTPS authentication and a separate Web terminal for CLI login/updates. Run `docker compose up -d --build`. Global proxies are configured in **Settings → Network & proxy**. See the [full Docker guide](docker.en.md) for persistence, certificate trust and remote access.
+**Docker / server deployment:** One container and port include Claude Code, Codex CLI, Chromium and BabelDOC. Use **Settings → CLI & terminal** for embedded login/updates, **Access protection** for an optional access code, and **Network & proxy** for global proxies. No browser username/password dialog or second terminal URL. See the [full Docker guide](docker.en.md).
 
 ## Usage
 

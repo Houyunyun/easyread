@@ -84,6 +84,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     finally:
         if main_thread:
             signal.signal(signal.SIGTERM, previous_term)
+        app.terminals.close()
         app.location.marker.close()
         httpd.server_close()
         if not config.temp_library() and (read_json(config.SERVER_INFO, {}) or {}).get("pid") == os.getpid():

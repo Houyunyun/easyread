@@ -16,7 +16,7 @@ EasyRead 运行时把地址写在数据目录的 `.server.json`（默认 `~/Easy
 
 Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYREAD_PORT` 显式配置监听地址和端口，命令行参数优先；显式端口被占用时启动失败，不会随机换端口。`EASYREAD_ALLOWED_HOSTS` 添加以逗号分隔的服务器 IP/域名白名单，本机名称默认允许。通配监听时 `.server.json` 仍记录容器/本机内部访问地址，外部客户端使用实际映射端口或代理地址。
 
-`X-Token` 用来阻止跨站写入，不是登录凭证。完整 Docker 部署由 HTTPS 网关对整个应用和独立终端进行 Basic 管理认证；外部工具请求网关时还需携带管理员认证。默认阅读器/终端端口为 8765/8766，内部后端地址不是公网入口。详见 [完整 Docker 部署](docker.md)。
+`X-Token` 用来阻止跨站写入，不是登录凭证。主站可在“设置 → 访问保护”开启访问授权码；开启后包括 API 在内的请求都需要授权 Cookie。`POST /api/access/login` 提交 JSON `{"code":"…"}`，需匹配服务地址的 Origin 头，成功后保存响应的 HttpOnly Cookie；错误请求限流。终端与阅读器共用 8765 端口，不再使用 Basic 认证。健康检查 `/healthz` 不要求授权，其他数据接口无匿名豁免。授权设置和终端管理接口属内部接口，详见 [Docker 部署](docker.md)。
 
 网页“设置 → 网络与代理”可配置持久化全局 HTTP/HTTPS 代理。保存经 `/api/system-proxy`，连通性测试经 `/api/system-proxy/test`；这些属于内部接口。配置影响新请求和新 CLI 调用，不会中断已运行任务。
 
