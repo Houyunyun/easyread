@@ -14,6 +14,16 @@
 
 也可以用 Python 3.10+ 从源码启动。Windows 双击 `start.cmd`，macOS 或 Linux 运行 `./start.sh`。
 
+## Docker 浏览器版
+
+```bash
+git clone https://github.com/Jasaxion/easyread.git
+cd easyread
+docker compose up -d --build
+```
+
+在服务器本机访问 <http://127.0.0.1:8765>。默认只发布本机端口，数据通过 Docker 卷持久保存；远程访问可用 SSH 隧道或带认证的反向代理。局域网配置、模型接入与备份见 [Docker 部署说明](docs/docker.md)。应用没有内置登录，请勿直接暴露到公网。
+
 ## 读第一篇论文
 
 1. 把 PDF 拖进文献库，输入 arXiv 编号，或粘贴博客链接。选择目标语言，也可以直接读原文。

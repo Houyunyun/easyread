@@ -14,6 +14,16 @@ Choose the Windows installer (`.exe`), Apple silicon Mac disk image (`.dmg`) or 
 
 To run from source with Python 3.10+, double-click `start.cmd` on Windows or run `./start.sh` on macOS or Linux.
 
+## Docker browser version
+
+```bash
+git clone https://github.com/Jasaxion/easyread.git
+cd easyread
+docker compose up -d --build
+```
+
+Open <http://127.0.0.1:8765> on the server. The default published port is loopback-only, and data persists in a Docker volume. Use an SSH tunnel or an authenticating reverse proxy for remote access. See the [Docker deployment guide](docs/docker.en.md) for LAN access, models and backups. There is no built-in login; do not expose the app directly to the public Internet.
+
 ## Read your first paper
 
 1. Drop in a PDF, enter an arXiv ID, or paste a blog URL. Pick a translation language or read the original.

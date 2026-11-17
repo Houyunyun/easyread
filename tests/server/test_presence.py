@@ -91,6 +91,13 @@ class ServerExitTest(unittest.TestCase):
         b.close()  # 直接断开（浏览器被杀掉）
         self.assertTrue(self.stopped.wait(3))
 
+    def test_https_origin_from_proxy_accepted(self):
+        s, resp = _ws_connect(self.port, f"https://127.0.0.1:{self.port}")
+        try:
+            self.assertIn(b"101", resp.split(b"\r\n")[0])
+        finally:
+            s.close()
+
     def test_other_site_rejected(self):
         s, resp = _ws_connect(self.port, "http://evil.example")
         s.close()

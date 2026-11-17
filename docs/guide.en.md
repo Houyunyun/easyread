@@ -92,7 +92,9 @@ pip install git+https://github.com/Edwardxlai/easyread
 easyread
 ```
 
-Your browser opens `http://127.0.0.1:8765`. The server only listens on localhost.
+Your browser opens `http://127.0.0.1:8765`. By default, the server listens only on localhost.
+
+**Docker / server deployment:** This fork supports `docker compose up -d --build`. See the [Docker deployment guide](docker.en.md) for persistence, SSH tunnels and authenticated HTTPS proxies.
 
 ## Usage
 

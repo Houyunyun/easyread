@@ -106,7 +106,9 @@ pip install git+https://github.com/Edwardxlai/easyread
 easyread
 ```
 
-浏览器会打开 `http://127.0.0.1:8765`。服务只监听本机。
+浏览器会打开 `http://127.0.0.1:8765`。服务默认只监听本机。
+
+**Docker / 服务器部署**：本 fork 支持 `docker compose up -d --build`，持久化、SSH 隧道及带认证的 HTTPS 代理配置见 [Docker 部署说明](docker.md)。
 
 ## 桌面版（Electron）
 

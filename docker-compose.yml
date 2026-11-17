@@ -1,0 +1,23 @@
+services:
+  easyread:
+    build: .
+    image: easyread:local
+    init: true
+    ports:
+      # No built-in login. Keep loopback by default; use an authenticated proxy
+      # or SSH tunnel for remote access. See docs/docker.md before opening LAN.
+      - "${EASYREAD_BIND_IP:-127.0.0.1}:${EASYREAD_PORT:-8765}:8765"
+    environment:
+      EASYREAD_HOME: /data/EasyRead
+      EASYREAD_HOST: 0.0.0.0
+      EASYREAD_PORT: "8765"
+      EASYREAD_ALLOWED_HOSTS: ${EASYREAD_ALLOWED_HOSTS:-}
+    volumes:
+      - easyread-data:/data/EasyRead
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  easyread-data:
