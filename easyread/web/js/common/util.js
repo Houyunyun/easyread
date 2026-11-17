@@ -309,6 +309,7 @@ window.PR = window.PR || {};
     try { r = await fetch(path, { method: opts.method || "GET", headers, body, cache: "no-store" }); }
     catch (error) { throw new Error(PR.errorText(error)); }
     const data = await r.json().catch(() => ({}));
+    if (r.status === 401 && data.login_required) location.assign("/login?next=" + encodeURIComponent(location.pathname + location.search + location.hash));
     if (!r.ok) {
       if (r.status === 403 && data.error === "bad token" && !opts._retry) {
         try {

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from pypdf import PdfWriter
 
+from tests.http_support import anonymous_access
 from easyread.library import cloudlib, paperdata, reader_files, trash
 from easyread.library.library import Library
 from easyread.pdf import figures, pdfwork
@@ -163,7 +164,7 @@ class LinkedPDFTest(unittest.TestCase):
         self.pdf.rename(renamed)
         self.pdf = renamed  # PDF response type must not depend on the source filename.
         ws = self.linked()
-        app = types.SimpleNamespace(lib=self.lib,
+        app = types.SimpleNamespace(access=anonymous_access(self.root), lib=self.lib,
                                     location=types.SimpleNamespace(request=lambda *a: nullcontext(), status="idle"))
         handler = type("LinkedHandler", (Handler,), {"app": app, "log_message": lambda *a: None})
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)

@@ -6,6 +6,7 @@ const { test } = require("node:test");
 
 const source = ["notespanel", "notes-markdown"].map(name => fs.readFileSync(path.join(__dirname, "../../easyread/web/js/reader/" + name + ".js"), "utf8")).join("\n");
 const exportSource = fs.readFileSync(path.join(__dirname, "../../easyread/web/js/reader/research-export.js"), "utf8");
+const pickerSource = fs.readFileSync(path.join(__dirname, "../../easyread/web/js/common/pick-folder.js"), "utf8");
 
 function loadReader({ notes, blocks, entries = [] }) {
   const noopNode = { addEventListener() {}, classList: { add() {}, remove() {} }, contains() { return false; } };
@@ -81,7 +82,7 @@ function loadExporter({ configured = false, selectedPath = "C:\\Vault", desktop 
     api: async (path, options = {}) => {
       requests.push({ path, options });
       if (path === "/api/research/v1/status") return { configured };
-      if (path === "/api/library/pick-folder") return { path: selectedPath };
+      if (path === "/api/library/pick-folder") return { supported: true, path: selectedPath };
       return {};
     },
     notesMarkdown: () => "# Notes",
@@ -89,7 +90,7 @@ function loadExporter({ configured = false, selectedPath = "C:\\Vault", desktop 
     toast() {},
   };
   const window = { PR, ...(desktop ? { easyreadDesktop: { pickFolder: async () => selectedPath } } : {}) };
-  vm.runInNewContext(exportSource, { window });
+  vm.runInNewContext(pickerSource + "\n" + exportSource, { window });
   return {
     requests,
     button,

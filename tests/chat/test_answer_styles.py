@@ -11,6 +11,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.http_support import anonymous_access
 from easyread.chat import answer_styles, chat, chat_store
 from easyread.server.server import Handler
 from easyread.library.store import Workspace, write_json_atomic
@@ -180,7 +181,7 @@ class AnswerStyleTest(unittest.TestCase):
         ws = self.ws
 
         class TestHandler(Handler):
-            app = types.SimpleNamespace(token="test-token", lib=types.SimpleNamespace(ws=lambda pid: ws),
+            app = types.SimpleNamespace(access=anonymous_access(ws.root), token="test-token", lib=types.SimpleNamespace(ws=lambda pid: ws),
                                         location=types.SimpleNamespace(status="idle", request=lambda *a: contextlib.nullcontext()))
 
             def log_message(self, *args):

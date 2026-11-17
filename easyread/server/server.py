@@ -19,7 +19,9 @@ from ..app import cli_models, config, i18n, open_link, prefs, updates
 from ..engines import detect, engines, usage
 from ..translate import langs
 from ..library import citations, trash
-from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network
+from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes
+from .access import Access
+from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
 from ..app.log import log, tail
 from ..bulk import api as bulk_api
@@ -43,6 +45,9 @@ def _safe(base: Path, rel: str) -> Path | None:
 
 class App:
     def __init__(self, cfg: dict):
+        self.access = Access((config.library_dir(cfg) if config.temp_library() else config.HOME) / ".access.json")
+        self.terminals = Terminals(self.access)
+        self.access.changed = self.terminals.close
         self.lib = Library(config.library_dir(cfg))
         self.jobs = Jobs(self.lib)
         self.babeldoc = BabelDocJobs()
@@ -63,6 +68,13 @@ class Handler(BaseHTTPRequestHandler):
         self.close_connection = True
         self._json(403 if self.headers.get("Host") else 400, {"error": "bad host"})
         return False
+
+    def end_headers(self):
+        if getattr(self, "access_cookie", None):
+            self.send_header("Set-Cookie", self.access_cookie)
+            self.access_cookie = None
+        self.send_header("X-Content-Type-Options", "nosniff")
+        super().end_headers()
 
     def log_message(self, fmt, *args):
         if args and str(args[1]).startswith(("4", "5")):
@@ -145,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
-        if not self._host_ok():
+        if not self._host_ok() or not access_routes.guard(self):
             return
         try:
             with self.app.location.request(self.command, self.path):
@@ -164,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = unquote(url.path)
         app, lib = self.app, self.app.lib
+        if access_routes.get(self, path):
+            return
         research = research_api.get(app, path + ("?" + url.query if url.query else ""))
         if research is not None:
             return self._json(200, research)
@@ -297,9 +311,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self):
-        if not self._host_ok():
+        if not self._host_ok() or not access_routes.guard(self):
             return
         if self.headers.get("X-Token") != self.app.token:  # 挡住别的网页跨站写
+            self.close_connection = True  # Never parse an unread sensitive body as another request.
             return self._json(403, {"error": "bad token"})
         try:
             with self.app.location.request("POST", self.path):
@@ -332,6 +347,8 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         app, lib = self.app, self.app.lib
 
+        if access_routes.post(self, path):
+            return
         if research_api.matches(path):
             result = research_api.post(app, path, q, self._body())
             return self._json(200, result)

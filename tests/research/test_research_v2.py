@@ -563,11 +563,11 @@ class ResearchV2Test(unittest.TestCase):
         response = mock.MagicMock()
         response.__enter__.return_value.read.return_value = b'{"results": []}'
         temporary = urllib.error.HTTPError("https://api.openalex.org/works", 503, "unavailable", {}, io.BytesIO())
-        with mock.patch.object(research_v2.urllib.request, "urlopen", side_effect=[temporary, response]) as request, mock.patch.object(research_v2._time, "sleep"):
+        with mock.patch.object(research_v2.http, "urlopen", side_effect=[temporary, response]) as request, mock.patch.object(research_v2._time, "sleep"):
             self.assertEqual(research_v2._openalex("/works"), {"results": []})
         self.assertEqual(request.call_count, 2)
         unknown = urllib.error.HTTPError("https://api.openalex.org/works/W1", 404, "not found", {}, io.BytesIO())
-        with mock.patch.object(research_v2.urllib.request, "urlopen", side_effect=unknown) as request, mock.patch.object(research_v2._time, "sleep"):
+        with mock.patch.object(research_v2.http, "urlopen", side_effect=unknown) as request, mock.patch.object(research_v2._time, "sleep"):
             with self.assertRaisesRegex(ValueError, "HTTP 404"):
                 research_v2._openalex("/works/W1")
         self.assertEqual(request.call_count, 1)

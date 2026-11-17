@@ -266,9 +266,8 @@
       if (mode === "vault") {
         const status = await PR.api("/api/research/v1/status");
         if (!status.configured) {
-          const path = window.easyreadDesktop && typeof window.easyreadDesktop.pickFolder === "function"
-            ? await window.easyreadDesktop.pickFolder()
-            : (await PR.api("/api/library/pick-folder", { method: "POST", body: {} })).path || "";
+          const path = await PR.pickFolder({ title: PR.t("选择 Obsidian Vault 文件夹"),
+            body: PR.t("填写运行 EasyRead 的机器上的可写目录。Docker 部署请填写容器内路径，例如 /vault。") });
           if (!path) { button.disabled = false; button.innerHTML = label; return; }
           await PR.api("/api/research/v1/setup", { method: "POST", body: { vault: path } });
           PR.toast(PR.t("已連結 Obsidian Vault。"));

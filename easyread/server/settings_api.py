@@ -1,10 +1,11 @@
 """设置页的保存类接口（POST）。server.py 按路径转过来，每个函数收请求体、返回要回给页面的 JSON。"""
 from __future__ import annotations
 
+import copy
 from urllib.parse import urlsplit
 
 from ..chat import chat_models
-from ..app import config
+from ..app import config, proxy
 from ..app.api_keys import resolve, saved_keys
 from ..engines import engines, openai_api
 from ..translate import langs, instructions, prompt_style
@@ -12,6 +13,12 @@ from ..app.i18n import tr
 
 
 def save_config(patch: dict) -> dict:
+    patch.pop("docker_terminal", None)
+    patch.pop("embedded_terminal", None)  # Runtime capabilities cannot be changed through config.
+    if "access" in patch or "access_code" in patch:
+        raise ValueError("Use /api/access to change access protection")
+    if "system_proxy" in patch:
+        raise ValueError("Use /api/system-proxy to change global proxies")
     patch.pop("translation_prompt_default", None)
     patch.pop("translation_prompt_effective", None)
     patch.pop("translation_extra", None)  # Task-only instructions must never become global.
@@ -71,9 +78,24 @@ def save_chat_models(body: dict) -> dict:
 
 
 def test_engine(body: dict) -> dict:
-    cfg = config.load()
-    if body.get("engine"):
-        cfg["engine"] = body["engine"]
+    cfg = copy.deepcopy(config.load())
+    engine = body.get("engine") or cfg["engine"]
+    if engine not in (*engines.CLI_ENGINES, "openai", "none"):
+        raise ValueError("Unknown model engine")
+    cfg["engine"] = engine
+    if engine == "openai" and "openai" in body:
+        supplied = body["openai"]
+        if not isinstance(supplied, dict):
+            raise ValueError("Expected API model settings")
+        allowed = {"preset", "base_url", "api", "model", "api_key", "vision", "timeout"}
+        options = {key: value for key, value in supplied.items() if key in allowed}
+        cfg[engine] = {**cfg[engine], **config.with_key(options)}
+    if engine != "none":
+        for key in ("model", "reasoning_effort", "service_tier"):
+            if key in body:
+                if not isinstance(body[key], str):
+                    raise ValueError("Model options must be strings")
+                cfg[engine][key] = body[key]
     return engines.test(cfg)
 
 
@@ -88,5 +110,18 @@ def list_models(body: dict) -> dict:
         return {"ok": False, "message": str(e)[:300]}
 
 
-POST = {"/api/config": save_config, "/api/chat/models": save_chat_models,
+def save_system_proxy(body: dict) -> dict:
+    with config.SAVE_LOCK:
+        settings = proxy.validate(body, config.load().get("system_proxy"))
+        cfg = config.save({"system_proxy": settings})
+        proxy.apply(settings)
+        return {"config": config.public(cfg)}
+
+
+def test_system_proxy(body: dict) -> dict:
+    return proxy.test(proxy.validate(body, config.load().get("system_proxy")))
+
+
+POST = {"/api/system-proxy": save_system_proxy, "/api/system-proxy/test": test_system_proxy,
+        "/api/config": save_config, "/api/chat/models": save_chat_models,
         "/api/config/test": test_engine, "/api/models/list": list_models}

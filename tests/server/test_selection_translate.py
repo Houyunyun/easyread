@@ -11,6 +11,7 @@ from unittest.mock import patch
 import urllib.error
 import urllib.request
 
+from tests.http_support import anonymous_access
 from easyread.engines.engines import EngineError
 from easyread.library.store import Workspace, write_json_atomic
 from easyread.server.server import Handler
@@ -27,7 +28,7 @@ class SelectionTranslateTest(unittest.TestCase):
         self.paper = {"blocks": [{"id": "p1", "en": "We attend to the relevant tokens.", "zh": "已有译文"}]}
         write_json_atomic(self.root / "paper.json", self.paper)
         ws = Workspace(self.root)
-        app = SimpleNamespace(token="test-token", lib=SimpleNamespace(ws=lambda pid: ws if pid == "paper" else None),
+        app = SimpleNamespace(access=anonymous_access(ws.root), token="test-token", lib=SimpleNamespace(ws=lambda pid: ws if pid == "paper" else None),
                               location=SimpleNamespace(request=lambda *args: nullcontext(), status="idle"))
         handler = type("TranslationHandler", (Handler,), {"app": app, "log_message": lambda *args: None})
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)

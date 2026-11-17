@@ -10,6 +10,7 @@ import unittest
 import urllib.error
 import urllib.request
 
+from tests.http_support import anonymous_access
 from easyread.server.server import Handler
 from scripts.smoke_backend import probe_pdf
 
@@ -26,7 +27,7 @@ class PDFTextTest(unittest.TestCase):
         (self.root / "extract/page-001.chars.json").write_text(json.dumps(self.chars), encoding="utf-8")
         (self.root / "reader.json").write_text('{"private": true}', encoding="utf-8")
         (self.root / "extract/private.txt").write_text("private", encoding="utf-8")
-        app = SimpleNamespace(lib=SimpleNamespace(ws=lambda pid: SimpleNamespace(root=self.root, source_pdf=self.source) if pid == "paper" else None),
+        app = SimpleNamespace(access=anonymous_access(self.root), lib=SimpleNamespace(ws=lambda pid: SimpleNamespace(root=self.root, source_pdf=self.source) if pid == "paper" else None),
                               location=SimpleNamespace(request=lambda *args: nullcontext(), status="idle"))
         handler = type("TextHandler", (Handler,), {"app": app, "log_message": lambda *args: None})
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)

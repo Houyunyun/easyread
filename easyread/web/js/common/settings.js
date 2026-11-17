@@ -5,31 +5,32 @@
 (function (PR) {
   "use strict";
   const dlg = () => PR.$("#settingsDlg");
-  const ALL_TABS = [["chat", PR.t("模型")], ["reading", PR.t("阅读")], ["library", PR.t("侧边栏")], ["cloud", PR.t("云文献库")], ["keys", PR.t("快捷键")]];
-  const tabs = () => ALL_TABS.filter(([k]) => PR.settingsTabs[k]);  // “侧边栏”页只在文献库页面有
+  const ALL_TABS = [["chat", PR.t("模型")], ["reading", PR.t("阅读")], ["library", PR.t("侧边栏")], ["cloud", PR.t("云文献库")], ["proxy", PR.t("网络与代理")], ["access", PR.t("访问保护")], ["terminal", PR.t("CLI 与终端")], ["keys", PR.t("快捷键")]];
+  const tabs = () => ALL_TABS.filter(([k]) => PR.settingsTabs[k] && (!PR.settingsTabs[k].available || PR.settingsTabs[k].available(st)));  // “侧边栏”页只在文献库页面有
   PR.settingsTabs = PR.settingsTabs || {};
   const st = (PR.settingsState = { tab: "chat", cfg: null, presets: [], groups: [], found: null, chat: null, ui: null });
 
   PR.opt = (list, val) => list.map(([v, l]) => '<option value="' + PR.esc(v) + '"' + (String(v) === String(val) ? " selected" : "") + ">" + PR.esc(l) + "</option>").join("");
 
   PR.openSettings = async function (tab) {
+    PR.settingsTabs[st.tab]?.dispose?.();
     await modelSaveQueue;
     const [d, chat] = await Promise.all([PR.api("/api/config"), PR.api("/api/chat/models").catch(() => null)]);
     if (!PR.token) PR.token = (await PR.api("/api/library")).token;
     Object.assign(st, { tab: typeof tab === "string" && tab !== "engine" ? tab : "chat", cfg: d.config, presets: d.presets, groups: d.groups || [], chat,
-      fetchMsg: null, apiTyping: false, advOpen: false, ui: { features: Object.assign({}, PR.features), keys_on: PR.keysOn, keys: Object.assign({}, PR.keymap) },
+      accessState: null, cliStatus: null, proxyForm: null, proxyMessage: "", proxyTesting: false, fetchMsg: null, apiTyping: false, advOpen: false, ui: { features: Object.assign({}, PR.features), keys_on: PR.keysOn, keys: Object.assign({}, PR.keymap) },
       theme: PR.ls.get("easyread-prefs", {}).theme || "auto", recording: null, editing: null, form: null, chatKeys: null, type: null, transChecked: false });
-    render();
     dlg().classList.add("open");
+    render();
     // 每次打开都问一次（后端有缓存，很快）：刚装好或更新了 Claude Code / Codex，版本号和模型名单马上跟上
     const r = await PR.api("/api/engines").catch(() => null);
     if (r && (JSON.stringify([r.found, r.models]) !== JSON.stringify([st.found, st.models]))) {
       st.found = r.found; st.sources = r.sources; st.models = r.models;
-      if (dlg().classList.contains("open")) { sync(); render(); }
+      if (dlg().classList.contains("open") && st.tab === "chat") { sync(); render(); }
     }
   };
   window.addEventListener("focus", async () => {
-    if (!dlg().classList.contains("open")) return;
+    if (!dlg().classList.contains("open") || st.tab !== "chat") return;
     const r = await PR.api("/api/engines").catch(() => null);
     if (r && JSON.stringify([r.models, r.found]) !== JSON.stringify([st.models, st.found])) {
       sync(); st.models = r.models; st.found = r.found; st.sources = r.sources; render();
@@ -47,8 +48,13 @@
   }
 
   function sync() { const t = PR.settingsTabs[st.tab]; if (t && t.sync) t.sync(st, dlg()); }
+  PR.settingsClose = function () {
+    PR.settingsTabs[st.tab]?.dispose?.();
+    dlg().classList.remove("open");
+  };
   PR.settingsRender = render;
   function render() {
+    if (st.tab === "terminal" && PR.settingsTabs.terminal?.active() && dlg().querySelector("iframe")) return;
     const oldBody = dlg().querySelector(".set-body");
     const scroll = oldBody ? oldBody.scrollTop : 0;
     const t = PR.settingsTabs[st.tab];
@@ -56,7 +62,9 @@
       '<div class="set-head"><h2>' + PR.t("设置") + '</h2><div class="set-tabs">' + tabs().map(([k, l]) => '<button data-set-tab="' + k + '" class="' + (st.tab === k ? "on" : "") + '">' + l + "</button>").join("") + "</div>" + (st.tab === "chat" ? saveStatusHtml() : "") + "</div>" +
       '<div class="set-body">' + (t ? t.render(st) : "") + "</div>" +
       footerHtml();
+    dlg().querySelector(".dialog").dataset.tab = st.tab;
     dlg().querySelector(".set-body").scrollTop = scroll;
+    t?.mount?.(st, dlg());
   }
 
   function footerHtml() {
@@ -65,7 +73,9 @@
       return '<div class="actions set-foot"><button class="btn" data-cm="cancel">' + (adding ? PR.t("取消") : PR.t("完成")) +
         '</button>' + (adding ? '<button class="btn accent" data-cm="ok">' + PR.t("添加模型") + '</button>' : "") + '</div>';
     }
-    return '<div class="actions set-foot"><button class="linkish" id="showLog">' + PR.t("运行日志") + '</button><span class="grow"></span><button class="btn" id="setCancel">' + (st.tab === "chat" ? PR.t("关闭") : PR.t("取消")) + '</button>' + (st.tab === "chat" ? "" : '<button class="btn primary" id="setSave">' + PR.t("保存") + "</button>") + "</div>";
+    const standalone = ["access", "terminal"].includes(st.tab);
+    return '<div class="actions set-foot"><button class="linkish" id="showLog">' + PR.t("运行日志") + '</button>' +
+      '<span class="grow"></span><button class="btn" id="setCancel">' + (st.tab === "chat" || standalone ? PR.t("关闭") : PR.t("取消")) + '</button>' + (st.tab === "chat" || standalone ? "" : '<button class="btn primary" id="setSave">' + PR.t("保存") + "</button>") + "</div>";
   }
 
   function saveStatusHtml() {
@@ -102,6 +112,11 @@
   async function save() {
     await modelSaveQueue;
     sync();
+    if (st.tab === "proxy") {
+      const r = await PR.api("/api/system-proxy", { method: "POST", body: PR.settingsTabs.proxy.collect(st) });
+      st.cfg = r.config; PR.settingsClose(); PR.toast(PR.t("代理设置已保存"));
+      return;
+    }
     const r = await PR.api("/api/config", { method: "POST", body: PR.settingsTabs.engine.collect(st) });
     st.cfg = r.config;
     if (st.chat) st.chat = await PR.api("/api/chat/models", { method: "POST", body: { models: st.chat.models, default: st.chat.default, keys: st.chatKeys || {} } });
@@ -129,7 +144,7 @@
       await PR.api("/api/prefs", { method: "POST", body: { ui: { lang: st.lang } } });
       return reloadTarget();
     }
-    dlg().classList.remove("open");
+    PR.settingsClose();
     PR.toast(PR.t("设置已保存"));
     PR.onSettingsSaved && PR.onSettingsSaved();
     PR.emit("settings-saved", st);
@@ -241,9 +256,9 @@
   dlg().addEventListener("click", async (e) => {
     const closeBackdrop = backdropPress && e.target === dlg();
     backdropPress = false;
-    if (closeBackdrop || e.target.closest("#setCancel")) { st.recording = null; return dlg().classList.remove("open"); }
+    if (closeBackdrop || e.target.closest("#setCancel")) { st.recording = null; return PR.settingsClose(); }
     const tb = e.target.closest("[data-set-tab]");
-    if (tb) { sync(); st.tab = tb.dataset.setTab; st.recording = null; st.editing = null; render(); return; }
+    if (tb) { sync(); PR.settingsTabs[st.tab]?.dispose?.(); st.tab = tb.dataset.setTab; st.recording = null; st.editing = null; render(); return; }
     if (e.target.closest("#showLog")) { const r = await PR.api("/api/log"); PR.showText(PR.t("运行日志"), r.text + "\n\n" + PR.t("（完整日志：{path}）", { path: r.path })); return; }
     if (e.target.closest("#setSave")) { try { await save(); } catch (err) { PR.toast(PR.t("保存失败：{msg}", { msg: PR.esc(err.message) })); } return; }
     const t = PR.settingsTabs[st.tab];
@@ -258,7 +273,7 @@
     if (!dlg().classList.contains("open")) return;
     const t = PR.settingsTabs[st.tab];
     if (st.recording && t && t.key) { e.preventDefault(); e.stopImmediatePropagation(); if (t.key(e, st)) render(); return; }
-    if (e.key === "Escape") dlg().classList.remove("open");
+    if (e.key === "Escape") PR.settingsClose();
   }, true);
 
   /* ---------- 翻译设置：存的时候从 cfg 取（页面在 settings-chat.js，改动随时写回 cfg） ---------- */

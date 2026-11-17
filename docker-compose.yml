@@ -1,23 +1,46 @@
 services:
   easyread:
-    build: .
     image: easyread:local
+    build:
+      context: .
+      target: full
+      args:
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-stable}
+        CODEX_VERSION: ${CODEX_VERSION:-latest}
+        PIP_INDEX_URL: ${EASYREAD_PIP_INDEX_URL:-https://pypi.org/simple}
+        NO_PROXY: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
+        no_proxy: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
+        HTTP_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        HTTPS_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        http_proxy: ${EASYREAD_BUILD_PROXY:-}
+        https_proxy: ${EASYREAD_BUILD_PROXY:-}
     init: true
     ports:
-      # No built-in login. Keep loopback by default; use an authenticated proxy
-      # or SSH tunnel for remote access. See docs/docker.md before opening LAN.
       - "${EASYREAD_BIND_IP:-127.0.0.1}:${EASYREAD_PORT:-8765}:8765"
     environment:
       EASYREAD_HOME: /data/EasyRead
       EASYREAD_HOST: 0.0.0.0
       EASYREAD_PORT: "8765"
+      EASYREAD_TERMINAL: "1"
+      # Optional first-run code. Afterwards, manage it in Settings → Access.
+      EASYREAD_ACCESS_CODE: ${EASYREAD_ACCESS_CODE:-}
       EASYREAD_ALLOWED_HOSTS: ${EASYREAD_ALLOWED_HOSTS:-}
+      HTTP_PROXY: ${EASYREAD_HTTP_PROXY:-}
+      HTTPS_PROXY: ${EASYREAD_HTTPS_PROXY:-}
+      http_proxy: ${EASYREAD_HTTP_PROXY:-}
+      https_proxy: ${EASYREAD_HTTPS_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,::1,easyread,host.docker.internal
     volumes:
       - easyread-data:/data/EasyRead
+      - easyread-cli-home:/home/easyread
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    security_opt:
+      - seccomp:./docker/seccomp-chromium.json
+    shm_size: 256mb
     restart: unless-stopped
     stop_grace_period: 30s
 
 volumes:
   easyread-data:
+  easyread-cli-home:

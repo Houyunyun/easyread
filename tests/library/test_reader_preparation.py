@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from tests.http_support import anonymous_access
 from easyread.library import reader_files
 from easyread.server import server
 from easyread.library.store import Workspace, write_json_atomic
@@ -50,7 +51,8 @@ class PreparationTest(unittest.TestCase):
 
     def test_cancelled_read_does_not_send_a_second_error_response(self):
         handler = object.__new__(server.Handler)
-        handler.app = SimpleNamespace(location=SimpleNamespace(request=lambda *args: nullcontext()))
+        handler.app = SimpleNamespace(access=anonymous_access(self.root), location=SimpleNamespace(request=lambda *args: nullcontext()))
+        handler.connection = None
         handler.command, handler.path = "GET", "/api/library"
         from email.message import Message
         handler.headers = Message()

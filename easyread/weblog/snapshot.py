@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Comment, Tag
 
 from ..pdf import sources
+from ..app import proxy
 from .cover import image_tags
 
 MAX_HTML = 8 * 1024 * 1024
@@ -44,7 +45,7 @@ def render(url: str) -> str:
     with tempfile.TemporaryDirectory(prefix='easyread-web-') as profile:
         try:
             result = subprocess.run([browser, '--headless', '--disable-gpu', '--no-first-run',
-                                     '--no-default-browser-check', f'--user-data-dir={profile}',
+                                     *proxy.chromium_args(), '--no-default-browser-check', f'--user-data-dir={profile}',
                                      '--dump-dom', '--timeout=25000', '--virtual-time-budget=12000', url],
                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45)
         except subprocess.TimeoutExpired:

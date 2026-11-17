@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
+from tests.http_support import anonymous_access
 from easyread.app import i18n
 from easyread.library import planning_store
 from easyread.library.library import Library
@@ -32,7 +33,7 @@ class PortFixture(unittest.TestCase):
         self.lib = Library(self.root / "library")
         self.ws, _ = self.lib.create_from_pdf(b"%PDF-port-fixture", "fixture.pdf")
         self.ws.update("paper", lambda p: p.update({"blocks": [{"id": "p1", "type": "para", "en": "Rare spectrometry evidence", "zh": "证据"}]}))
-        self.app = SimpleNamespace(lib=self.lib, token="token", presence=None,
+        self.app = SimpleNamespace(access=anonymous_access(self.root), lib=self.lib, token="token", presence=None,
                                    jobs=SimpleNamespace(busy=lambda: False))
         self.app.location = LibraryLocation(self.app)
         self.addCleanup(self.app.location.marker.close)
@@ -227,6 +228,7 @@ class WorkspacePersistenceTest(PortFixture):
     def test_host_token_and_library_location_guard_research_routes(self):
         handler = object.__new__(server.Handler)
         handler.app = self.app
+        handler.connection = None
         handler.path, handler.command = "/api/research/v2/milestones", "POST"
         handler.headers = Message()
         handler.headers["Host"] = "evil.example"

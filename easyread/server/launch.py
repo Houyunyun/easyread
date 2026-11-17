@@ -11,11 +11,12 @@ import webbrowser
 from http.server import ThreadingHTTPServer
 
 from .. import __version__
-from ..app import config
+from ..app import config, proxy
 from ..engines import detect
 from ..library import reader_files
 from ..app.log import log, setup as setup_log
 from .presence import Presence
+from . import activity
 from .server import App, Handler
 from .network import allowed_hosts
 from ..library.store import now_iso, read_json, write_json_atomic
@@ -46,6 +47,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     setup_log(config.LOG_PATH)
     started = time.monotonic()
     cfg = config.load()
+    proxy.apply(cfg.get("system_proxy"))
     log.info("startup config-ready +%.0fms", (time.monotonic() - started) * 1000)
     app = App(cfg)
     log.info("startup library-jobs-ready +%.0fms", (time.monotonic() - started) * 1000)
@@ -64,7 +66,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     log.info("startup http-bound +%.0fms", (time.monotonic() - started) * 1000)
     app.shutdown = httpd.shutdown
     app.location.marker.start()
-    app.presence = Presence(lambda: app.jobs.busy() or bool(app.babeldoc.running) or reader_files.busy(), httpd.shutdown, exit_on_close)
+    app.presence = Presence(lambda: activity.model_work(app) or reader_files.busy(), httpd.shutdown, exit_on_close)
     if not config.temp_library():
         write_json_atomic(config.SERVER_INFO, {"url": url, "pid": os.getpid(), "started": now_iso()})
     log.info("EasyRead %s 已启动：%s  文献库：%s", __version__, url, app.lib.root)
@@ -83,6 +85,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     finally:
         if main_thread:
             signal.signal(signal.SIGTERM, previous_term)
+        app.terminals.close()
         app.location.marker.close()
         httpd.server_close()
         if not config.temp_library() and (read_json(config.SERVER_INFO, {}) or {}).get("pid") == os.getpid():

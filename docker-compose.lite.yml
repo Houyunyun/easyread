@@ -1,0 +1,28 @@
+services:
+  easyread:
+    build:
+      context: .
+      target: lite
+      args:
+        PIP_INDEX_URL: ${EASYREAD_PIP_INDEX_URL:-https://pypi.org/simple}
+        HTTP_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        HTTPS_PROXY: ${EASYREAD_BUILD_PROXY:-}
+        http_proxy: ${EASYREAD_BUILD_PROXY:-}
+        https_proxy: ${EASYREAD_BUILD_PROXY:-}
+        NO_PROXY: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
+        no_proxy: ${EASYREAD_BUILD_NO_PROXY:-localhost,127.0.0.1,.aliyun.com,.tsinghua.edu.cn}
+    image: easyread-lite:local
+    init: true
+    ports:
+      - "127.0.0.1:${EASYREAD_PORT:-8765}:8765"
+    environment:
+      EASYREAD_HOME: /data/EasyRead
+      EASYREAD_HOST: 0.0.0.0
+      EASYREAD_PORT: "8765"
+    volumes:
+      - easyread-data:/data/EasyRead
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+volumes:
+  easyread-data:

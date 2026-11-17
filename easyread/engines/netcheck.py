@@ -149,6 +149,8 @@ def offline(msg: str) -> bool:
 
 def proxy_env() -> dict | None:
     """Windows / macOS 的系统代理 Python 读得到，Node 写的 Claude Code 读不到；没设 HTTPS_PROXY 时替它补上。"""
+    if os.environ.get("EASYREAD_SYSTEM_PROXY_CONFIGURED"):
+        return None  # Respect explicit UI settings, including disabled/HTTP-only proxies.
     if any(os.environ.get(k) for k in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy")):
         return None
     p = urllib.request.getproxies()

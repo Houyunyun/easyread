@@ -84,6 +84,7 @@ def _embedder():
         # each required file into a normal local directory so inference is reliable
         # on standard, non-Developer-Mode Windows installations.
         from huggingface_hub import hf_hub_download
+        _refresh_download_transport()
         model_dir = state_dir() / "models" / "multilingual-e5-small"
         model_dir.mkdir(parents=True, exist_ok=True)
         for filename in MODEL_FILES:
@@ -101,6 +102,18 @@ def _embedder():
             specific_model_path=str(model_dir),
         )
     return _MODEL
+
+
+def _refresh_download_transport() -> None:
+    # Called under _MODEL_LOCK, before a download attempt: don't close an active
+    # model download when settings change, but let retries use the new proxies.
+    from huggingface_hub import utils
+    close = getattr(utils, "close_session", None)
+    if close is not None:  # huggingface_hub 1.x caches an HTTPX client.
+        close()
+    else:  # 0.x uses a cached requests backend.
+        from huggingface_hub import configure_http_backend
+        configure_http_backend()
 
 
 def _vec_bytes(vector) -> bytes:

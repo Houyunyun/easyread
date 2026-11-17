@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import os
+import threading
 from pathlib import Path
 
 from ..chat.chat_models import DEFAULT_CHAT
@@ -21,10 +22,12 @@ PROJECT = HOME  # 旧名，cli 里还在用
 CONFIG_PATH = HOME / "config.json"
 LOG_PATH = HOME / "easyread.log"
 SERVER_INFO = HOME / ".server.json"
+SAVE_LOCK = threading.RLock()
 
 DEFAULTS = {
     "library_dir": str(HOME / "library"),
     "port": 8765,
+    "system_proxy": None,  # None inherits process environment; explicit settings can disable it.
     "engine": "claude",          # claude | codex | codebuddy | grok | agy | cursor（本机 CLI 无头）| openai（任意 OpenAI 兼容接口）| none
     "auto_translate": True,      # 导入后自动开始翻译
     "target": os.environ.get("EASYREAD_TARGET") or "zh",  # 译文语言，见 langs.py；环境变量只改默认值，设置里选的仍然优先
@@ -90,9 +93,10 @@ def temp_library() -> bool:
 
 
 def save(patch: dict) -> dict:
-    cfg = _merge(_merge(DEFAULTS, _saved()), patch)
-    write_json_atomic(CONFIG_PATH, cfg)
-    return load()
+    with SAVE_LOCK:
+        cfg = _merge(_merge(DEFAULTS, _saved()), patch)
+        write_json_atomic(CONFIG_PATH, cfg)
+        return load()
 
 
 def with_key(o: dict, section: str = "openai") -> dict:
@@ -117,6 +121,8 @@ def public(cfg: dict) -> dict:
     from .api_keys import saved_keys
     from ..translate import prompt_style
     out = copy.deepcopy(cfg)
+    from . import proxy
+    out["system_proxy"] = proxy.public(cfg.get("system_proxy"))
     out["translation_prompt_default"] = prompt_style.default(cfg.get("target"))
     out["translation_prompt_effective"] = prompt_style.effective(cfg)
     for section in ("openai", "figure_images"):
@@ -127,6 +133,9 @@ def public(cfg: dict) -> dict:
         out[section]["api_key"] = ("••••" + key[-4:]) if key else ""
         out[section]["has_key"] = bool(key)
         out[section]["saved_keys"] = [k for k, v in (out[section].pop("keys", None) or {}).items() if v]
+    # Runtime-only capability. Codes and sessions live outside model settings.
+    out.pop("docker_terminal", None)
+    out["embedded_terminal"] = os.environ.get("EASYREAD_TERMINAL") == "1"
     return out
 
 

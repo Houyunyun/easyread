@@ -22,7 +22,11 @@ cd easyread
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:8765> on the server. The default published port is loopback-only, and data persists in a Docker volume. Use an SSH tunnel or an authenticating reverse proxy for remote access. See the [Docker deployment guide](docs/docker.en.md) for LAN access, models and backups. There is no built-in login; do not expose the app directly to the public Internet.
+One container, one port: open <http://localhost:8765>. Claude Code, Codex CLI, Chromium and BabelDOC are included. **Settings → CLI & terminal** provides CLI login, updates and an embedded terminal.
+
+No username/password browser dialog. **Settings → Access protection** enables, disables or changes a single access code with a dedicated authorization page. Protection defaults to off with a loopback-only port; enable it before network exposure and use HTTPS where needed.
+
+Data and CLI logins persist. **Settings → Network & proxy** configures global proxies. See the [full Docker guide](docs/docker.en.md).
 
 ## Read your first paper
 

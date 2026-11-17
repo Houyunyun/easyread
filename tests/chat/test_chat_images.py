@@ -15,6 +15,7 @@ import urllib.request
 
 from PIL import Image
 
+from tests.http_support import anonymous_access
 from easyread.chat import chat, chat_store
 from easyread.engines import engines, openai_api
 from easyread.library.store import Workspace
@@ -82,7 +83,7 @@ class ChatImagesTest(unittest.TestCase):
 
     def test_http_chat_persists_attachment_serves_it_and_keeps_it_in_followups(self):
         from easyread.server.server import Handler
-        app = SimpleNamespace(token="test-token", lib=SimpleNamespace(ws=lambda pid: self.ws if pid == "paper" else None),
+        app = SimpleNamespace(access=anonymous_access(self.ws.root), token="test-token", lib=SimpleNamespace(ws=lambda pid: self.ws if pid == "paper" else None),
                               location=SimpleNamespace(status="idle", request=lambda *args: nullcontext()))
         handler = type("ImageHandler", (Handler,), {"app":app, "log_message":lambda *args:None})
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
