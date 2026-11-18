@@ -44,7 +44,7 @@
   PR.keysOn = ui.keys_on !== false;
   PR.keymap = avoidInkKeyConflicts(Object.assign({}, DEF_KEYS, PR.ls.get("easyread-keys", {})));
 
-  PR.feature = (id) => PR.features[id] !== false;
+  PR.feature = (id) => PR.features[id] !== false && !(id === "pages" && PR.pwa?.offline);
   const show = (k) => (!k ? "" : k === " " ? PR.t("空格") : k.length === 1 ? k.toUpperCase() : k);
   PR.keyName = show;
   PR.keyOf = (id) => (PR.keysOn ? show(PR.keymap[id]) : "");

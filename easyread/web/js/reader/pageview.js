@@ -27,6 +27,7 @@
     if (open) PR.syncPage(true); else pair(null);
   };
   PR.openPage = function (page, blockId) {
+    if (PR.pwa?.offline) { PR.toast(PR.t("原 PDF 和原页图未离线保存，请联网后查看。")); return; }
     pvBlock = blockId || null;
     if (!PR.dockVisible("pages")) PR.openSide("pages");
     showPage(page, blockId);

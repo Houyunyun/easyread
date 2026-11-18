@@ -19,10 +19,10 @@ class _Entry:
 
 
 def _version(ws: Workspace) -> tuple:
-    from ..weblog.cover import COVER
+    # Do not import the image renderer just to stat its well-known output path.
     paths = [ws.root / name for name in (
         "paper.json", "item.json", "reader.json", "discussion.json", "job.json",
-        "source.pdf", "source.html", "pages/page-001.webp", COVER,
+        "source.pdf", "source.html", "pages/page-001.webp", "pages/web-cover.webp",
     )]
     versions = []
     for path in paths:

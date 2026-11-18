@@ -96,6 +96,7 @@
     current = index; dest.active = key; dock.hidden = false; draw();
   }
   PR.openSide = key => {
+    if (key === "pages" && PR.pwa?.offline) { PR.toast(PR.t("原 PDF 和原页图未离线保存，请联网后查看。")); return; }
     if (!key) { dock.hidden = true; draw(); return; }
     const index = owner(key);
     place(key, index < 0 ? current : index);

@@ -227,6 +227,7 @@
     return '<span class="spin"></span> ' + (L.items.length ? PR.t("正在更新文献库…") : PR.t("正在加载文献库…"));
   }
   function emptyHtml() {
+    if (L.offline && !L.items.length) return '<div class="empty-state">' + PR.t("还没有离线文献。联网打开正文即可自动保存。") + '</div>';
     if (L.view === "archived") return '<div class="empty-state"><div class="big">' + PR.t("封存区是空的") + "</div>" + PR.t("可以将已看完或暂不需要的论文拖曳到左侧「已封存」，或在选单中封存。") + "</div>";
     if (!L.items.length && L.loadStatus !== "ready") return '<div class="empty-state" role="status">' + loadHtml() + "</div>";
     if (L.items.length) return '<div class="empty-state"><div class="big">' + PR.t("没有符合条件的论文") + "</div>" + PR.t("换个关键词或筛选试试。") + "</div>";

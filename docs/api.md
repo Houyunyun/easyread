@@ -6,6 +6,12 @@ Zotero 插件、脚本等外部工具接入 EasyRead 时，只依赖本页列出
 
 新增可选的版本化 `/api/v1` 与 `/mcp` 接入见[开放 API 与 MCP](open-api.md)。它们复用访问授权码（Bearer），默认关闭；下述旧接口及 Cookie / X-Token 约定保持兼容。
 
+## PWA 浏览器内部约定
+
+`GET /manifest.webmanifest`、`/sw.js`、`/pwa/shell/library`、`/pwa/shell/reader` 及安装图标公开可读，仅含应用代码和界面文案，不含文献或令牌。`sw.js` 必须保持可更新，不配置长期代理缓存。HTML 的 `X-EasyRead-Web-Build` 用于避免旧 Service Worker 混用新 HTML；更新不强制替换正在编辑的窗口。
+
+界面内部 `/api/library`、`/api/p/<id>/state`、`/api/p/<id>/versions` 增加不透明 `library_id`，用于隔离设备缓存和待同步操作；其余 Cookie、X-Token 及 `/api/v1`、MCP 约定不变。Service Worker 不缓存 API 或重放写请求。
+
 ## 找到服务
 
 EasyRead 运行时把地址写在数据目录的 `.server.json`（默认 `~/EasyRead/.server.json`，设置了 `EASYREAD_HOME` 时在那个目录下）：

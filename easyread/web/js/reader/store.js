@@ -8,7 +8,7 @@
   const S = (PR.state = { paper: null, discussion: { entries: [] }, reader: {}, layout: {}, item: {}, job: {}, images: {}, versions: {}, engine: "none" });
   let mode = "server";
   let serverReader = null;
-  let outbox = [];
+  let outbox = [], persistedOutbox = [];
   let outboxKey = "";
   let storageFailed = false;
   let flushing = false, retryMs = 1500, retryT = null, flushT = null;
@@ -81,8 +81,12 @@
   function rebuildReader() { S.reader = applyOps(JSON.parse(JSON.stringify(serverReader || {})), outbox); }
   function storageWarning() { setStatus("error", PR.t("浏览器存储已满，修改只在内存里，请尽快导出")); }
   function saveOutbox() {
-    storageFailed = !PR.ls.set(outboxKey, outbox) && outbox.length > 0;
+    storageFailed = !(PR.pwa?.scope ? PR.pwa.persistOutbox(PR.pid, outbox) : PR.ls.set(outboxKey, outbox)) && outbox.length > 0;
     if (storageFailed) storageWarning();
+    else if (PR.pwa?.scope) {
+      PR.pwa.ack(PR.pid, persistedOutbox.filter(op => !outbox.includes(op)));
+      persistedOutbox = outbox.slice();
+    }
   }
   function setStatus(s, text) { PR.store.status = s; PR.emit("status", { s, text, pending: outbox.length }); }
   function statusIdle() {
@@ -151,8 +155,14 @@
       serverReader.rev = res.rev;
       // 只认 reader 的新版本：paper / layout 等要由轮询去取内容，这里提前记上版本号，轮询就以为没变、不再重画
       if (res.versions && res.versions.reader) S.versions.reader = res.versions.reader;
-      // Persist the acknowledged snapshot BEFORE dropping the durable outbox.
-      if (PR.pwa) await PR.pwa.save(PR.pid, {...S, reader: serverReader});
+      // Fetch the complete acknowledged state, including writes from other tabs.
+      // Persist it BEFORE dropping the durable outbox; retries remain idempotent.
+      if (PR.pwa?.scope) {
+        const confirmed = await PR.pwa.json(base() + "/part/reader");
+        serverReader = confirmed.data;
+        S.versions.reader = confirmed.version;
+        await PR.pwa.save(PR.pid, {...S, reader: serverReader});
+      }
       PR.pwa?.ack(PR.pid, batch);
       outbox = outbox.filter((o) => !batch.includes(o));
       saveOutbox();
@@ -230,6 +240,7 @@
     outboxKey = PR.pwa?.scope ? PR.pwa.outboxKey(PR.pid) : "pr-outbox-" + PR.pid + (mode === "static" ? "-static" : "");
     PR.paperKey = PR.pid;
     outbox = PR.pwa?.scope ? PR.pwa.loadOutbox(PR.pid) : PR.ls.get(outboxKey, []);
+    persistedOutbox = outbox.slice();
     rebuildReader();
     if (mode === "server" && outbox.length) { setStatus("saving", PR.t("补存上次未保存的 {n} 条修改", { n: outbox.length })); scheduleFlush(300); }
     else statusIdle();

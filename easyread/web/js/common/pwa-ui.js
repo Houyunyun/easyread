@@ -19,7 +19,7 @@
     for (const record of entries.sort((a,b) => b.at-a.at)) {
       const row = PR.el("div", {class: "pwa-record"});
       row.append(PR.el("a", {href: "/read/" + encodeURIComponent(record.id), text: record.title}));
-      row.append(PR.el("small", {text: (record.pinned ? PR.t("已固定") + " · " : "") + (record.complete ? PR.t("正文与相关阅读资源已保存") : PR.t("正文已保存；部分资源尚未缓存")) + " · " + (record.bytes/1048576).toFixed(1) + " MB"}));
+      row.append(PR.el("small", {text: (record.pinned ? PR.t("已固定") + " · " : "") + (record.complete ? PR.t("正文与相关阅读资源已保存") : PR.t("正文已保存；部分资源尚未缓存")) + " · " + (record.bytes/1048576).toFixed(1) + " MB" + (pwa.pending(record.id) ? " · " + PR.t("待同步：请联网打开此文献") : "")}));
       for (const [label, action] of [[PR.t("补齐并固定"), () => pwa.download(record.id)], [PR.t("清除此缓存"), () => pwa.remove(record.id)]]) {
         const button = PR.el("button", {type: "button", class: "btn sm line", text: label});
         button.disabled = label === PR.t("清除此缓存") && pwa.pending(record.id);

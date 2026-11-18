@@ -87,6 +87,8 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, ctype: str, cache: bool = False):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        if ctype.startswith("text/html"):
+            self.send_header("X-EasyRead-Web-Build", pwa.build_id())
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "max-age=86400" if cache else "no-store")
         if self.close_connection:

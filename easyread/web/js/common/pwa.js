@@ -4,7 +4,7 @@
   if (location.protocol === "file:" || window.easyreadDesktop || document.getElementById("pr-data")) return;
   const db = globalThis.EasyReadOfflineDB;
   if (!db || !window.isSecureContext || !("serviceWorker" in navigator)) return;
-  let scope = "", offline = false, blocked = false, serial = Promise.resolve();
+  let scope = "", bound = false, offline = false, blocked = false, storageEnabled = true, serial = Promise.resolve();
   const key = id => scope + ":" + id;
   const mediaName = () => "easyread-media-" + scope;
   const emit = () => PR.emit("pwa-status");
@@ -16,20 +16,22 @@
     catch (_) { return true; } // Corrupt/disabled storage is never permission to discard notes.
   };
   function enqueue(action) {
-    const next = serial.then(action); serial = next.catch(fail); return next;
+    const next = serial.then(() => navigator.locks ? navigator.locks.request("easyread-offline-" + scope, action) : action());
+    serial = next.catch(fail); return next;
   }
   async function useScope(id) {
     if (!/^[a-f0-9]{24}$/.test(id || "")) return;
-    if (scope && scope !== id && PR.pid) {
+    if (scope && scope !== id && (bound || downloading)) {
       blocked = true;
       throw new Error(PR.t("文献库已切换，请重新打开阅读页；未同步修改仍保留在原库。"));
     }
     scope = id; blocked = false;
-    await db.put("meta", "active", id);
+    // Identity validation is independent of browser storage availability.
   }
   async function initScope() { scope = await db.get("meta", "active") || ""; }
-  const ready = initScope().catch(fail);
+  const ready = initScope().catch(error => { storageEnabled = false; fail(error); });
   async function json(url, options = {}) {
+    const started = Date.now();
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 6000);
     let response;
     try { response = await fetch(url, {cache: "no-store", ...options, signal: controller.signal}); }
@@ -39,14 +41,22 @@
       offline = false;
       if (response.status === 401 || response.status === 403 || response.redirected) {
         blocked = true;
-        if (scope) await db.put("meta", "locked:" + scope, true);
+        if (scope) await db.put("meta", "locked:" + scope, Date.now()).catch(fail);
       }
       emit();
       const error = new Error(PR.t("请求失败 {status}", {status: response.status}));
       error.http = true; throw error;
     }
     const data = await response.json();
-    if (data.library_id) { await useScope(data.library_id); await db.del("meta", "locked:" + scope); }
+    if (data.library_id) {
+      try { await useScope(data.library_id); }
+      catch (error) { error.http = true; throw error; }
+      try {
+        await db.put("meta", "active", scope);
+        if (data.token) blocked = !!await db.update("meta", "locked:" + scope, denied => denied && denied > started ? denied : false);
+        storageEnabled = true;
+      } catch (error) { storageEnabled = false; fail(error); }
+    }
     offline = false; emit(); return data;
   }
   function snapshot(data) {
@@ -57,13 +67,30 @@
     if (clean.paper.meta) delete clean.paper.meta.source_pdf_path;
     return clean;
   }
-  async function entries() { await ready; return (await db.all("papers")).filter(p => p.scope === scope); }
+  async function entries() {
+    await ready;
+    if (!storageEnabled || !scope || blocked || await db.get("meta", "locked:" + scope)) return [];
+    return (await db.all("papers")).filter(p => p.scope === scope);
+  }
+  async function bindReader(authorized = false) {
+    bound = true;
+    if (!scope || !navigator.serviceWorker.controller) return;
+    await new Promise((resolve, reject) => {
+      const channel = new MessageChannel(), timeout = setTimeout(resolve, 2000);
+      channel.port1.onmessage = event => {
+        clearTimeout(timeout); channel.port1.close();
+        if (event.data.blocked) { blocked = true; reject(new Error(PR.t("请重新授权后同步修改"))); }
+        else resolve();
+      };
+      navigator.serviceWorker.controller.postMessage({type: "scope", scope, authorized}, [channel.port2]);
+    });
+  }
   async function remove(id) {
+    if (downloadingId === id) throw new Error(PR.t("已有离线保存任务，请等待或取消。"));
     if (pending(id) || (PR.pid === id && PR.store?.pending)) throw new Error(PR.t("仍有未同步修改，不能清除此文献。"));
-    const record = await db.get("papers", key(id));
-    if (!record) return;
     const cache = await caches.open(mediaName());
-    for (const url of record.urls || []) await cache.delete(url);
+    // Also remove resources written before an interrupted metadata transaction.
+    for (const request of await cache.keys()) if (new URL(request.url).pathname.startsWith("/p/" + id + "/")) await cache.delete(request);
     await db.del("papers", key(id)); emit();
   }
   async function trim(extra = 0, keep = "") {
@@ -76,138 +103,211 @@
     }
     if (total > budget()) throw new Error(PR.t("离线空间不足，请清理缓存或提高容量上限；笔记未被删除。"));
   }
+  function resources(id, data) {
+    const urls = new Set(), prefix = "/p/" + id + "/";
+    if (data.paper.meta?.source_type === "web") urls.add(prefix + "source.html");
+    for (const block of data.paper.blocks || []) {
+      for (const src of [block.src, block.translated_image?.src]) if (/^figures\/[A-Za-z0-9_./-]+$/.test(src || "") && !src.includes("..")) urls.add(prefix + src);
+    }
+    for (const match of JSON.stringify(data.reader || {}).matchAll(/\/p\/[A-Za-z0-9_-]+\/chat-media\/[a-f0-9]{32}\.png/g)) if (match[0].startsWith(prefix)) urls.add(match[0]);
+    return urls;
+  }
   async function save(id, data, force = false) {
     await ready;
-    if (!scope || blocked) return;
+    if (!scope) return;
+    if (!storageEnabled) throw new Error(PR.t("离线快照无法保存，待同步修改仍保留；请检查浏览器存储权限。"));
+    if (blocked || await db.get("meta", "locked:" + scope)) throw new Error(PR.t("请重新授权后同步修改"));
     const old = await db.get("papers", key(id));
     if (!old && !force && !automatic()) return;
-    const clean = snapshot(data), bytes = new Blob([JSON.stringify(clean)]).size;
+    const clean = snapshot(data);
+    // A late download/another tab must not replace a newer acknowledged reader.
+    if ((old?.data.reader?.rev || 0) > (clean.reader.rev || 0)) {
+      clean.reader = old.data.reader;
+      clean.versions.reader = old.data.versions.reader;
+    }
+    const bytes = new Blob([JSON.stringify(clean)]).size;
     await trim(Math.max(0, bytes - (old?.dataBytes || 0)), id);
     await db.put("papers", key(id), {...old, id, scope, data: clean, dataBytes: bytes,
-      bytes: bytes + (old?.mediaBytes || 0), at: Date.now(), title: clean.paper.meta?.title_zh || clean.paper.meta?.title_en || id});
+      bytes: bytes + (old?.mediaBytes || 0), complete: !!old?.complete && [...resources(id, clean)].every(url => old.urls?.includes(url)), at: Date.now(), title: clean.paper.meta?.title_zh || clean.paper.meta?.title_en || id});
     emit();
   }
   async function read(id) {
     await ready;
-    if (!scope || blocked || await db.get("meta", "locked:" + scope)) return null;
-    return db.get("papers", key(id));
+    if (!storageEnabled || !scope || blocked || await db.get("meta", "locked:" + scope)) return null;
+    const record = await db.get("papers", key(id));
+    if (record?.complete) {
+      const cache = await caches.open(mediaName());
+      const present = await Promise.all((record.urls || []).map(url => cache.match(url)));
+      if (present.some(response => !response)) {
+        record.complete = false;
+        await db.update("papers", key(id), current => current ? {...current, complete:false} : current);
+      }
+    }
+    return record;
   }
   async function loadReader(id) {
     await ready;
     try {
       const data = await json("/api/p/" + id + "/state");
+      await bindReader(!!data.token && !blocked);
       await enqueue(() => save(id, data)).catch(() => {});
       return data;
     } catch (error) {
       if (error.http || blocked) throw error;
       const record = await read(id);
       if (!record) throw new Error(PR.t("这篇文献尚未保存到本设备，请联网后打开。"));
+      await bindReader();
       const data = {...record.data, token: "", engine: "none", job: {}};
       const response = await (await caches.open(mediaName())).match("/p/" + id + "/source.html");
       if (response) data.web_snapshot = await response.text();
       return data;
     }
   }
-  let downloading = null;
+  let downloading = null, downloadingId = "", downloadPromise = null;
+  function requestDownload(id, pinned = true) {
+    if (downloadPromise) return downloadPromise.catch(() => {}).then(() => requestDownload(id, pinned));
+    downloadPromise = download(id, pinned).finally(() => { downloadPromise = null; });
+    return downloadPromise;
+  }
   async function download(id, pinned = true) {
     if (downloading) throw new Error(PR.t("已有离线保存任务，请等待或取消。"));
-    const controller = new AbortController(); downloading = controller;
+    const controller = new AbortController(); downloading = controller; downloadingId = id; emit();
     try {
-      const data = await json("/api/p/" + id + "/state");
+      const recent = !pinned && storageEnabled ? await read(id) : null;
+      const data = recent?.data || await json("/api/p/" + id + "/state");
       await enqueue(() => save(id, data, true));
       let record = await read(id);
       if (!record) return;
-      await db.put("papers", key(id), {...record, pinned: pinned || record.pinned, complete: false});
-      const urls = new Set(), prefix = "/p/" + id + "/";
-      if (data.paper.meta?.source_type === "web") urls.add(prefix + "source.html");
-      for (const block of data.paper.blocks || []) {
-        for (const src of [block.src, block.translated_image?.src]) if (src?.startsWith("figures/") && !src.includes("..")) urls.add(prefix + src);
-      }
-      const noteText = JSON.stringify(data.reader || {});
-      for (const match of noteText.matchAll(/\/p\/[A-Za-z0-9_-]+\/chat-media\/[a-f0-9]{32}\.png/g)) if (match[0].startsWith(prefix)) urls.add(match[0]);
+      await enqueue(async () => {
+        record = await db.get("papers", key(id));
+        if (!record) throw new Error(PR.t("这篇文献尚未保存到本设备，请联网后打开。"));
+        await db.put("papers", key(id), {...record, pinned: pinned || record.pinned, complete: false});
+      });
+      const urls = resources(id, data);
       const cache = await caches.open(mediaName());
       let done = 0, missing = (data.paper.meta?.snapshot_external_assets || []).length;
       for (const url of urls) {
         if (controller.signal.aborted) throw new DOMException("Cancelled", "AbortError");
-        if (!await cache.match(url)) {
+        const cached = await cache.match(url);
+        if (cached) {
+          await enqueue(async () => {
+            record = await db.get("papers", key(id));
+            if (!record || record.urls?.includes(url)) return;
+            // Reconcile a previous crash between Cache.put and metadata commit.
+            const size = (await cached.blob()).size;
+            await trim(size, id);
+            await db.put("papers", key(id), {...record, urls:[...(record.urls || []),url], mediaBytes:(record.mediaBytes || 0)+size, bytes:record.bytes+size});
+          });
+        } else {
           try {
-            const response = await fetch(url, {signal: controller.signal, cache: "no-store"});
-            if (!response.ok || response.redirected) throw new Error("Resource unavailable");
-            const blob = await response.blob();
+            const timeout = setTimeout(() => controller.abort(), 60000);
+            let response, blob;
+            try {
+              response = await fetch(url, {signal: controller.signal, cache: "default"});
+              if (!response.ok || response.redirected) throw new Error("Resource unavailable");
+              if (Number(response.headers.get("Content-Length")) > budget()) throw new Error("Resource exceeds offline budget");
+              blob = await response.blob();
+            } finally { clearTimeout(timeout); }
             await enqueue(async () => {
+              if (await cache.match(url)) return; // Another tab may have completed this resource.
               await trim(blob.size, id);
-              await cache.put(url, new Response(blob, {headers: {"Content-Type": response.headers.get("Content-Type") || "application/octet-stream"}}));
               record = await db.get("papers", key(id));
+              if (!record || controller.signal.aborted || await db.get("meta", "locked:" + scope)) throw new DOMException("Cancelled", "AbortError");
+              await cache.put(url, new Response(blob, {headers: {"Content-Type": response.headers.get("Content-Type") || "application/octet-stream"}}));
               const saved = [...new Set([...(record.urls || []), url])];
-              await db.put("papers", key(id), {...record, urls: saved, mediaBytes: (record.mediaBytes || 0) + blob.size, bytes: record.bytes + blob.size});
+              try { await db.put("papers", key(id), {...record, urls: saved, mediaBytes: (record.mediaBytes || 0) + blob.size, bytes: record.bytes + blob.size}); }
+              catch (error) { await cache.delete(url); throw error; }
             });
           } catch (error) { if (controller.signal.aborted) throw error; missing++; }
         }
         PR.pwa.progress = PR.t("正在保存资源 {done}/{total}", {done: ++done, total: urls.size}); emit();
       }
-      record = await db.get("papers", key(id));
-      await db.put("papers", key(id), {...record, complete: missing === 0, missing, pinned: pinned || record.pinned});
+      await enqueue(async () => {
+        record = await db.get("papers", key(id));
+        if (record) await db.put("papers", key(id), {...record, complete: missing === 0, missing, pinned: pinned || record.pinned});
+      });
       navigator.storage?.persist?.().catch(() => {});
-    } finally { downloading = null; PR.pwa.progress = ""; emit(); }
+    } finally { downloading = null; downloadingId = ""; PR.pwa.progress = ""; emit(); }
   }
   PR.pwa = {
+    get downloading() { return !!downloading; },
     get scope() { return scope; }, get offline() { return offline; }, get blocked() { return blocked; },
     ready, json, loadReader, read, entries, pending,
     save: (id, data) => enqueue(() => save(id, data)),
-    remove: id => enqueue(() => remove(id)), download,
+    remove: id => enqueue(() => remove(id)), download: requestDownload,
     cancel: () => downloading?.abort(),
     async rememberList(data) {
-      await ready; await useScope(data.library_id);
+      await ready; if (!storageEnabled) return; await useScope(data.library_id);
       if (!scope) return;
       const {items, research_statuses, version} = data;
-      await db.put("lists", scope, {items, research_statuses, version});
+      await db.put("lists", scope, {items: items.map(({job, ...item}) => item), research_statuses, version});
     },
     async cachedList() {
       await ready;
       if (!scope || blocked || await db.get("meta", "locked:" + scope)) return null;
       const data = await db.get("lists", scope);
       const papers = await entries(), ids = new Set(papers.map(p => p.id));
-      if (!data) return null;
-      return {...data, items: data.items.filter(i => ids.has(i.id)), engine: "none", offline: true};
+      const items = (data?.items || []).filter(i => ids.has(i.id)), listed = new Set(items.map(i => i.id));
+      for (const p of papers) if (!listed.has(p.id)) {
+        // Direct reader links can be the first visit: do not require a prior library fetch.
+        const meta = p.data.paper.meta || {}, item = p.data.item || {};
+        items.push({id:p.id, title_en:meta.title_en || p.title, title_zh:meta.title_zh || "", source_type:meta.source_type || "pdf",
+          authors:meta.authors || "", tags:item.tags || [], status:item.status || "reading", added:item.added || "", last_opened:item.last_opened || "",
+          pages:meta.page_count || 0, done_pages:p.data.paper.translation?.done_pages?.length || 0, notes:0, highlights:0,
+          has_paper_note:!!p.data.reader.paper_note?.body, progress:p.data.reader.progress?.ratio || 0});
+      }
+      return {...data, items, engine: "none", offline: true};
     },
-    outboxKey(id) { return scope ? "pr-outbox-" + scope + "-" + id + "-" + PR.uid("tab") : "pr-outbox-" + id; },
+    outboxKey(id) { return "pr-outbox-" + scope + "-" + id + "-"; },
+    persistOutbox(id, ops) {
+      try {
+        // Immutable per-operation keys: one tab never rewrites another tab's queue.
+        for (const op of ops) {
+          op.offline_id = op.offline_id || PR.uid("op");
+          const k = this.outboxKey(id) + op.offline_id;
+          if (localStorage.getItem(k) === null) localStorage.setItem(k, JSON.stringify([op]));
+        }
+        return true;
+      } catch (_) { return false; }
+    },
     loadOutbox(id) {
-      const prefix = "pr-outbox-" + scope + "-" + id + "-";
-      const legacy = "pr-outbox-" + id;
+      const prefix = this.outboxKey(id), legacy = "pr-outbox-" + id;
       const previous = PR.ls.get(legacy, []);
       if (previous.length) {
-        // Adopt pre-PWA pending notes only into the first verified library.
         const owner = PR.ls.get("easyread-legacy-outbox-scope", scope);
         PR.ls.set("easyread-legacy-outbox-scope", owner);
-        if (owner === scope && PR.ls.set(prefix + "legacy", previous)) PR.ls.del(legacy);
+        if (owner === scope && this.persistOutbox(id, previous)) PR.ls.del(legacy);
       }
-      const ops = Object.keys(localStorage).filter(k => k.startsWith(prefix)).flatMap(k => JSON.parse(localStorage.getItem(k) || "[]"));
-      return [...new Map(ops.map(op => [JSON.stringify(op), op])).values()];
+      return Object.keys(localStorage).filter(k => k.startsWith(prefix)).flatMap(k => JSON.parse(localStorage.getItem(k) || "[]"))
+        .sort((a,b) => (a.at || "").localeCompare(b.at || ""));
     },
     ack(id, batch) {
-      const done = new Set(batch.map(op => JSON.stringify(op))), prefix = "pr-outbox-" + scope + "-" + id + "-";
-      for (const k of Object.keys(localStorage).filter(k => k.startsWith(prefix))) {
-        const left = JSON.parse(localStorage.getItem(k) || "[]").filter(op => !done.has(JSON.stringify(op)));
-        if (left.length) localStorage.setItem(k, JSON.stringify(left)); else localStorage.removeItem(k);
-      }
+      for (const op of batch) if (op.offline_id) localStorage.removeItem(this.outboxKey(id) + op.offline_id);
     },
     async beforeLogout() {
       await ready;
-      if ((await entries()).some(p => pending(p.id)) || PR.store?.pending) throw new Error(PR.t("仍有未同步修改，请先联网保存或导出后再退出。"));
+      if (Object.keys(localStorage).some(k => k.startsWith("pr-outbox-" + scope + "-") && JSON.parse(localStorage.getItem(k) || "[]").length) || PR.store?.pending) throw new Error(PR.t("仍有未同步修改，请先联网保存或导出后再退出。"));
+      downloading?.abort();
+      if (downloadPromise) await downloadPromise.catch(() => {});
       for (const p of await entries()) await remove(p.id);
-      if (scope) { await db.del("lists", scope); await caches.delete(mediaName()); await db.put("meta", "locked:" + scope, true); }
+      if (scope) { await db.del("lists", scope); await caches.delete(mediaName()); await db.put("meta", "locked:" + scope, Date.now()); }
       PR.ls.del("easyread-library-list");
     },
   };
   PR.on("reader-ready", () => {
-    if (!offline && automatic()) download(PR.pid, false).catch(fail);
+    if (!offline && automatic()) requestDownload(PR.pid, false).catch(fail);
   });
   window.addEventListener("offline", () => { offline = true; emit(); });
   window.addEventListener("online", () => { PR.poll?.(); PR.lib?.load(); });
-  navigator.serviceWorker.register("/sw.js", {scope: "/", updateViaCache: "none"}).then(reg => {
+  function register() {
+    navigator.serviceWorker.register("/sw.js", {scope: "/", updateViaCache: "none"}).then(reg => {
     PR.pwa.registration = reg;
     const update = () => { PR.pwa.updateWaiting = !!reg.waiting; emit(); };
     reg.addEventListener("updatefound", () => reg.installing?.addEventListener("statechange", update)); update();
     return navigator.serviceWorker.ready;
-  }).then(() => { PR.pwa.shellReady = true; emit(); }).catch(fail);
+    }).then(() => { PR.pwa.shellReady = true; emit(); }).catch(fail);
+  }
+  // Let the current page finish its critical scripts before precaching the app.
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, {once:true});
 })(window.PR);

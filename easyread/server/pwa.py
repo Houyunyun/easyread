@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import secrets
+import threading
 from functools import lru_cache
 
 from ..app import config, i18n
@@ -12,9 +14,28 @@ PUBLIC = {"/sw.js", "/manifest.webmanifest", "/pwa/shell/library", "/pwa/shell/r
 PUBLIC.update(f"/web/pwa/icon-{size}.png" for size in (180, 192, 512))
 
 
+_identity_lock = threading.Lock()
+_readonly_nonce = secrets.token_hex(24)
+
+
 def library_id(lib):
-    # Include the resolved location: copied libraries must not share browser queues.
-    return hashlib.sha256(str(lib.root.resolve()).encode()).hexdigest()[:24]
+    # Persistent nonce also separates new servers/libraries at the same filesystem path.
+    root = lib.root.resolve()
+    marker = root / ".pwa-id"
+    with _identity_lock:
+        try:
+            if not marker.exists():
+                try:
+                    with marker.open("x", encoding="ascii") as stream:
+                        stream.write(secrets.token_hex(24))
+                except FileExistsError:
+                    pass
+            nonce = marker.read_text(encoding="ascii")
+        except (OSError, UnicodeError):
+            # PWA identity must never make an otherwise readable library fail.
+            # A read-only library can still cache for this server session.
+            nonce = _readonly_nonce
+    return hashlib.sha256((str(root) + ":" + nonce).encode()).hexdigest()[:24]
 
 
 @lru_cache(maxsize=1)
@@ -38,6 +59,10 @@ def worker():
     return script.replace("/*PWA_CONFIG*/", "const BUILD = " + json.dumps(digest.hexdigest()[:16]) + ";\nconst ASSETS = " + json.dumps(files) + ";")
 
 
+def build_id():
+    return re.search(r'const BUILD = "([a-f0-9]+)"', worker()).group(1)
+
+
 def get(handler, path):
     if path == "/sw.js":
         handler._send(200, worker().encode(), "text/javascript; charset=utf-8")
@@ -46,7 +71,7 @@ def get(handler, path):
     elif path in ("/pwa/shell/library", "/pwa/shell/reader"):
         # No document ID, CSRF token, account state or server settings in these templates.
         page = (config.WEB / (path.rsplit("/", 1)[1] + ".html")).read_text(encoding="utf-8")
-        handler._send(200, i18n.inject(page, "zh").encode(), "text/html; charset=utf-8")
+        handler._send(200, i18n.inject(page).encode(), "text/html; charset=utf-8")
     else:
         return False
     return True

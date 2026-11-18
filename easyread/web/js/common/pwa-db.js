@@ -21,7 +21,18 @@
       tx.onerror = tx.onabort = () => reject(tx.error || new Error("Storage transaction failed"));
     });
   }
+  async function update(store, key, change) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readwrite"), s = tx.objectStore(store), request = s.get(key);
+      let value;
+      request.onsuccess = () => { value = change(request.result); if (value === undefined) s.delete(key); else s.put(value, key); };
+      tx.oncomplete = () => resolve(value);
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error("Storage transaction failed"));
+    });
+  }
   root.EasyReadOfflineDB = {
+    update,
     get: (store, key) => run(store, "readonly", s => s.get(key)),
     put: (store, key, value) => run(store, "readwrite", s => s.put(value, key)),
     del: (store, key) => run(store, "readwrite", s => s.delete(key)),

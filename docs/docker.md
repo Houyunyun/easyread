@@ -165,5 +165,5 @@ docker compose logs -f --tail=100
 - BabelDOC 独立环境已包含布局模型，首次生成 PDF 时可能继续下载公共字体。仍需配置可用翻译模型。
 - 文件夹导入/Zotero/链接 PDF 使用容器内路径，例如挂载 `./papers:/papers:ro` 后填 `/papers`。
 - 生图权限取决于 Codex/图片 API；不会自动调用单独计费的图片 API。
-- 不包含 Electron 系统菜单、客户端文件夹对话框或 PWA 离线安装能力。
+- 不包含 Electron 系统菜单或客户端文件夹对话框。浏览器支持 [PWA 与离线正文/笔记](guide.md#安装为-pwa-与离线阅读)，手机访问需在根路径部署可信 HTTPS；代理必须保留 `/sw.js`、`/manifest.webmanifest`、`/pwa/` 和 `/web/` 路径，不要长期缓存 `sw.js`。
 - 可选轻量 API 版：`docker compose -f docker-compose.lite.yml up -d --build`，没有内嵌终端。不要和完整版同时占用相同端口/数据卷。
