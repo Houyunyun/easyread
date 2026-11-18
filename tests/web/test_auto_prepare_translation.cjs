@@ -34,6 +34,20 @@ test('stop-model selection includes pending automatic handoffs but excludes plai
   assert.equal(PR.lib.modelBusy({job: {type: 'prepare', state: 'done', auto_translate_pending: true}}), false);
 });
 
+test('Stop all sends opted-in preparation IDs even when live automatic policy is off', async () => {
+  const requests = [];
+  const PR = {lib:{load(){}}, $:()=>({}), t:x=>x, toast(){}, confirm:async()=>true,
+    api:async(_url, options)=>{requests.push(options.body);return {stopped:2};}};
+  vm.runInNewContext(fs.readFileSync('easyread/web/js/library/stop-jobs.js','utf8'),{window:{PR}});
+  await PR.stopJobs([
+    {id:'model',job:{type:'translate',state:'running'}},
+    {id:'latent',job:{type:'prepare',state:'queued',allow_auto_translate:true,auto_translate_pending:false}},
+    {id:'legacy',job:{type:'prepare',state:'queued'}},
+    {id:'public',job:{type:'prepare',state:'queued',allow_auto_translate:true,public_import:true}},
+  ]);
+  assert.deepEqual(Array.from(requests[0].ids),['model','latent']);
+});
+
 test('automatic handoff labels are translated and distinct from explicit reservations', () => {
   for (const lang of ['en', 'zh-Hant']) {
     const dict = JSON.parse(fs.readFileSync('easyread/web/i18n/' + lang + '.json', 'utf8'));

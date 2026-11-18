@@ -259,6 +259,7 @@ class Handler(BaseHTTPRequestHandler):
                 state = {**{n: ws.load(n) for n in ("paper", "discussion", "reader", "layout", "item", "job")},
                          "versions": versions, "library_id": pwa.library_id(lib), "token": app.token, "id": ws.id, "library_status": app.location.status,
                          "engine": cfg.get("engine"), "figure_images_enabled": (cfg.get("figure_images") or {}).get("enabled") is True}
+                state["job"] = jobs_api.job_state(state["job"], cfg)
                 self._json(200, state)
                 # Existing layout is usable immediately. Upgrade only after the
                 # response has been sent; polling picks up the new layout/crops.
@@ -271,8 +272,11 @@ class Handler(BaseHTTPRequestHandler):
                         log.exception("启动阅读页准备失败 %s", ws.root)
                 return
             if action == "versions":
+                cfg = config.load()
+                pending = jobs_api.job_state(ws.load("job"), cfg).get("auto_translate_pending", False)
                 return self._json(200, {**ws.versions(), "library_id": pwa.library_id(lib), "library_status": app.location.status,
-                                        "figure_images_enabled": (config.load().get("figure_images") or {}).get("enabled") is True})
+                                        "auto_translate_pending": pending,
+                                        "figure_images_enabled": (cfg.get("figure_images") or {}).get("enabled") is True})
             if action == "chat":
                 return self._json(200, {"threads": chat_store.threads(ws), **chat_models.listing(config.load()), "limits": usage.latest()})
             if action == "log":
@@ -285,7 +289,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._download(out.read_bytes(), out.name, "text/html; charset=utf-8")
             if action == "part" and len(parts) > 5 and parts[5] in ("paper", "discussion", "reader", "layout", "job", "item"):
                 version = ws.versions()[parts[5]]
-                return self._json(200, {"data": ws.load(parts[5]), "version": version})
+                data = ws.load(parts[5])
+                if parts[5] == "job":
+                    data = jobs_api.job_state(data)
+                return self._json(200, {"data": data, "version": version})
         if path.startswith("/p/"):
             _, _, pid, rel = path.split("/", 3)
             ws = lib.ws(pid)

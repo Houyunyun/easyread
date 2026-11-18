@@ -77,10 +77,15 @@ def phase_message(job):
     return tr("正在整理原文") if job.get("read") else tr("正在翻译")
 
 
+def auto_translation_allowed(job):
+    """Persisted permission, independent of the current global switch."""
+    return (job.get("type") == "prepare" and not job.get("read") and not job.get("public_import")
+            and job.get("allow_auto_translate") is True and not job.get("cancel_requested"))
+
+
 def auto_translation_enabled(job, cfg=None):
     """An opt-in completion policy; explicit prepare-only requests always win."""
-    if (job.get("type") != "prepare" or job.get("read") or job.get("public_import")
-            or job.get("allow_auto_translate") is False):
+    if not auto_translation_allowed(job):
         return False
     cfg = config.load() if cfg is None else cfg
     return cfg.get("auto_translate_after_prepare") is True and cfg.get("engine", "none") != "none"
@@ -143,7 +148,7 @@ class PaperScheduling:
                        state="queued", message=tr("排队中"), pages=pages, scope=scope or "all", translate=translate_after, read=read, model=model or "",
                        confirmed=confirmed is True, target=target, cap_check=cap_check is True, translation_extra=translation_extra,
                        done=0, total=0, error="", failed={}, updated=now_iso(), usage={}, public_import=public,
-                       allow_auto_translate=allow_auto_translate is True)
+                       allow_auto_translate=allow_auto_translate is True, cancel_requested=False)
             job["phase"] = "prepare" if reserve else phase_for(ws, job, recovering=True)
             if reserve:
                 job["state"] = previous_state
@@ -169,13 +174,13 @@ class PaperScheduling:
 
     def cancel(self, pid: str):
         with self.lock:
-            ev = self.cancels.get(pid)
-            if ev:
-                ev.set()
             ws = self.lib.ws(pid)
             job = (ws.load("job") or {}) if ws else {}
             if job.get("state") in ("queued", "running", "confirm"):
-                self._write(ws, allow_auto_translate=False)
+                self._write(ws, allow_auto_translate=False, cancel_requested=True)
+            ev = self.cancels.get(pid)
+            if ev:
+                ev.set()
             if job.get("state") == "queued":
                 self.bulk.discard(pid)
                 self.prepare.discard(pid)
@@ -195,7 +200,8 @@ class PaperScheduling:
             job.update(type="figure-images", phase="model", state="queued", message=tr("译图排队中"),
                        figure_ids=ids, force=body.get("force", False), translate=True, read=False,
                        model="", target="", translation_extra="", done=0, total=len(ids),
-                       error="", failed={}, image_failed={}, updated=now_iso(), usage={})
+                       error="", failed={}, image_failed={}, updated=now_iso(), usage={},
+                       allow_auto_translate=False, cancel_requested=False)
             job.pop("timing", None)
         with self.lock:
             ws.update("job", apply)
@@ -213,9 +219,11 @@ class PaperScheduling:
                     continue
                 job = ws.load("job") or {}
                 state = job.get("state")
-                if state not in ("queued", "running", "confirm") or not (job.get("translate") or auto_translation_enabled(job)):
+                if state not in ("queued", "running", "confirm") or not (job.get("translate") or auto_translation_allowed(job)):
                     continue
                 n += 1
+                self._write(ws, allow_auto_translate=False,
+                            cancel_requested=bool(job.get("cancel_requested")) or phase_for(ws, job) != "prepare" or state == "confirm")
                 if phase_for(ws, job) == "prepare" and state != "confirm":
                     self._write(ws, type="prepare", phase="prepare", translate=False, read=False, allow_auto_translate=False,
                                 message=tr("正在预处理 PDF") if state == "running" else tr("等待预处理"))
@@ -236,6 +244,9 @@ class PaperScheduling:
         for ws in self.lib.all():
             try:
                 job = ws.load("job") or {}
+                if job.get("cancel_requested") and job.get("state") in ("queued", "running"):
+                    self._write(ws, state="cancelled", allow_auto_translate=False, message=tr("已取消"))
+                    continue
                 phase = phase_for(ws, job, recovering=True) if job.get("state") in ("queued", "running") else None
             except DataReadError as e:
                 # Preserve unreadable state for recovery; other papers can still resume.
@@ -278,7 +289,7 @@ class PaperScheduling:
             if not ws:
                 return
             job = ws.load("job") or {}
-            if job.get("state") != "queued" or phase_for(ws, job) != phase:
+            if job.get("state") != "queued" or job.get("cancel_requested") or phase_for(ws, job) != phase:
                 return
             cancel = self.cancels[pid] = threading.Event()
             try:

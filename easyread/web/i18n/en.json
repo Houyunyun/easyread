@@ -4524,9 +4524,10 @@
   "离线快照无法保存，待同步修改仍保留；请检查浏览器存储权限。": "Cannot save the offline snapshot. Pending changes are retained; check browser storage permissions.",
   "待同步：请联网打开此文献": "Pending sync: open this document while online",
   "预处理完成后自动排队翻译": "Automatically queue translation after preparation",
-  "包括 Zotero 和文件夹导入及当前预处理队列，会消耗模型额度；不补排历史已完成论文，明确只导入或已停止的任务除外。": "Includes Zotero and folder imports and the current preparation queue, and uses model quota. Previously completed papers are not backfilled; explicit import-only or stopped tasks are excluded.",
+  "仅包括允许自动翻译的 Zotero 和文件夹任务，会消耗模型额度；旧任务、明确只导入或已停止的任务不会自动翻译。": "Applies only to opted-in Zotero and folder tasks and uses model quota. Legacy, explicit import-only and stopped tasks do not start automatically.",
   "正在预处理 PDF（完成后自动翻译）": "Preparing PDF (translation will be queued automatically)",
   "等待预处理（完成后自动翻译）": "Waiting for preparation (translation will be queued automatically)",
   "默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。迁移可以重复做，已经导入的只补分类，不会重复。": "Only prepares original pages by default. Enabling automatic translation after preparation queues translation and uses model quota. You can repeat migration; existing papers only receive category updates, without duplication.",
-  "默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。可以重复导入同一个文件夹，已经导入的只补分类，不会重复。": "Only prepares original pages by default. Enabling automatic translation after preparation queues translation and uses model quota. You can reimport the same folder; existing papers only receive category updates, without duplication."
+  "默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。可以重复导入同一个文件夹，已经导入的只补分类，不会重复。": "Only prepares original pages by default. Enabling automatic translation after preparation queues translation and uses model quota. You can reimport the same folder; existing papers only receive category updates, without duplication.",
+  "同时撤销选中文献的自动翻译预约。": " Automatic translation reservations for the selected documents are also revoked."
 }

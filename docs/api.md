@@ -66,7 +66,7 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 `GET /api/library` 的 `items[].job` 新增 `phase=prepare|model` 和 `translate`。状态仍用 `queued/running`，结合 `phase` 区分等待预处理、正在预处理、等待模型、执行模型；`type` 保留请求类型。预处理默认单 worker，模型沿用 `paper_concurrency`。`POST /api/p/{id}/cancel` 取消该篇全部任务与预约；`POST /api/jobs/stop` 只撤销模型工作（含准备中的预约），预处理继续。取消不删除已生成的数据。
 
-`POST /api/config` 接受布尔值 `auto_translate_after_prepare`（默认 false）：允许批量导入和未明确禁用自动翻译的旧准备任务在成功预处理后自动排队翻译；不扫描已完成历史任务，不覆盖明确 `translate=false` 的普通/公开导入。`items[].job.auto_translate_pending` 按当前配置计算，供“停止翻译”包含等待自动接续的任务；同一摘要还提供 `allow_auto_translate/public_import`。停止模型任务会持久保存 `allow_auto_translate=false`，即使预处理继续、重启或重新开启设置也不会自动重启该请求。
+`POST /api/config` 接受布尔值 `auto_translate_after_prepare`（默认 false）：仅允许带有 `allow_auto_translate=true` 的准备任务在成功预处理后自动排队翻译；不扫描已完成历史任务，不覆盖明确 `translate=false` 的普通/公开导入。`items[].job.auto_translate_pending` 按当前配置计算，供“停止翻译”包含等待自动接续的任务；阅读页 `/state` 与 `/part/job` 同样返回该字段，`/versions` 提供实时值以刷新配置变化；同一摘要还提供 `allow_auto_translate/public_import`。停止模型任务会持久保存 `allow_auto_translate=false`，即使预处理继续、重启或重新开启设置也不会自动重启该请求。运行中的取消通过 `cancel_requested` 先持久化，恢复队列时不再执行该任务。`POST /api/p/{id}/prepare` 是明确的仅预处理重试，不继承自动翻译许可；旧任务缺少许可字段时也不自动翻译。
 
 ## 桌面版打开链接
 

@@ -263,6 +263,7 @@
     }
     const changed = [];
     for (const name of ["paper", "discussion", "layout", "reader", "job", "item"]) if (v[name] && v[name] !== S.versions[name]) changed.push(name);
+    if (typeof v.auto_translate_pending === "boolean" && v.auto_translate_pending !== !!S.job.auto_translate_pending && !changed.includes("job")) changed.push("job");
     const imagesChanged = S.figure_images_enabled !== (v.figure_images_enabled === true);
     S.figure_images_enabled = v.figure_images_enabled === true;
     if (!changed.length) { if (imagesChanged) PR.emit("figure-images-setting"); return; }
