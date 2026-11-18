@@ -113,7 +113,7 @@
   async function translateAll(at) {
     if (L.engine === "none") return PR.toast(PR.t("当前没有开启翻译引擎，去设置里选一个。"));
     const its = pickedItems();
-    const todo = its.filter((i) => !busy(i) && (i.en_pages || !(i.pages && i.done_pages >= i.pages)));
+    const todo = its.filter((i) => (!busy(i) || PR.canReserveTranslation?.(i.job)) && (i.en_pages || !(i.pages && i.done_pages >= i.pages)));
     const skip = its.length - todo.length;
     if (!todo.length) return PR.toast(PR.t("选中的论文都已译完或正在翻译"));
     const extra = await PR.translationDialog({title:PR.t("翻译这 {n} 篇？", {n:todo.length}), body:PR.t("会按顺序排队，只译还没译的页，消耗模型额度。") + (skip ? PR.t("另有 {n} 篇已译完或正在翻译，跳过。", {n:skip}) : '')});

@@ -28,7 +28,9 @@
       h += '<div><span class="spin"></span> ' + PR.esc(PR.formatJobMessage(j)) + (j.total ? (j.type === "figure-images" ? PR.t("（{done}/{total} 张）", {done: j.done, total: j.total}) : PR.t("（{done}/{total} 页）", { done: j.done, total: j.total })) : "") + "</div>" +
         (PR.usageShort(j.usage) ? '<div class="hint">' + PR.esc(PR.usageShort(j.usage)) + "</div>" : "") +
         '<div class="bar"><i style="width:' + pct + '%"></i></div><div class="row2"><button class="btn sm line" data-d="cancel">' + PR.t("取消") + "</button>" +
-        '<button class="btn sm" data-d="read">' + PR.t("边译边读") + "</button></div>";
+        (PR.canReserveTranslation?.(j) ? '<button class="btn sm accent" data-d="translate">' + PR.t("预约翻译") + "</button>" : "") +
+        '<button class="btn sm" data-d="read">' + (j.type === "prepare" ? PR.t("阅读原文") : PR.t("边译边读")) + "</button></div>" +
+        (PR.canReserveTranslation?.(j) ? '<p class="hint">' + PR.t("可提前预约；这篇会优先预处理，完成后自动排队翻译。") + "</p>" : "");
     } else {
       const full = i.pages && i.done_pages >= i.pages;
       const en = i.en_pages || 0, read = en > 0 || j.read;  // 只读原文：整理成英文块，没翻译
@@ -190,7 +192,7 @@
     else if (act === "retry-failed") { await PR.api("/api/p/" + i.id + "/translate", { method: "POST", body: { failed: true } }); PR.toast(PR.t("正在重试")); L.load(); }
     else if (act === "log") { const r = await PR.api("/api/p/" + i.id + "/log"); PR.showText(PR.t("翻译记录"), r.text); }
     else if (act === "pick-pages") PR.pickPages(i, d);
-    else if (act === "translate") { if (await PR.startTranslation(i.id)) { PR.toast(PR.t("已开始翻译")); L.load(); } }
+    else if (act === "translate") { if (await PR.startTranslation(i.id)) { PR.toast(PR.canReserveTranslation?.(i.job) ? PR.t("已预约翻译，预处理完成后自动排队") : PR.t("已开始翻译")); L.load(); } }
     else if (act === "translate-en") { if (await PR.startTranslation(i.id, {en:true})) { PR.toast(PR.t("已开始翻译，笔记和划线都保留")); L.load(); } }
     else if (act === "read-rest") {
       try {

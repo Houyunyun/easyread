@@ -35,7 +35,7 @@ class ParallelPapersTest(unittest.TestCase):
                 with patch("easyread.server.jobs.config.load", return_value=cfg), \
                         patch("easyread.server.jobs.threading.Thread.start") as start:
                     Jobs(self.lib)
-                self.assertEqual(start.call_count, expected + 1)  # One separate small-job worker.
+                self.assertEqual(start.call_count, expected + 2)  # Separate preparation and small-job workers.
 
     def test_paper_concurrency_persists_in_existing_config(self):
         with patch.object(config, "CONFIG_PATH", self.lib.root / "config.json"):

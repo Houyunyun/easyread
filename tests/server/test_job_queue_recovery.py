@@ -44,15 +44,17 @@ class JobQueueRecoveryTest(unittest.TestCase):
         self.jobs.enqueue(self.third, translate_after=False)
 
     def drain(self):
-        get = self.jobs.bulk.get
+        for queue, loop in ((self.jobs.bulk, self.jobs._bulk_loop),
+                            (self.jobs.prepare, self.jobs._prepare_loop)):
+            get = queue.get
 
-        def next_job():
-            if self.jobs.bulk.empty():
-                raise StopQueue()
-            return get()
+            def next_job():
+                if queue.empty():
+                    raise StopQueue()
+                return get()
 
-        with patch.object(self.jobs.bulk, "get", side_effect=next_job), self.assertRaises(StopQueue):
-            self.jobs._bulk_loop()
+            with patch.object(queue, "get", side_effect=next_job), self.assertRaises(StopQueue):
+                loop()
         self.assertEqual(self.second.load("job")["state"], "done")
         self.assertEqual(self.jobs.cancels, {})
 
@@ -105,7 +107,7 @@ class JobQueueRecoveryTest(unittest.TestCase):
 
     def fail_status_write(self, state):
         self.enqueue_pair()
-        run = self.jobs._run_bulk
+        run = self.jobs._run_prepare
 
         def work(ws, job, cancel):
             if ws.id == self.first.id:
@@ -121,7 +123,7 @@ class JobQueueRecoveryTest(unittest.TestCase):
             return write_json_atomic(path, data)
 
         with patch.object(config, "load", return_value={"engine": "none"}), \
-                patch.object(self.jobs, "_run_bulk", side_effect=work), \
+                patch.object(self.jobs, "_run_prepare", side_effect=work), \
                 patch("easyread.library.store.write_json_atomic", side_effect=write), \
                 patch("easyread.server.jobs.log.exception") as logged:
             self.drain()

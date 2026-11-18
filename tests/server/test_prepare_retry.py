@@ -31,7 +31,7 @@ class PrepareRetryTest(unittest.TestCase):
             with patch('easyread.server.jobs.config.load', return_value={'engine': 'codex'}), \
                     patch('easyread.server.jobs.translate.prepare') as prepare, \
                     patch('easyread.server.jobs.translate.translate_pages') as translate:
-                jobs._process_bulk(ws.id)
+                jobs._process_bulk(jobs.prepare.get_nowait(), "prepare")
             prepare.assert_called_once()
             self.assertEqual(prepare.call_args.args[0].root, ws.root)
             translate.assert_not_called()

@@ -73,6 +73,8 @@ class PageCapTest(unittest.TestCase):
         ws.update("paper", apply)
 
     def drain(self):
+        while not self.jobs.prepare.empty():
+            self.jobs._process_bulk(self.jobs.prepare.get_nowait(), "prepare")
         get = self.jobs.bulk.get
 
         def next_job():
