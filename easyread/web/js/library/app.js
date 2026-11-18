@@ -74,7 +74,12 @@
           controller.abort();
         }, 10000);
       });
-      const request = Promise.resolve().then(() => fetch("/api/library", { cache: "no-store", signal: controller.signal })).then(async (r) => {
+      const request = PR.pwa ? PR.pwa.json("/api/library").then(d => {
+        responded = true;
+        if (!validData(d)) throw new Error(PR.t("文献库数据不完整，请重试"));
+        PR.pwa.rememberList(d).catch(() => {});
+        return d;
+      }) : Promise.resolve().then(() => fetch("/api/library", { cache: "no-store", signal: controller.signal })).then(async (r) => {
         responded = true;
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || PR.t("请求失败 {status}", { status: r.status }));
@@ -94,6 +99,12 @@
       return true;
     } catch (e) {
       if (seq !== loadSeq) return false;
+      if (PR.pwa?.offline && !e.http) {
+        const saved = await PR.pwa.cachedList().catch(() => null);
+        if (seq !== loadSeq) return false;
+        if (saved) { apply(saved); schedule(); return true; }
+      }
+      if (PR.pwa?.blocked) L.items = [];
       // A response proves the server is reachable, even when its data is unreadable.
       L.loadErrorTitle = responded || timedOut ? PR.t("文献库加载失败") : PR.t("连不上本地服务");
       L.loadStatus = "error"; L.loadError = e.message || String(e); L.render();
@@ -110,6 +121,7 @@
       JSON.stringify([L.items, L.engine, L.engineLabel, L.firstRun, L.version, L.trashCount, L.statuses]) !==
       JSON.stringify([d.items, d.engine, d.engine_label, d.first_run, d.version, d.trash || 0, d.research_statuses || []]);
     L.lastData = d;
+    L.offline = !!d.offline;
     L.statuses = d.research_statuses || L.statuses || [];
     if (L.updateStatusViews) L.updateStatusViews(L.statuses);
     L.loadStatus = cached ? "loading" : "ready"; L.loadError = "";
@@ -196,7 +208,7 @@
     PR.$("#count").textContent = PR.t("{n} 篇", { n: list.length });
     PR.renderBatch && PR.renderBatch(list);
     PR.renderStopAll && PR.renderStopAll();
-    const status = L.loadStatus !== "ready" && L.items.length ? '<div class="up-status" role="status">' + loadHtml() + "</div>" : "";
+    const status = L.offline ? '<div class="up-status" role="status">' + PR.t("离线文献：仅显示本设备已保存的正文") + '</div>' : L.loadStatus !== "ready" && L.items.length ? '<div class="up-status" role="status">' + loadHtml() + "</div>" : "";
     PR.$("#list").innerHTML = status + (list.length ? list.map(rowHtml).join("") : emptyHtml());
     if (L.selected && !L.byId(L.selected)) L.select(null);
     else PR.renderDetail && PR.renderDetail();

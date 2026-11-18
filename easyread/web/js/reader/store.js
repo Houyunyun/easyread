@@ -88,6 +88,7 @@
   function statusIdle() {
     if (storageFailed) { storageWarning(); return; }
     if (mode === "static") setStatus("local", outbox.length ? PR.t("存在本浏览器") : PR.t("离线版"));
+    else if (PR.pwa?.offline) setStatus("offline", PR.t("离线阅读；修改将暂存在本设备"));
     else setStatus("saved", PR.t("已保存"));
   }
 
@@ -136,6 +137,8 @@
     flushing = true;
     const batch = outbox.slice();
     try {
+      if (PR.pwa?.blocked) throw new Error(PR.t("请重新授权后同步修改"));
+      if (PR.pwa && !PR.token) await reloadToken();
       const r = await fetch(base() + "/ops", {
         method: "POST", headers: { "Content-Type": "application/json", "X-Token": PR.token || "" },
         body: JSON.stringify({ ops: batch, client }),
@@ -144,12 +147,15 @@
       if (r.status === 403) { await reloadToken(); throw new Error("token"); }
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
       const res = await r.json();
-      outbox = outbox.filter((o) => !batch.includes(o));   // 已落盘的删掉，期间新加的保留
-      saveOutbox();
       serverReader = applyOps(JSON.parse(JSON.stringify(serverReader || {})), batch);
       serverReader.rev = res.rev;
       // 只认 reader 的新版本：paper / layout 等要由轮询去取内容，这里提前记上版本号，轮询就以为没变、不再重画
       if (res.versions && res.versions.reader) S.versions.reader = res.versions.reader;
+      // Persist the acknowledged snapshot BEFORE dropping the durable outbox.
+      if (PR.pwa) await PR.pwa.save(PR.pid, {...S, reader: serverReader});
+      PR.pwa?.ack(PR.pid, batch);
+      outbox = outbox.filter((o) => !batch.includes(o));
+      saveOutbox();
       rebuildReader();
       retryMs = 1500;
       if (outbox.length) scheduleFlush(50); else statusIdle();
@@ -187,7 +193,10 @@
   };
 
   async function reloadToken() {
-    try { PR.token = (await (await fetch(base() + "/state", { cache: "no-store" })).json()).token; } catch (e) { /* 下次重试 */ }
+    try {
+      const data = PR.pwa ? await PR.pwa.json(base() + "/state") : await (await fetch(base() + "/state", { cache: "no-store" })).json();
+      PR.token = data.token;
+    } catch (e) { /* 下次重试 */ }
   }
 
   /* ---------- 载入 ---------- */
@@ -201,11 +210,15 @@
       PR.pid = PR.pid || (S.paper.meta.source_sha256 || "paper").slice(0, 12);
     } else {
       if (!PR.pid) throw new Error(PR.t("地址里没有论文 id"));
-      const r = await fetch(base() + "/state", { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status === 404 ? PR.t("文献库里没有这篇论文") : PR.t("读取数据失败：{status}", { status: r.status }));
-      const d = await r.json();
+      let d;
+      if (PR.pwa) d = await PR.pwa.loadReader(PR.pid);
+      else {
+        const r = await fetch(base() + "/state", { cache: "no-store" });
+        if (!r.ok) throw new Error(r.status === 404 ? PR.t("文献库里没有这篇论文") : PR.t("读取数据失败：{status}", { status: r.status }));
+        d = await r.json();
+      }
       PR.token = d.token;
-      Object.assign(S, { paper: d.paper, discussion: d.discussion, layout: d.layout || {}, item: d.item || {}, job: d.job || {}, versions: d.versions, engine: d.engine,
+      Object.assign(S, { paper: d.paper, web_snapshot: d.web_snapshot || "", discussion: d.discussion, layout: d.layout || {}, item: d.item || {}, job: d.job || {}, versions: d.versions, engine: d.engine,
         figure_images_enabled: d.figure_images_enabled === true });
       serverReader = d.reader || {};
     }
@@ -214,9 +227,9 @@
     if (ov.title_zh && !ov.short_zh) {
       S.paper.meta.short_zh = PR.deriveShortTitle ? PR.deriveShortTitle(ov.title_zh, true) : ov.title_zh;
     }
-    outboxKey = "pr-outbox-" + PR.pid + (mode === "static" ? "-static" : "");
+    outboxKey = PR.pwa?.scope ? PR.pwa.outboxKey(PR.pid) : "pr-outbox-" + PR.pid + (mode === "static" ? "-static" : "");
     PR.paperKey = PR.pid;
-    outbox = PR.ls.get(outboxKey, []);
+    outbox = PR.pwa?.scope ? PR.pwa.loadOutbox(PR.pid) : PR.ls.get(outboxKey, []);
     rebuildReader();
     if (mode === "server" && outbox.length) { setStatus("saving", PR.t("补存上次未保存的 {n} 条修改", { n: outbox.length })); scheduleFlush(300); }
     else statusIdle();
@@ -224,15 +237,15 @@
 
   PR.imageUrl = (rel) => ((S.paper?.meta || {}).source_type === "web" && /^https?:\/\//.test(rel) ? rel : mode === "static" ? S.images[rel] || "" : "/p/" + PR.pid + "/" + rel);
   PR.pdfUrl = (page) => (mode === "static" ? "" : "/p/" + PR.pid + "/source.pdf#page=" + page);
-  PR.canAsk = () => mode === "server" && S.engine && S.engine !== "none";
+  PR.canAsk = () => mode === "server" && !PR.pwa?.offline && !PR.pwa?.blocked && S.engine && S.engine !== "none";
 
   /* ---------- 轮询：翻译方追加讨论/译文、后台翻译进度、另一个标签页改了笔记 ---------- */
   async function poll() {
     if (mode !== "server" || document.hidden) return;
     let v;
     try {
-      v = await (await fetch(base() + "/versions", { cache: "no-store" })).json();
-      if (PR.store.status === "offline") flush();
+      v = PR.pwa ? await PR.pwa.json(base() + "/versions") : await (await fetch(base() + "/versions", { cache: "no-store" })).json();
+      if (PR.store.status === "offline") { if (!PR.token) await reloadToken(); flush(); if (!outbox.length) statusIdle(); }
     } catch (e) {
       if (!outbox.length) setStatus("offline", PR.t("未连上本地服务（只读）"));
       return;
@@ -255,6 +268,7 @@
         S.paper.meta.short_zh = PR.deriveShortTitle ? PR.deriveShortTitle(ov.title_zh, true) : ov.title_zh;
       }
     }
+    PR.pwa?.save(PR.pid, {...S, reader: serverReader}).catch(() => {});
     PR.emit("remote", changed);
     if (imagesChanged) PR.emit("figure-images-setting");
   }
