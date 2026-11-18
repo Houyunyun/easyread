@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import queue
+from contextlib import nullcontext
 import threading
 import time
 from uuid import uuid4
@@ -60,7 +61,7 @@ class Jobs:
 
     def enqueue(self, ws: Workspace, pages: list[int] | None = None, translate_after: bool = True, scope: str | None = None,
                 read: bool = False, model: str = "", confirmed: bool = False, target: str = "", cap_check: bool = False,
-                translation_extra: str = ""):
+                translation_extra: str = "", public_import: bool = False):
         """pages=None：按 scope（all / body / range:A-B / first:N）翻译还没译的页。
         read：只读原文，用模型把页整理成段落、公式、表格，不翻译；之后再翻译时就地补中文。
         model：用“问 AI”名单里的哪个模型（导入时选的）；空着用设置里的翻译引擎。
@@ -74,7 +75,7 @@ class Jobs:
             job.update(type="read" if read and translate_after else "translate" if translate_after else "prepare",
                        state="queued", message=tr("排队中"), pages=pages, scope=scope or "all", translate=translate_after, read=read, model=model or "",
                        confirmed=confirmed is True, target=target, cap_check=cap_check is True, translation_extra=translation_extra,
-                       done=0, total=0, error="", failed={}, updated=now_iso(), usage={})
+                       done=0, total=0, error="", failed={}, updated=now_iso(), usage={}, public_import=public_import)
             # Explicit page requests can intentionally retranslate a completed page.
             # Its revision changes in the same paper.json write as the new translation.
             job.pop("retranslate_revisions", None)
@@ -224,7 +225,8 @@ class Jobs:
         if not ws.load("paper").get("meta", {}).get("pages"):
             self._write(ws, state="running", message=tr("正在渲染原页、抽取文字"))
             try:
-                with timeline.stage("prepare"):
+                from . import public_network
+                with timeline.stage("prepare"), public_network.importing() if job.get("public_import") else nullcontext():
                     translate.prepare(ws)
             finally:
                 self._write(ws, timing=timeline.snapshot())

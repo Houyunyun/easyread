@@ -2,6 +2,8 @@
 
 [Project home](../README.en.md) · [简体中文](guide.md)
 
+External scripts and agents: see [Open API and MCP](open-api.md#english-quick-start) for document/note/highlight reads and asynchronous imports using the existing access code.
+
 > **Choose your reading language.** Translate papers into **Simplified or Traditional Chinese, English, Japanese, Korean, Spanish, French, German or Italian** (English is for papers written in other languages, such as German or French). Choose a language when importing, or set your default in Settings → Reading → Translate papers into (initially Chinese). The interface supports **English and Chinese**, independently of the translation language. You can also choose "Read the English original" on import and use the layout, highlights, notes and Ask AI without translating.
 
 <p align="center"><img src="images/en/japanese.png" width="860" alt="Japanese abstract alongside the original English PDF"></p>

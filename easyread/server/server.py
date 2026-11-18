@@ -21,6 +21,8 @@ from ..translate import langs
 from ..library import citations, trash
 from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes, qa_cli_api
 from .access import Access
+from . import public_routes
+from .public_api import PublicAPI
 from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
 from ..app.log import log, tail
@@ -53,6 +55,7 @@ class App:
         self.babeldoc = BabelDocJobs()
         self.token = os.urandom(12).hex()
         self.location = library_api.LibraryLocation(self)
+        self.public_api = PublicAPI(self, cfg)
         research_api.recover(self)
         self.presence = None  # presence.Presence，serve() 里设
 
@@ -157,6 +160,8 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        if public_routes.handle(self):
+            return
         if not self._host_ok() or not access_routes.guard(self):
             return
         try:
@@ -311,6 +316,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self):
+        if public_routes.handle(self):
+            return
         if not self._host_ok() or not access_routes.guard(self):
             return
         if self.headers.get("X-Token") != self.app.token:  # 挡住别的网页跨站写
@@ -324,6 +331,14 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             log.exception("请求出错 %s", self.path)
             self._json(500, {"error": f"{type(e).__name__}: {e}"})
+
+    def do_DELETE(self):
+        if not public_routes.handle(self):
+            self._json(405, {"error": "method not allowed"})
+
+    do_OPTIONS = do_DELETE
+    do_PUT = do_DELETE
+    do_PATCH = do_DELETE
 
     def _presence(self):
         """页面开着就一直连着这条 WebSocket；断开就是页面关了（见 presence.py）。"""
