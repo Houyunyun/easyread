@@ -21,6 +21,8 @@
         imageField('base_url', PR.t("译图接口地址"), 'https://api.openai.com/v1') +
         imageField('model', PR.t("图片编辑模型"), PR.t("输入模型 ID")) +
         imageField('api_key', 'API Key', PR.t("留空保留已存密钥"), 'password') + '</div>' : '') +
+      '<label class="check"><input type="checkbox" data-k="auto_translate_after_prepare"' + (c.auto_translate_after_prepare ? ' checked' : '') + '>' + PR.t("预处理完成后自动排队翻译") + '</label>' +
+      '<p class="hint">' + PR.t("包括 Zotero 和文件夹导入及当前预处理队列，会消耗模型额度；不补排历史已完成论文，明确只导入或已停止的任务除外。") + '</p>' +
       '<div class="translation-prompt-row"><span>' + PR.t("翻译提示词") + '</span><button class="btn sm line" data-edit-translation-prompt>' + PR.t("编辑提示词") + '</button></div>';
   };
 })(window.PR);

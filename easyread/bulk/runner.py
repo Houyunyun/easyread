@@ -1,7 +1,7 @@
 """成批搬进文献库：从 Zotero 迁移、导入整个文件夹都走这里。在后台线程里一条条做，页面轮询进度。
 
 来源先读成一串条目（zotero/reader.py、bulk/folder.py），每条：读 PDF → 建论文（同一个 PDF 已经在库里
-就不重建）→ 放进对应分类（可选再加“Zotero 标签/标签名”）→ 排队渲染原页。不翻译。
+就不重建）→ 放进对应分类（可选再加“Zotero 标签/标签名”）→ 排队渲染原页，完成后按自动翻译设置接续。
 没有 PDF 的条目默认跳过；选了“联网下载”时，有 DOI 或 arXiv 编号的去下载。
 再做一次是安全的：已经在库里的只补分类，不重复建。"""
 from __future__ import annotations
@@ -173,7 +173,7 @@ class Migration:
                 prepared = (ws.load("paper") or {}).get("meta", {}).get("pages")
                 active = (ws.load("job") or {}).get("state") in ("queued", "running")
                 if not prepared and not active:
-                    jobs.enqueue(ws, translate_after=False)
+                    jobs.enqueue(ws, translate_after=False, allow_auto_translate=True)
                 self._set(**{"imported" if fresh else "existing": self.status["imported" if fresh else "existing"] + 1})
             self._save_cats(cats)
             stopped = self.cancel.is_set()

@@ -281,6 +281,7 @@
     collect(state) {
       const c = state.cfg, o = c.openai;
       return { engine: c.engine, batch_pages: c.batch_pages, concurrency: c.concurrency, page_cap: c.page_cap, auto_translate: c.auto_translate,
+        auto_translate_after_prepare: c.auto_translate_after_prepare === true,
         translation_instructions: c.translation_instructions || "",
         translation_prompt: c.translation_prompt ?? null,
         translate_figure_text: c.translate_figure_text !== false,

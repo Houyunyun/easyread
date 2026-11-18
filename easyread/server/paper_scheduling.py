@@ -77,6 +77,15 @@ def phase_message(job):
     return tr("正在整理原文") if job.get("read") else tr("正在翻译")
 
 
+def auto_translation_enabled(job, cfg=None):
+    """An opt-in completion policy; explicit prepare-only requests always win."""
+    if (job.get("type") != "prepare" or job.get("read") or job.get("public_import")
+            or job.get("allow_auto_translate") is False):
+        return False
+    cfg = config.load() if cfg is None else cfg
+    return cfg.get("auto_translate_after_prepare") is True and cfg.get("engine", "none") != "none"
+
+
 class PaperScheduling:
     def _schedule(self, ws):
         job = ws.load("job") or {}
@@ -115,7 +124,7 @@ class PaperScheduling:
 
     def enqueue(self, ws: Workspace, pages: list[int] | None = None, translate_after: bool = True, scope: str | None = None,
                 read: bool = False, model: str = "", confirmed: bool = False, target: str = "", cap_check: bool = False,
-                translation_extra: str = "", public_import: bool = False):
+                translation_extra: str = "", public_import: bool = False, allow_auto_translate: bool = False):
         """pages=None：按 scope（all / body / range:A-B / first:N）翻译还没译的页。
         read：只读原文，用模型把页整理成段落、公式、表格，不翻译；之后再翻译时就地补中文。
         model：用“问 AI”名单里的哪个模型（导入时选的）；空着用设置里的翻译引擎。
@@ -133,7 +142,8 @@ class PaperScheduling:
             job.update(type="read" if read and translate_after else "translate" if translate_after else "prepare",
                        state="queued", message=tr("排队中"), pages=pages, scope=scope or "all", translate=translate_after, read=read, model=model or "",
                        confirmed=confirmed is True, target=target, cap_check=cap_check is True, translation_extra=translation_extra,
-                       done=0, total=0, error="", failed={}, updated=now_iso(), usage={}, public_import=public)
+                       done=0, total=0, error="", failed={}, updated=now_iso(), usage={}, public_import=public,
+                       allow_auto_translate=allow_auto_translate is True)
             job["phase"] = "prepare" if reserve else phase_for(ws, job, recovering=True)
             if reserve:
                 job["state"] = previous_state
@@ -164,6 +174,8 @@ class PaperScheduling:
                 ev.set()
             ws = self.lib.ws(pid)
             job = (ws.load("job") or {}) if ws else {}
+            if job.get("state") in ("queued", "running", "confirm"):
+                self._write(ws, allow_auto_translate=False)
             if job.get("state") == "queued":
                 self.bulk.discard(pid)
                 self.prepare.discard(pid)
@@ -201,11 +213,11 @@ class PaperScheduling:
                     continue
                 job = ws.load("job") or {}
                 state = job.get("state")
-                if state not in ("queued", "running", "confirm") or not job.get("translate"):
+                if state not in ("queued", "running", "confirm") or not (job.get("translate") or auto_translation_enabled(job)):
                     continue
                 n += 1
                 if phase_for(ws, job) == "prepare" and state != "confirm":
-                    self._write(ws, type="prepare", phase="prepare", translate=False, read=False,
+                    self._write(ws, type="prepare", phase="prepare", translate=False, read=False, allow_auto_translate=False,
                                 message=tr("正在预处理 PDF") if state == "running" else tr("等待预处理"))
                     if state == "queued":
                         self._schedule(ws)
@@ -301,10 +313,14 @@ class PaperScheduling:
                     self.cancels.pop(pid, None)
                     if handoff and ws.root.exists():
                         latest = ws.load("job") or {}
+                        auto_fields = {}
+                        if not cancel.is_set() and not latest.get("translate") and auto_translation_enabled(latest):
+                            auto_fields = {"type": "translate", "translate": True, "read": False}
+                            latest = {**latest, **auto_fields}
                         if cancel.is_set():
                             self._write(ws, state="cancelled", message=tr("已取消，已译的部分保留"))
                         elif latest.get("translate"):
-                            self._write(ws, phase="model", state="queued",
+                            self._write(ws, **auto_fields, phase="model", state="queued",
                                         message=phase_message({**latest, "phase": "model", "state": "queued"}))
                             self._schedule(ws)
                         else:

@@ -212,12 +212,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in bulk_api.GET:
             return self._json(200, bulk_api.get(app, path))
         if path == "/api/library":
-            cfg = config.load()
-            return self._json(200, {"items": lib.list(), "library_id": pwa.library_id(lib), "token": app.token, "jobs": app.jobs.small_status(),
-                                    "library_status": app.location.status, "other_device": app.location.marker.other_device(),
-                                    "engine": cfg.get("engine"), "engine_label": cli_models.engine_label(cfg),
-                                    "research_statuses": research_api.statuses(lib.root),
-                                    "first_run": config.is_first_run(), "version": __version__, "trash": trash.count(lib.root) + research_api.trash_count(lib.root)})
+            return self._json(200, jobs_api.library_state(app))
         if path == "/api/update":  # 有没有新版本（一天最多问一次 GitHub）
             return self._json(200, updates.check(force=parse_qs(url.query).get("force") == ["1"]))
         if path == "/api/trash":
