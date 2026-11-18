@@ -65,6 +65,8 @@ Handwriting and stickers open independently: opening the sticker library closes 
 
 Settings auto-detect what's installed; "Test one sentence" tells you right away whether an engine works. A failed page (rate limit, network, quota) is retried automatically, then skipped so the rest keeps going, and you can retry all failed pages in one click at the end.
 
+**Custom Codex model catalogs:** Translation and Q&A model selectors prefer `model_catalog_json` in `$CODEX_HOME/config.toml` (default: `~/.codex/config.toml`). Relative paths are resolved from that configuration file's directory. Without this setting, EasyRead reads `models_cache.json` from the same directory. A custom catalog replaces the cache and supplies visible models, ordering, and reasoning levels, including `ultra` where supported. After editing the catalog, click "Rescan" to refresh EasyRead's list. An empty, missing, or invalid custom catalog does not restore stale cached models. Detection only reads local files; it makes no model requests and does not modify Codex configuration.
+
 Papers are translated one at a time by default, with parallel batches still available within each paper. In Settings → Models → Translation, choose 1–4 concurrent papers and restart EasyRead to apply. Paper concurrency multiplies batch concurrency, increasing memory use and the risk of model rate limits; keeping the default of one paper is recommended. See the [configuration notes](paper-concurrency.md).
 
 ## Install

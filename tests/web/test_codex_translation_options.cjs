@@ -49,3 +49,25 @@ test("image generation settings render and persist separately from the text mode
   assert.doesNotMatch(subscription, /不自动调用付费 API/);
   assert.equal(PR.settingsTabs.engine.collect({cfg}).figure_images.provider, 'codex');
 });
+
+test("custom Codex catalog models and ultra effort reach both model selectors", () => {
+  const PR = { t: x => x, esc: String, settingsTabs: {}, $: () => ({addEventListener() {}}) };
+  const context = {window: {PR, addEventListener() {}}, document: {addEventListener() {}},
+    location: {search: ""}, URLSearchParams};
+  for (const name of ["settings.js", "settings-models.js"]) {
+    vm.runInNewContext(fs.readFileSync("easyread/web/js/common/" + name, "utf8"), context);
+  }
+  const s = {models: {codex: {default: "gateway-model", models: [
+    {id: "gateway-model", name: "Gateway Model", reasoning_levels: ["high", "ultra"]},
+    {id: "another-model", name: "Another Model", reasoning_levels: ["low", "high"]},
+  ]}}};
+  const html = PR.cliModelSelect(s, "codex", "gateway-model", "");
+  assert.match(html, /value="gateway-model" selected/);
+  assert.match(html, /value="another-model"/);
+  assert.doesNotMatch(html, /gpt-5\.4/);
+  const effort = PR.modelReasoningFields(s, {kind: "codex", model: "gateway-model", reasoning_effort: "ultra"});
+  assert.match(effort, /value="ultra" selected/);
+  assert.doesNotMatch(effort, /value="max"/);
+  assert.match(PR.modelReasoningFields(s, {kind: "codex", model: ""}), /value="ultra"/);
+  assert.doesNotMatch(PR.modelReasoningFields(s, {kind: "codex", model: "another-model"}), /value="ultra"/);
+});
