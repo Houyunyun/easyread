@@ -73,7 +73,7 @@
       return '<div class="actions set-foot"><button class="btn" data-cm="cancel">' + (adding ? PR.t("取消") : PR.t("完成")) +
         '</button>' + (adding ? '<button class="btn accent" data-cm="ok">' + PR.t("添加模型") + '</button>' : "") + '</div>';
     }
-    const standalone = ["access", "terminal"].includes(st.tab);
+    const standalone = ["access", "terminal", "qa_cli"].includes(st.tab);
     return '<div class="actions set-foot"><button class="linkish" id="showLog">' + PR.t("运行日志") + '</button>' +
       '<span class="grow"></span><button class="btn" id="setCancel">' + (st.tab === "chat" || standalone ? PR.t("关闭") : PR.t("取消")) + '</button>' + (st.tab === "chat" || standalone ? "" : '<button class="btn primary" id="setSave">' + PR.t("保存") + "</button>") + "</div>";
   }

@@ -17,6 +17,8 @@ def save_config(patch: dict) -> dict:
     patch.pop("embedded_terminal", None)  # Runtime capabilities cannot be changed through config.
     if "access" in patch or "access_code" in patch:
         raise ValueError("Use /api/access to change access protection")
+    if "qa_cli" in patch:
+        raise ValueError("Use /api/chat/cli/<engine> to change Q&A capabilities")
     if "system_proxy" in patch:
         raise ValueError("Use /api/system-proxy to change global proxies")
     patch.pop("translation_prompt_default", None)

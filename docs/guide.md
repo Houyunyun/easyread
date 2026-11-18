@@ -110,6 +110,10 @@ easyread
 
 **Docker / 服务器部署**：单容器、单端口，包含 Claude Code、Codex CLI、Chromium 和 BabelDOC。在“设置 → CLI 与终端”使用内嵌终端登录/更新，在“访问保护”管理可选授权码，在“网络与代理”配置全局代理。没有账号密码弹窗或第二个终端网址。详见 [完整 Docker 部署说明](docker.md)。
 
+### AI 问答的 CLI 能力
+
+在“设置 → 模型”中打开 Claude Code / Codex 卡片菜单，选择“AI 问答 · CLI 功能管理”。默认保持原来的精简设置；可以切换完整原生模式或自定义工具、Skills、MCP，并导入问答专用 Skill。两个 CLI 独立管理，**不改变翻译及其他自动处理**。详见 [问答 CLI 设置](qa-cli.md)。
+
 ## 桌面版（Electron）
 
 桌面版复用同一套本地 Python 服务和 Web 界面，由 Electron 负责启动服务并显示窗口。开发环境需要 Node.js 22+、Python 3.10+ 和 PyInstaller：

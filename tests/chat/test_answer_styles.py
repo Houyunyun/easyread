@@ -206,7 +206,7 @@ class AnswerStyleTest(unittest.TestCase):
         model = {"id": "m", "name": "Model", "engine": "openai", "model": "test"}
         with patch("easyread.server.server.config.load", return_value={}), \
                 patch("easyread.server.server.chat_models.engine_cfg", return_value=(engine, model)), \
-                patch("easyread.server.server.chat.stream", side_effect=lambda *a: iter([ANSWER[:35], ANSWER[35:]])) as stream:
+                patch("easyread.server.server.chat.stream", side_effect=lambda *a, **kwargs: iter([ANSWER[:35], ANSWER[35:]])) as stream:
             events = self.post({"text": "总结论文", "anchor": "b", "answer_style": "ste100"})
             tid = events[0]["thread"]
             self.assertEqual(events[0]["answer_style"], "ste100")
@@ -233,12 +233,13 @@ class AnswerStyleTest(unittest.TestCase):
         for style in answer_styles.VALUES:
             with self.subTest(style=style), patch("easyread.server.server.config.load", return_value={}), \
                     patch("easyread.server.server.chat_models.engine_cfg", return_value=(engine, model)), \
-                    patch("easyread.server.server.chat.stream", side_effect=lambda *a: iter([ANSWER])) as stream:
+                    patch("easyread.server.server.chat.stream", side_effect=lambda *a, **kwargs: iter([ANSWER])) as stream:
                 events = self.post({"text": "总结论文", "anchor": "b", "answer_style": style})
                 self.assertEqual(events[0]["answer_style"], style)
                 self.assertEqual(chat_store.get(self.ws, events[0]["thread"])["answer_style"], style)
                 # 只有要把整篇正文一起发给模型的模式，提示词里才带得上正文
                 sent = stream.call_args.args[1]
+                self.assertTrue(stream.call_args.kwargs["qa"])
                 self.assertEqual("当前已导入的正文" in sent, style in answer_styles.WHOLE_PAPER)
 
     def test_invalid_mode_is_http_400_before_any_model_call(self):

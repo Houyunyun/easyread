@@ -115,7 +115,8 @@
       (isApi(f.kind) ? PR.apiForm.html(s, f, {keyProp: "key", vision: false}) : "") + PR.modelReasoningFields(s, f);
     return '<section class="model-editor"><div class="model-heading"><h3>' + (s.editing === "new" ? PR.t("添加模型") : PR.t("编辑模型")) +
       '</h3><button class="linkish" data-rescan>' + PR.t("重新检测") + '</button></div>' +
-      (status ? '<p class="hint" role="status">' + status + '</p>' : "") + fields + guides + '<div class="test-line"><button type="button" class="btn sm line" data-cm="test-form">' + PR.t("测试此模型") + '</button><span class="test-result" id="formTestRes" role="status"></span></div></section>';
+      (status ? '<p class="hint" role="status">' + status + '</p>' : "") + fields + guides +
+      (["claude", "codex"].includes(f.kind) ? '<button class="btn line qa-entry" data-qa-manage="' + f.kind + '">' + PR.t("AI 问答 · CLI 功能管理") + ' →</button>' : "") + '<div class="test-line"><button type="button" class="btn sm line" data-cm="test-form">' + PR.t("测试此模型") + '</button><span class="test-result" id="formTestRes" role="status"></span></div></section>';
   }
   function autoName(s, f) {
     if (PR.isAgentCli(f.kind)) return f.model || PR.agentClis[f.kind].name;
@@ -255,6 +256,8 @@
       return false;
     },
     async click(e, s) {
+      const qa = e.target.closest("[data-qa-manage]");
+      if (qa) { readForm(s); PR.openQaCli(qa.dataset.qaManage); return false; }
       if (e.target.closest('[data-edit-translation-prompt]')) { PR.editTranslationPrompt(); return false; }
       if (e.target.closest("#testBtn")) {
         readTranslation(s);
@@ -297,6 +300,7 @@
           "-",
           { label: PR.t("测试此模型"), icon: "sparkle", fn: () => PR.testModel(s, m) },
           { label: PR.t("修改"), icon: "edit", fn: () => { readForm(s); s.editing = m.id; startForm(s, m); PR.settingsRender(); } },
+          ...(["claude", "codex"].includes(m.engine) ? [{ label: PR.t("AI 问答 · CLI 功能管理"), icon: "gear", fn: () => PR.openQaCli(m.engine) }] : []),
           "-",
           { label: PR.t("删除"), icon: "trash", disabled: tr, fn: async () => {
             if (list.length <= 1) return PR.toast(PR.t("至少留一个模型"));
