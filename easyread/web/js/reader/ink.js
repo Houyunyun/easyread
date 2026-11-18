@@ -253,6 +253,17 @@
     layer.addEventListener(type, e => { if (e.pointerId === pointerId) endGesture(); });
   window.addEventListener("blur", endGesture);
   window.addEventListener("scroll", endGesture, { passive: true });
+  // Safari may leave the large SVG stale after scrolling. Recover at rest, not on every frame.
+  const ua = window.navigator?.userAgent || "";
+  if (/AppleWebKit/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|FxiOS|Android/.test(ua)) {
+    const repaintAfterScroll = PR.debounce(() => {
+      if (document.hidden || drawing || erasingStrokes) return;
+      if (strokes().length || Object.values(PR.state.reader.stickers || {}).some(s => !s.deleted)) render();
+    }, 120);
+    window.addEventListener("scroll", repaintAfterScroll, { passive: true });
+    window.addEventListener("scrollend", repaintAfterScroll.flush, { passive: true });
+    layer.addEventListener("pointerdown", repaintAfterScroll.cancel);
+  }
   document.addEventListener("visibilitychange", () => { if (document.hidden) endGesture(); });
   function renderPreview() {
     render();
