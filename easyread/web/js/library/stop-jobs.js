@@ -5,8 +5,8 @@
   const L = PR.lib;
   const btn = PR.$("#stopAllBtn");
 
-  // 正在或等着用模型的论文；只渲染原页的（type 为 prepare）不算
-  L.modelBusy = (i) => !!(i.job && ["queued", "running", "confirm"].includes(i.job.state) && i.job.type !== "prepare");
+  // Include pending automatic handoffs so Stop also prevents future model work.
+  L.modelBusy = (i) => !!(i.job && ["queued", "running", "confirm"].includes(i.job.state) && (i.job.type !== "prepare" || i.job.auto_translate_pending));
 
   PR.stopJobs = async function (items, at) {
     const its = items.filter(L.modelBusy);

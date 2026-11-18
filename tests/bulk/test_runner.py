@@ -67,7 +67,7 @@ class MigrateTest(unittest.TestCase):
         self.assertEqual(item["tags"], ["ML/CV", "Zotero 标签/必读"])
         self.assertEqual(item["added"], "2022-05-06T07:08:09+00:00")
         (queued,), kw = self.app.jobs.enqueue.call_args
-        self.assertEqual((queued.id, kw), (ws.id, {"translate_after": False}))  # 只渲染，不翻译
+        self.assertEqual((queued.id, kw), (ws.id, {"translate_after": False, "allow_auto_translate": True}))
         self.assertEqual(self.prefs["library"]["cats"], ["我的旧分类", "Empty", "ML", "ML/CV", "Zotero 标签/必读"])  # 和 Zotero 一样按字母排
 
     def test_without_tags_and_second_run_only_adds_categories(self):

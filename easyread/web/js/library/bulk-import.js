@@ -38,12 +38,12 @@
         (c.no_pdf ? '<p class="hint">' + PR.t("另有 {n} 条没有 PDF（只有题录，或者文件找不到），默认跳过。", { n: c.no_pdf }) + "</p>" + more(PR.t("看看是哪些"), c.missing) : "") +
         '<label class="zt-opt"><input type="checkbox" data-zo="tags"' + (s.tags ? " checked" : "") + ">" + PR.t("Zotero 的标签也建成分类（放在“Zotero 标签”下面）") + "</label>" +
         (c.fetchable ? '<label class="zt-opt"><input type="checkbox" data-zo="fetch"' + (s.fetch ? " checked" : "") + (s.link ? " disabled" : "") + ">" + PR.t("没有 PDF 的 {n} 条有 DOI 或 arXiv 编号，联网下载 PDF（慢一些，有的下不到）", { n: c.fetchable }) + "</label>" : "") +
-        '<p class="hint">' + PR.t("导入后不会自动翻译，只准备原页；想读哪篇再翻译哪篇。迁移可以重复做，已经导入的只补分类，不会重复。") + "</p>";
+        '<p class="hint">' + PR.t("默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。迁移可以重复做，已经导入的只补分类，不会重复。") + "</p>";
     } else {
       h += '<div class="zt-stats">' + stat(c.with_pdf, PR.t("个 PDF，会导入")) + stat(c.collections, PR.t("个文件夹，变成分类")) + "</div>" +
         '<label class="zt-opt"><input type="checkbox" data-zo="keepFilename"' + (s.keepFilename ? " checked" : "") + ">" + PR.t("用原文件名作为文献库标题") + "</label>" +
         '<p class="hint">' + PR.t("文件夹的层级就是分类的层级：选的文件夹是最外层，里面的子文件夹是它的子分类。同一个 PDF 放在几个文件夹里，只导入一篇，几个分类都会有它。") + "</p>" +
-        '<p class="hint">' + PR.t("导入后不会自动翻译，只准备原页；想读哪篇再翻译哪篇。可以重复导入同一个文件夹，已经导入的只补分类，不会重复。") + "</p>";
+        '<p class="hint">' + PR.t("默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。可以重复导入同一个文件夹，已经导入的只补分类，不会重复。") + "</p>";
     }
     h += '<label class="zt-opt"><input type="checkbox" data-zo="link"' + (s.link ? " checked" : "") + ">" + PR.t("链接本地 PDF，不复制原文件") + "</label>" +
       '<p class="hint">' + PR.t("链接仅在能访问原路径的电脑上使用。请保留原 PDF；已有论文保留原来的存储方式、笔记和进度。") + "</p>";

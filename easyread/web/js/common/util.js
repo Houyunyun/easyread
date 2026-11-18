@@ -230,6 +230,7 @@ window.PR = window.PR || {};
       const j = jobOrMsg;
       if (PR.jobPreparing(j)) {
         const preparing = j.state === "running";
+        if (j.auto_translate_pending) return preparing ? PR.t("正在预处理 PDF（完成后自动翻译）") : PR.t("等待预处理（完成后自动翻译）");
         if (j.translate) return preparing ? PR.t("正在预处理 PDF（已预约模型任务）") : PR.t("等待预处理（已预约模型任务）");
         return preparing ? PR.t("正在预处理 PDF") : PR.t("等待预处理");
       }
