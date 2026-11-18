@@ -15,9 +15,11 @@ from urllib.parse import parse_qs, urlparse
 
 from ..app import config
 from ..server import http
-from ..app import i18n
 from ..library import planning_store
 from ..translate import prompts
+from . import prompts as research_prompts
+from .prompts import mindmap_language_guide as _mindmap_language_guide
+from .language import ui_target
 from ..pdf import sources
 from . import background, deep_analysis, obsidian_export, planning_api, mindmaps
 from ..app.i18n import tr
@@ -70,7 +72,7 @@ def _current_reading_path_task(root: Path) -> dict | None:
         return None
     if stored.get("state") in ("queued", "running", "cancelling"):
         stored = {**stored, "state": "interrupted", "phase": "interrupted",
-                  "message": tr("分析已中斷；可保留輸入並手動重新產生。")}
+                  "message": tr("分析已中断；可保留输入并手动重新产生。")}
         record = {**record, "task": stored}
         planning_store.cache_put(root, READING_PATH_TASK_CACHE_KEY, record)
     retry_request = record.get("request") if stored.get("state") in ("failed", "interrupted") else None
@@ -78,153 +80,6 @@ def _current_reading_path_task(root: Path) -> dict | None:
 
 MINDMAP_TASK_CACHE_PREFIX = "mindmap:task:"
 _MINDMAP_TASK_CACHE_LOCK = threading.Lock()
-
-MINDMAP_LANGUAGE_GUIDES = {
-    "ko": {
-        "name": "韓語（한국어，Korean）",  # i18n-ok: model prompt content
-        "branches": [
-            "`연구 배경 및 문제`：연구 동기, 해결하려는 핵심 문제 또는 기존 기술의 한계.",  # i18n-ok: model prompt content
-            "`핵심 구조 및 이론`：전체 시스템/모델 아키텍처, 이론적 기초, 핵심 컴포넌트 및 모듈.",  # i18n-ok: model prompt content
-            "`방법론 및 핵심 메커니즘`：알고리즘 프로세스, 주요 설계, 손실 함수 또는 수학적 표현.",  # i18n-ok: model prompt content
-            "`실험 설계 및 벤치마크`：벤치마크 테스트, 평가 데이터셋, 비교 베이스라인, 평가 지표.",  # i18n-ok: model prompt content
-            "`주요 발견 및 성과`：주요 실험 결론, SOTA 비교 성과, 어블레이션(Ablation) 분석 인사이트.",  # i18n-ok: model prompt content
-            "`연구 기여 및 혁신`：핵심 학술적 기여, 방법론적 혁신 또는 실용적 가치.",  # i18n-ok: model prompt content
-            "`한계점 및 향후 연구`：방법의 한계, 미해결 과제 또는 향후 연구 방향.",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文節點（包含根節點、一級分支名稱與所有子節點）一律使用韓語（한국어）生成。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer, Self-Attention, BLEU, SOTA, FLOPs, Zero-shot 等），避免生硬直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "ja": {
-        "name": "日語（日本語，Japanese）",  # i18n-ok: model prompt content
-        "branches": [
-            "`研究背景と課題`：研究の動機、解決を目指す中心課題や既存技術のボトルネック。",  # i18n-ok: model prompt content
-            "`コアアーキテクチャと理論`：システム・モデル全体の構造、理論的基礎、主要コンポーネント。",  # i18n-ok: model prompt content
-            "`手法と主要メカニズム`：アルゴリズムのフロー、主要な設計、損失関数や数式表現。",  # i18n-ok: model prompt content
-            "`実験設計とベンチマーク`：ベンチマーク、評価データセット、ベースライン、評価指標。",  # i18n-ok: model prompt content
-            "`主要な発見と成果`：主要な実験結果、SOTA との比較、アブレーション (Ablation) 解析の洞察。",  # i18n-ok: model prompt content
-            "`研究の貢献と新規性`：主要な學術的貢献、手法の新規性や実用的な価値。",  # i18n-ok: model prompt content
-            "`限界と今後の課題`：手法の適用範囲・制限、未解決の課題や将来の研究方向。",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文節點（包含根節點、一級分支名稱與所有子節點）一律使用日語（日本語）生成。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer, Self-Attention, BLEU, SOTA, FLOPs 等），避免不自然的直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "zh": {
-        "name": "中文（簡體中文）",  # i18n-ok: model prompt content
-        "branches": [
-            "`研究背景与问题`：研究动机、欲解决的核心问题或现有技术瓶颈。",  # i18n-ok: model prompt content
-            "`核心架构与理论`：整体系统或模型架构、理论基础、核心组件模块。",  # i18n-ok: model prompt content
-            "`方法与关键机制`：算法流程、关键设计、损失函数或数学表达。",  # i18n-ok: model prompt content
-            "`实验设计与基准`：基准测试 (Benchmarks)、评估数据集、对照基准 (Baselines)、评估指标。",  # i18n-ok: model prompt content
-            "`核心发现与成果`：主要实验结论、SOTA 对比成果、消融实验 (Ablation) 洞察。",  # i18n-ok: model prompt content
-            "`研究贡献与创新`：核心学术突破、方法创新或实务价值。",  # i18n-ok: model prompt content
-            "`局限性与未来方向`：方法边界、未解决问题或改进方向。",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文一律使用簡體中文生成，包含根節點、一級分支名稱與所有子節點。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer、Self-Attention、BLEU、Zero-shot、SOTA、FLOPs 等），不進行生硬直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "en": {
-        "name": "English",
-        "branches": [
-            "`Research Background & Problem`：Motivation, core problem addressed, or limitations of existing methods.",  # i18n-ok: model prompt content
-            "`Core Architecture & Theory`：Overall system/model architecture, theoretical foundation, key components.",  # i18n-ok: model prompt content
-            "`Methodology & Mechanisms`：Algorithm workflow, key design choices, loss functions or mathematical formulations.",  # i18n-ok: model prompt content
-            "`Experimental Design & Benchmarks`：Benchmark tasks, datasets, baseline comparisons, evaluation metrics.",  # i18n-ok: model prompt content
-            "`Key Findings & Results`：Main empirical conclusions, SOTA comparisons, ablation study insights.",  # i18n-ok: model prompt content
-            "`Contributions & Innovations`：Key academic breakthroughs, methodological innovations, or practical value.",  # i18n-ok: model prompt content
-            "`Limitations & Future Work`：Scope boundaries, unaddressed challenges, or potential extensions.",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. Generate all nodes (root node, top-level branch names, and all child nodes) entirely in English.\n"
-            "2. Retain standard academic acronyms and terminology (e.g., Transformer, Self-Attention, BLEU, Zero-shot, SOTA, FLOPs).\n"
-            "3. Strictly base content on provided text; do not hallucinate datasets or experimental numbers."
-        ),
-    },
-    "es": {
-        "name": "西班牙語（Español）",  # i18n-ok: model prompt content
-        "branches": [
-            "`Contexto y Problema`：Motivación de la investigación, problema central abordado o limitaciones previas.",  # i18n-ok: model prompt content
-            "`Arquitectura y Teoría Central`：Estructura del sistema/modelo, fundamentos teóricos y componentes clave.",  # i18n-ok: model prompt content
-            "`Metodología y Mecanismos Clave`：Flujo algorítmico, diseño metodológico, funciones de pérdida o formulaciones.",  # i18n-ok: model prompt content
-            "`Diseño Experimental y Benchmarks`：Pruebas de referencia, conjuntos de datos, líneas base y métricas.",  # i18n-ok: model prompt content
-            "`Hallazgos y Resultados Principales`：Conclusiones empíricas, comparaciones SOTA y análisis de ablación.",  # i18n-ok: model prompt content
-            "`Contribuciones e Innovaciones`：Aportes académicos clave, innovaciones prácticas o metodológicas.",  # i18n-ok: model prompt content
-            "`Limitaciones y Trabajo Futuro`：Límites del método, desafíos abiertos o direcciones futuras.",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文節點（包含根節點、一級分支名稱與所有子節點）一律使用西班牙語（Español）生成。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer, Self-Attention, BLEU, SOTA, FLOPs 等），避免不自然的直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "fr": {
-        "name": "法語（Français）",  # i18n-ok: model prompt content
-        "branches": [
-            "`Contexte et Problématique`：Motivation de recherche, problème central abordé ou verrous scientifiques.",  # i18n-ok: model prompt content
-            "`Architecture et Théorie Fondamentale`：Structure globale du modèle/système, fondements théoriques et modules clés.",  # i18n-ok: model prompt content
-            "`Méthodologie et Mécanismes Clés`：Déroulement algorithmique, choix de conception, fonctions de perte.",  # i18n-ok: model prompt content
-            "`Protocole Expérimental et Benchmarks`：Jeux de données, bancs d'essai, modèles de référence et métriques.",  # i18n-ok: model prompt content
-            "`Résultats et Découvertes Clés`：Conclusions empiriques, comparaison à l'état de l'art (SOTA), études d'ablation.",  # i18n-ok: model prompt content
-            "`Contributions et Innovations`：Apports scientifiques majeurs, innovations méthodologiques ou pratiques.",  # i18n-ok: model prompt content
-            "`Limites et Perspectives Futures`：Limites de l'approche, questions ouvertes et axes futurs.",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文節點（包含根節點、一級分支名稱與所有子節點）一律使用法語（Français）生成。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer, Self-Attention, BLEU, SOTA, FLOPs 等），避免生硬直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "de": {
-        "name": "德語（Deutsch）",  # i18n-ok: model prompt content
-        "branches": [
-            "`Forschungshintergrund & Problemstellung`：Forschungsmotivation, adressiertes Kernproblem oder bisherige Grenzen.",  # i18n-ok: model prompt content
-            "`Kernarchitektur & Theoretische Grundlagen`：Gesamtsystem/Modellarchitektur, theoretische Basis, Hauptkomponenten.",  # i18n-ok: model prompt content
-            "`Methodik & Schlüsselmechanismen`：Algorithmischer Ablauf, zentrale Designentscheidungen, Verlustfunktionen.",  # i18n-ok: model prompt content
-            "`Experimentelles Design & Benchmarks`：Evaluations-Datensätze, Baselines, Benchmarks und Metriken.",  # i18n-ok: model prompt content
-            "`Wichtigste Erkenntnisse & Ergebnisse`：Empirische Hauptergebnisse, SOTA-Vergleiche, Ablationsstudien.",  # i18n-ok: model prompt content
-            "`Wissenschaftliche Beiträge & Innovationen`：Zentrale wissenschaftliche Durchbrüche und methodische Innovationen.",  # i18n-ok: model prompt content
-            "`Grenzen & Zukünftige Forschungsrichtungen`：Einschränkungen der Methode, offene Fragen und zukünftige Arbeiten.",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文節點（包含根節點、一級分支名稱與所有子節點）一律使用德語（Deutsch）生成。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer, Self-Attention, BLEU, SOTA, FLOPs 等），避免不自然的直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-    "zh-TW": {
-        "name": "繁體中文（臺灣學術用語）",  # i18n-ok: model prompt content
-        "branches": [
-            "`研究背景與問題`：研究動機、欲解決的核心問題或既有技術瓶頸。",  # i18n-ok: model prompt content
-            "`核心架構與理論`：整體系統或模型架構、理論基礎、核心組件模組。",  # i18n-ok: model prompt content
-            "`方法與關鍵機制`：演算法流程、關鍵設計、損失函數或數學表達。",  # i18n-ok: model prompt content
-            "`實驗設計與基準`：基準測試 (Benchmarks)、評估資料集、對照基準 (Baselines)、評估指標。",  # i18n-ok: model prompt content
-            "`核心發現與成果`：主要實驗結論、SOTA 對比成果、消融實驗 (Ablation) 洞察。",  # i18n-ok: model prompt content
-            "`研究貢獻與創新`：核心學術突破、方法創新或實務價值。",  # i18n-ok: model prompt content
-            "`局限性與未來方向`：方法邊界、未解決問題或改進方向（若原文未提及可精簡或略過）。",  # i18n-ok: model prompt content
-        ],
-        "lang_rule": (
-            "1. 全文一律使用繁體中文（臺灣學術慣用語，如資料集、演算法、最佳化、消融實驗），包含根節點、一級分支名稱與所有子節點。\n"  # i18n-ok: model prompt content
-            "2. 保留標準英文學術術語與縮寫（如 Transformer、Self-Attention、BLEU、Zero-shot、SOTA、FLOPs 等），不進行生硬直譯。\n"  # i18n-ok: model prompt content
-            "3. 嚴格基於所提供的文字整理，嚴禁虛構未出現的數據、資料集或實驗結果。"  # i18n-ok: model prompt content
-        ),
-    },
-}
-
-
-def _mindmap_language_guide(meta: dict | None) -> tuple[str, dict]:
-    from ..translate import langs
-    target_lang = "zh-Hant" if (meta or {}).get("target") == "zh-TW" else langs.of_paper(meta or {})
-    guide = MINDMAP_LANGUAGE_GUIDES.get("zh-TW" if target_lang == "zh-Hant" else target_lang) or {"name": langs.prompt_name(target_lang), "branches": MINDMAP_LANGUAGE_GUIDES["en"]["branches"], "lang_rule": "Use " + langs.prompt_name(target_lang) + ". Do not invent evidence."}
-    return target_lang, guide
-
 
 MINDMAP_SOURCE_BUDGET = 48000
 
@@ -242,7 +97,7 @@ def _legacy_evidence_hash(paper: dict) -> str:
 
 
 def _mindmap_source(paper: dict) -> tuple[str, str]:
-    """提取心智圖來源文字與快取 hash：原文優先、涵蓋表格與數學公式、結構化 Markdown 緊湊格式。"""
+    """提取心智图来源文字与快取 hash：原文优先、涵盖表格与数学公式、结构化 Markdown 紧凑格式。"""
     meta = paper.get("meta") or {}
     blocks = paper.get("blocks") or []
     gl = paper.get("glossary") or []
@@ -251,7 +106,7 @@ def _mindmap_source(paper: dict) -> tuple[str, str]:
     if gl:
         gl_lines = [f"- {g['en']} = {g['zh']}" for g in gl if isinstance(g, dict) and g.get("en")]
         if gl_lines:
-            gl_text = "已有術語表（專有名詞請依此對照）：\n" + "\n".join(gl_lines)  # i18n-ok: prompt
+            gl_text = "已有术语表（专有名词请依此对照）：\n" + "\n".join(gl_lines)  # i18n-ok: prompt
             out.append(gl_text)
             used += len(gl_text)
     for block in blocks:
@@ -288,7 +143,7 @@ def _mindmap_source(paper: dict) -> tuple[str, str]:
         if not t:
             continue
         if used + len(t) > MINDMAP_SOURCE_BUDGET:
-            out.append("……（後續章節依長度上限省略）")  # i18n-ok: prompt content
+            out.append("……（后续章节依长度上限省略）")  # i18n-ok: prompt content
             break
         out.append(t)
         used += len(t)
@@ -391,35 +246,35 @@ _MAP_MAX_NODES, _MAP_MAX_EDGES, _MAP_MAX_BYTES, _MAP_MAX_TEXT = 500, 1000, 400_0
 def _keyword_map_validate(app, data: dict) -> dict:
     """Reject oversized or foreign data before a topic map is stored."""
     if not isinstance(data, dict):
-        raise ValueError(tr("主題圖資料格式不正確"))
+        raise ValueError(tr("主题图资料格式不正确"))
     if len(json.dumps(data, ensure_ascii=False)) > _MAP_MAX_BYTES:
-        raise ValueError(tr("主題圖資料過大"))
+        raise ValueError(tr("主题图资料过大"))
     nodes, edges = data.get("nodes"), data.get("edges", [])
     if not isinstance(nodes, list) or not isinstance(edges, list) or len(nodes) > _MAP_MAX_NODES or len(edges) > _MAP_MAX_EDGES:
-        raise ValueError(tr("主題圖節點或連線數量超過上限"))
+        raise ValueError(tr("主题图节点或连线数量超过上限"))
     known = {row["id"] for row in planning_store.keyword_list(_root(app), True)}
     ids = set()
     for node in nodes:
         identity = node.get("id") if isinstance(node, dict) else None
         if not isinstance(identity, str) or not identity or len(identity) > 64 or identity in ids:
-            raise ValueError(tr("主題圖節點 ID 不正確或重複"))
+            raise ValueError(tr("主题图节点 ID 不正确或重复"))
         ids.add(identity)
     for node in nodes:
         if len(str(node.get("label") or "")) > _MAP_MAX_TEXT:
-            raise ValueError(tr("主題圖文字過長"))
+            raise ValueError(tr("主题图文字过长"))
         if node.get("parent") and node["parent"] not in ids:
-            raise ValueError(tr("主題圖含不存在的上層節點"))
+            raise ValueError(tr("主题图含不存在的上层节点"))
         source = node.get("source") if isinstance(node.get("source"), dict) else {}
         if source.get("paper_id") and not app.lib.ws(str(source["paper_id"])):
-            raise ValueError(tr("主題圖包含不屬於目前文獻庫的論文"))
+            raise ValueError(tr("主题图包含不属于目前文献库的论文"))
         if source.get("keyword_id") and source["keyword_id"] not in known:
-            raise ValueError(tr("主題圖包含不屬於目前文獻庫的關鍵字"))
+            raise ValueError(tr("主题图包含不属于目前文献库的关键字"))
     edge_ids = set()
     for edge in edges:
         if not isinstance(edge, dict) or edge.get("from") not in ids or edge.get("to") not in ids:
-            raise ValueError(tr("主題圖連線指向不存在節點"))
+            raise ValueError(tr("主题图连线指向不存在节点"))
         if len(str(edge.get("label") or "")) > 80 or str(edge.get("id") or "") in edge_ids:
-            raise ValueError(tr("主題圖連線標籤過長或 ID 重複"))
+            raise ValueError(tr("主题图连线标签过长或 ID 重复"))
         edge_ids.add(str(edge.get("id") or ""))
     return data
 
@@ -500,7 +355,7 @@ def _current_mindmap_task(root: Path, pid: str | None = None) -> dict | None:
         return None
     if stored.get("state") in ("queued", "running", "cancelling"):
         stored = {**stored, "state": "interrupted", "phase": "interrupted",
-                  "message": tr("心智圖分析已中斷；可保留輸入並手動重新產生。")}
+                  "message": tr("心智图分析已中断；可保留输入并手动重新产生。")}
         record = {**record, "task": stored}
         with _MINDMAP_TASK_CACHE_LOCK:
             latest, _ = planning_store.cache_get(root, cache_key)
@@ -508,7 +363,7 @@ def _current_mindmap_task(root: Path, pid: str | None = None) -> dict | None:
             latest_task = latest.get("task") if isinstance(latest.get("task"), dict) else stored
             if latest_task.get("state") in ("queued", "running", "cancelling"):
                 latest = {**latest, "task": {**latest_task, "state": "interrupted", "phase": "interrupted",
-                          "message": tr("心智圖分析已中斷；可保留輸入並手動重新產生。")}}
+                          "message": tr("心智图分析已中断；可保留输入并手动重新产生。")}}
                 planning_store.cache_put(root, cache_key, latest)
             record = latest
             stored = record.get("task") if isinstance(record.get("task"), dict) else stored
@@ -552,7 +407,7 @@ def _summary_worker(app):
             valid = [x for x in claimed if str(x["paper"].get("abstract") or "").strip()]
             for item in claimed:
                 if item not in valid:
-                    planning_store.candidate_summary_status(root, item["paper_key"], "failed", "來源沒有提供摘要，無法自動整理。", expected_claim=item["summary_claim"])  # i18n-dom: 保持資料庫錯誤內容固定繁中，前端翻譯呈現。
+                    planning_store.candidate_summary_status(root, item["paper_key"], "failed", tr("来源没有提供摘要，无法自动整理。"), expected_claim=item["summary_claim"])
             if not valid:
                 continue
             try:
@@ -564,17 +419,8 @@ def _summary_worker(app):
                 papers = [{"paper_key": x["paper_key"], "title": str(x["paper"].get("title") or "")[:400],
                            "authors": str(x["paper"].get("authors") or "")[:500], "year": x["paper"].get("year"),
                            "venue": str(x["paper"].get("venue") or "")[:300], "abstract": str(x["paper"].get("abstract") or "")[:5000]} for x in valid]
-                if i18n.lang() == "en":
-                    prompt = (
-                        "Please summarize the source abstracts of the following candidate papers in English. "
-                        "For each paper, base the summary solely on the provided information; do not invent results, citations, or publication details. "
-                        "If information is missing, explicitly state it is not provided. "
-                        "Output a JSON array, where each element contains 'paper_key' and 'summary_markdown'. "
-                        "Format the summary in Markdown covering Research Problem, Methodology, Key Results, and Limitations.\n"
-                        + json.dumps(papers, ensure_ascii=False)
-                    )
-                else:
-                    prompt = "請使用繁體中文（臺灣用語）整理下列候選論文的來源摘要。每篇只根據該篇提供的資料，不補造結果、引用或出版資訊；缺少資訊請標示未提供。輸出 JSON 陣列，每個元素含 paper_key 與 summary_markdown，摘要以 Markdown 呈現研究問題、方法、結果與限制。\n" + json.dumps(papers, ensure_ascii=False)  # i18n-ok: prompt
+                target = ui_target()
+                prompt = research_prompts.summary_prompt(papers, target, batch=True)
                 answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], None, meter)
                 output = engines.parse_json(answer)
                 unwrapped = _unwrap_json_list(output)
@@ -582,12 +428,12 @@ def _summary_worker(app):
                 for item in valid:
                     markdown = by_key.get(item["paper_key"], "")
                     if markdown:
-                        planning_store.candidate_save_summary(root, item["paper_key"], markdown, model.get("name", model.get("id", "")), expected_claim=item["summary_claim"])
+                        planning_store.candidate_save_summary(root, item["paper_key"], markdown, model.get("name", model.get("id", "")), expected_claim=item["summary_claim"], target=target)
                     else:
-                        planning_store.candidate_summary_status(root, item["paper_key"], "failed", "模型未回傳這篇論文的摘要，請重試整理。", expected_claim=item["summary_claim"])  # i18n-dom: 保持資料庫錯誤內容固定繁中，前端翻譯呈現。
+                        planning_store.candidate_summary_status(root, item["paper_key"], "failed", tr("模型未回传这篇论文的摘要，请重试整理。"), expected_claim=item["summary_claim"])
             except Exception:
                 for item in valid:
-                    planning_store.candidate_summary_status(root, item["paper_key"], "failed", "摘要整理失敗，請確認 AI 模型設定或連線後重試。", expected_claim=item["summary_claim"])  # i18n-dom: 保持資料庫錯誤內容固定繁中，前端翻譯呈現。
+                    planning_store.candidate_summary_status(root, item["paper_key"], "failed", tr("摘要整理失败，请确认 AI 模型设定或连线后重试。"), expected_claim=item["summary_claim"])
     finally:
         with _summary_worker_lock:
             _summary_workers.discard(worker_key)
@@ -734,18 +580,18 @@ def _summary_export_document(record: dict) -> dict:
     paper = record.get("paper") if isinstance(record.get("paper"), dict) else {}
     paper_key = str(record.get("paper_key") or "").strip()
     if not paper_key or not str(record.get("summary_markdown") or "").strip():
-        raise ValueError("找不到可匯出的摘要。")  # i18n-ok: Research workspace message is fixed Traditional Chinese.
+        raise ValueError(tr("找不到可汇出的摘要。"))
     identity = "paper-summary:" + sha256(paper_key.encode("utf-8")).hexdigest()[:32]
-    title = str(paper.get("title_en") or paper.get("title") or paper.get("title_zh") or "論文摘要").strip()  # i18n-ok: Exported Markdown keeps a stable Traditional Chinese fallback.
+    title = str(paper.get("title_en") or paper.get("title") or paper.get("title_zh") or tr("论文摘要")).strip()
     bibliography = [
-        "## 書目資料", "",  # i18n-ok: Exported Markdown section heading is fixed Traditional Chinese.
-        "- English title: " + str(paper.get("title_en") or "未提供"),  # i18n-ok: Exported Markdown fallback is content, not UI.
-        "- 作者：" + str(paper.get("authors") or "未提供"),  # i18n-ok: Exported Markdown label is fixed Traditional Chinese.
-        "- 年份：" + str(paper.get("year") or "未提供"),  # i18n-ok: Exported Markdown label is fixed Traditional Chinese.
-        "- DOI: " + str(paper.get("doi") or "未提供"),  # i18n-ok: Exported Markdown fallback is content, not UI.
+        tr("## 书目资料"), "",
+        tr("- 英文标题：") + str(paper.get("title_en") or tr("未提供")),
+        tr("- 作者：") + str(paper.get("authors") or tr("未提供")),
+        tr("- 年份：") + str(paper.get("year") or tr("未提供")),
+        "- DOI: " + str(paper.get("doi") or tr("未提供")),
     ]
-    body = "\n".join(bibliography) + "\n\n## 來源摘要整理\n\n" + str(record["summary_markdown"]).strip()  # i18n-ok: Exported Markdown section heading is fixed Traditional Chinese.
-    return {"id": identity, "kind": "summary", "paper_id": paper_key, "title": title + " - 摘要",  # i18n-ok: Exported Markdown title suffix is fixed Traditional Chinese.
+    body = "\n".join(bibliography) + tr("\n\n## 来源摘要整理\n\n") + str(record["summary_markdown"]).strip()
+    return {"id": identity, "kind": "summary", "paper_id": paper_key, "title": title + tr(" - 摘要"),
             "filename": title, "body": body, "links": []}
 
 
@@ -797,7 +643,7 @@ def _work(raw: dict) -> dict:
             topics.append(name)
     return {
         "id": landing, "openalex_id": landing, "doi": doi, "arxiv": arxiv,
-        "title": raw.get("title") or "（未提供標題）", "authors": ", ".join(a for a in authors if a),  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        "title": raw.get("title") or tr("（未提供标题）"), "authors": ", ".join(a for a in authors if a),
         "year": raw.get("publication_year") or "", "venue": source,
         "abstract": _abstract(raw.get("abstract_inverted_index")),
         "cited_by_count": raw.get("cited_by_count"), "is_oa": bool((raw.get("open_access") or {}).get("is_oa")),
@@ -833,13 +679,13 @@ def _openalex(path: str, params: dict | None = None, timeout=15) -> dict:
                 _time.sleep(max(.5, min(2, retry_after)))
                 continue
             if exc.code == 429:
-                raise ValueError("OpenAlex 已達到查詢限制，請稍後再試；已保留先前搜尋結果。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-            raise ValueError(f"OpenAlex 查詢失敗（HTTP {exc.code}），請稍後重試。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("OpenAlex 已达到查询限制，请稍后再试；已保留先前搜寻结果。")) from exc
+            raise ValueError(tr('OpenAlex 查询失败（HTTP {status}），请稍后重试。', status=exc.code)) from exc
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             if attempt == 0:
                 _time.sleep(.5)
                 continue
-            raise ValueError("目前無法連線到 OpenAlex；請檢查網路後重試。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("目前无法连线到 OpenAlex；请检查网路后重试。")) from exc
 
 
 def _search_works(root: Path, query: str, *, sort="relevance_score:desc", year_from="", year_to="", open_access=False, page=1, filter_expr="", source_id="", source_ids=None) -> dict:
@@ -848,31 +694,31 @@ def _search_works(root: Path, query: str, *, sort="relevance_score:desc", year_f
     if isinstance(values, str):
         values = re.split(r"[|,]", values)
     if not isinstance(values, (list, tuple)):
-        raise ValueError("出版來源識別資料不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("出版来源识别资料不正确。"))
     values = list(values) + ([source_id] if source_id else [])
     source_ids = []
     for value in values:
         ident = str(value).strip().rstrip("/").split("/")[-1]
         if not re.fullmatch(r"S\d+", ident):
-            raise ValueError("出版來源識別資料不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("出版来源识别资料不正确。"))
         if ident not in source_ids:
             source_ids.append(ident)
     if len(source_ids) > 100:
-        raise ValueError("一次最多可選擇 100 個出版來源。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("一次最多可选择 100 个出版来源。"))
     source_ids.sort()
     if not query and not filter_expr and not source_ids:
-        raise ValueError("請輸入主題、論文標題或作者名稱。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("请输入主题、论文标题或作者名称。"))
     if not query and sort == "relevance_score:desc":
         sort = "publication_date:desc"
     years = []
     for value in (year_from, year_to):
         value = str(value or "").strip()
         if value and (not re.fullmatch(r"\d{4}", value) or not 1800 <= int(value) <= 2100):
-            raise ValueError("年份請輸入 1800 到 2100 之間的四位數。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("年份请输入 1800 到 2100 之间的四位数。"))
         years.append(value)
     year_from, year_to = years
     if year_from and year_to and int(year_from) > int(year_to):
-        raise ValueError("起始年份不能晚於結束年份。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("起始年份不能晚于结束年份。"))
     page = max(1, min(100, int(page or 1)))
     cache_key = "works:" + sha256(json.dumps([query, sort, year_from, year_to, open_access, page, filter_expr, source_ids], ensure_ascii=False).encode()).hexdigest()
     cached = _fresh_cache(root, cache_key)
@@ -915,17 +761,17 @@ def _external_json(url: str, source: str, timeout: int = 12) -> dict:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         if exc.code == 429:
-            raise ValueError(f"{source} 查詢達到服務限制，請稍後重試。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-        raise ValueError(f"{source} 查詢失敗（HTTP {exc.code}）。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr('{source} 查询达到服务限制，请稍后重试。', source=source)) from exc
+        raise ValueError(tr('{source} 查询失败（HTTP {status}）。', source=source, status=exc.code)) from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise ValueError(f"目前無法連線到 {source}，請檢查網路後重試。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr('目前无法连线到 {source}，请检查网路后重试。', source=source)) from exc
 
 
 def _dblp_search(root: Path, query: str, venues: list[str], page=1, year_from="", year_to="") -> dict:
     query = query.strip()[:250]
     venue_terms = [x.strip()[:80] for x in (venues or []) if str(x).strip()]
     if not venue_terms:
-        return {"results": [], "count": 0, "source": "DBLP", "checked_at": _now().isoformat(), "warning": "請先選擇一個會議或期刊來源。"}  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        return {"results": [], "count": 0, "source": "DBLP", "checked_at": _now().isoformat(), "warning": tr("请先选择一个会议或期刊来源。")}
     page = max(1, min(10, int(page or 1)))
     # DBLP's public search grammar does not provide a `venue:` field operator.
     # Search topic terms first, then strictly filter returned venue metadata;
@@ -960,7 +806,7 @@ def _dblp_search(root: Path, query: str, venues: list[str], page=1, year_from=""
             names = authors.get("author", []) if isinstance(authors, dict) else []
             if isinstance(names, dict): names = [names]
             results.append({"id": info.get("url") or entry.get("@id", ""), "openalex_id": "", "doi": info.get("doi") or "",
-                            "arxiv": "", "title": info.get("title") or tr("（未提供標題）"), "authors": ", ".join(str(a.get("text") or a) for a in names),
+                            "arxiv": "", "title": info.get("title") or tr("（未提供标题）"), "authors": ", ".join(str(a.get("text") or a) for a in names),
                             "year": year, "venue": venue, "abstract": "",
                             "cited_by_count": None, "is_oa": False, "pdf_url": "", "url": info.get("ee") or info.get("url") or "", "source": "DBLP",
                             "publication_type": info.get("type") or ""})
@@ -1044,7 +890,7 @@ SOURCE_ALIASES = {
 def _source_terms(query: str) -> list[str]:
     # Spaces separate a list of acronyms; full journal/conference names retain
     # their spaces and use commas, semicolons or newlines to separate names.
-    parts = re.split(r"[,，、;；|\n]+", query.strip())  # i18n-ok: 內部比對或資料格式，不會直接顯示。  # i18n-ok: 搜尋字詞的分隔符號正規表示式。
+    parts = re.split(r"[,，、;；|\n]+", query.strip())  # i18n-ok: 内部比对或资料格式，不会直接显示。  # i18n-ok: 搜寻字词的分隔符号正规表示式。
     terms, seen = [], set()
     for part in parts:
         words = part.strip().split()
@@ -1057,17 +903,17 @@ def _source_terms(query: str) -> list[str]:
                 seen.add(name.casefold())
                 terms.append(name.upper() if name.upper() in SOURCE_ALIASES else name)
     if len(terms) > 10:
-        raise ValueError("一次最多查找 10 組出版來源名稱，請分批查找。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("一次最多查找 10 组出版来源名称，请分批查找。"))
     return terms
 
 
 def _source_search(root: Path, query: str) -> dict:
     query = query.strip()[:500]
     if not query:
-        raise ValueError("請輸入出版來源名稱。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("请输入出版来源名称。"))
     terms = _source_terms(query)
     if not terms:
-        raise ValueError("請輸入出版來源名稱。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("请输入出版来源名称。"))
     key = "sources:v2:" + sha256(json.dumps(terms, ensure_ascii=False).casefold().encode()).hexdigest()
     try:
         merged, unmatched, errors = {}, [], []
@@ -1109,11 +955,11 @@ def _source_search(root: Path, query: str) -> dict:
         results = list(merged.values())
         warnings = []
         if unmatched:
-            warnings.append("部分來源未列於 OpenAlex 的出版來源清單，已保留為手動來源，改由書目資料搜尋；結果可能不完整：" + "、".join(unmatched) + "。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            warnings.append(tr("部分来源未列于 OpenAlex 的出版来源清单，已保留为手动来源，改由书目资料搜寻；结果可能不完整：{sources}。", sources=", ".join(unmatched)))
         if errors:
-            warnings.append("以下來源暫時查詢失敗，請重試：" + "、".join(t for t, _ in errors) + "。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            warnings.append(tr("以下来源暂时查询失败，请重试：{sources}。", sources=", ".join(t for t, _ in errors)))
         if "ECCV" in terms:
-            warnings.append("OpenAlex 的 ECCV 會議來源收錄可能不完整；部分論文登錄於書籍系列，這裡不會把整個書籍系列當成 ECCV。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            warnings.append(tr("OpenAlex 的 ECCV 会议来源收录可能不完整；部分论文登录于书籍系列，这里不会把整个书籍系列当成 ECCV。"))
         result = {"results": results, "count": len(results), "queries": terms, "unmatched": unmatched, "failed_queries": [t for t, _ in errors], "warning": " ".join(warnings),
                   "source": "OpenAlex", "checked_at": _now().isoformat(), "stale": False}
         planning_store.cache_put(root, key, result)
@@ -1129,7 +975,7 @@ def _crossref_venue_search(root: Path, query: str, venues: list[str], page=1, ye
     """Search Crossref by venue metadata; keep only exact/alias title matches."""
     venue_terms = [str(x).strip()[:120] for x in venues if str(x).strip()]
     if not venue_terms:
-        return {"results": [], "count": 0, "source": "Crossref", "checked_at": _now().isoformat(), "warning": tr("請先選擇會議或期刊來源。")}
+        return {"results": [], "count": 0, "source": "Crossref", "checked_at": _now().isoformat(), "warning": tr("请先选择会议或期刊来源。")}
     page = max(1, min(10, int(page or 1)))
     cache_key = "crossref-venue:v2:" + sha256(json.dumps([query, venue_terms, page, year_from, year_to], ensure_ascii=False).encode()).hexdigest()
     cached = _fresh_cache(root, cache_key)
@@ -1187,7 +1033,7 @@ def _crossref_venue_search(root: Path, query: str, venues: list[str], page=1, ye
     result = {"results": ordered, "count": len(ordered), "page": page, "has_more": False, "source": "Crossref",
               "checked_at": _now().isoformat(), "stale": False}
     if errors:
-        result["warning"] = tr("Crossref 部分查詢未完成，已顯示成功取得的書目資料。")
+        result["warning"] = tr("Crossref 部分查询未完成，已显示成功取得的书目资料。")
     planning_store.cache_put(root, cache_key, result)
     return result
 
@@ -1349,7 +1195,7 @@ def get(app, path_query: str):
         pid, _, action = tail.partition("/")
         ws = app.lib.ws(pid)
         if not ws:
-            raise ValueError("找不到這篇論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("找不到这篇论文。"))
         item = ws.load("item") or {}
         paper = ws.load("paper") or {}
         meta = paper.get("meta") or {}
@@ -1381,16 +1227,11 @@ def get(app, path_query: str):
             _, source_hash = _mindmap_source(paper)
             cache_key = f"mindmap:{target_lang}:" + sha256(source_hash.encode()).hexdigest()
             cached, checked = planning_store.cache_get(_root(app), cache_key)
-            if not cached:
-                legacy_key = "mindmap:" + sha256(source_hash.encode()).hexdigest()
-                cached, checked = planning_store.cache_get(_root(app), legacy_key)
-            if not cached and not meta.get("source_sha256"):
-                legacy_ev_hash = _legacy_evidence_hash(paper)
-                cached, checked = planning_store.cache_get(_root(app), f"mindmap:{target_lang}:" + sha256(legacy_ev_hash.encode()).hexdigest())
-                if not cached:
-                    cached, checked = planning_store.cache_get(_root(app), "mindmap:" + sha256(legacy_ev_hash.encode()).hexdigest())
-            return {**(cached or {}), "cached": bool(cached), "checked_at": checked, "target": target_lang, "paper_id": pid, "task": _current_mindmap_task(_root(app), pid)}
-        return {"id": pid, "item": item, "title": meta.get("title_zh") or meta.get("title_en") or "未命名論文",  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            if cached and (cached.get("target") != target_lang or cached.get("source_sha256") != source_hash):
+                cached, checked = None, None
+            return {**(cached or {}), "cached": bool(cached), "checked_at": checked, "target": target_lang,
+                    "source_sha256": source_hash, "paper_id": pid, "task": _current_mindmap_task(_root(app), pid)}
+        return {"id": pid, "item": item, "title": meta.get("title_zh") or meta.get("title_en") or tr("未命名论文"),
                 "title_en": meta.get("title_en", ""), "doi": meta.get("doi", ""), "arxiv": meta.get("arxiv", ""),
                 "openalex_id": meta.get("openalex_id", ""), "statuses": planning_store.statuses(_root(app))}
     if endpoint == "deep-analysis":
@@ -1412,7 +1253,7 @@ def get(app, path_query: str):
         if kind == "sources":
             return _source_search(_root(app), q.get("q", ""))
         if kind != "works":
-            raise ValueError("不支援的搜尋類型。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("不支援的搜寻类型。"))
         exact = _identifier_search(_root(app), q.get("q", ""))
         if exact:
             return exact
@@ -1420,7 +1261,7 @@ def get(app, path_query: str):
     if endpoint == "publication-check":
         doi = re.sub(r"^https?://(?:dx\.)?doi\.org/", "", q.get("doi", "").strip(), flags=re.I)
         if not re.fullmatch(r"10\.\d{4,9}/[^\s]+", doi, re.I):
-            raise ValueError("這篇論文沒有可核對的 DOI。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("这篇论文没有可核对的 DOI。"))
         work = _external_json("https://api.crossref.org/works/" + urllib.parse.quote(doi, safe=""), "Crossref")
         item = work.get("message") or {}
         title = (item.get("title") or [""])[0]
@@ -1434,7 +1275,7 @@ def get(app, path_query: str):
         raw_id = urllib.parse.unquote(endpoint.split("/", 1)[1].strip())
         kind = q.get("relation", "related")
         if kind not in ("references", "related", "cited-by"):
-            raise ValueError("不支援的論文關聯類型。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("不支援的论文关联类型。"))
         wid = raw_id.rstrip("/").split("/")[-1]
         seed_title = q.get("start_title", "").strip()
         seed_doi = q.get("start_doi", "").strip()
@@ -1465,7 +1306,7 @@ def get(app, path_query: str):
 
             resolved = _resolve_seed(seed_dict)
             if not resolved or not resolved.get("id"):
-                raise ValueError("找不到對應的 OpenAlex 論文識別資料，無法展開學術關聯。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("找不到对应的 OpenAlex 论文识别资料，无法展开学术关联。"))
             wid = resolved["id"].rstrip("/").split("/")[-1].upper()
             if not seed_title:
                 seed_title = resolved.get("title") or ""
@@ -1530,7 +1371,7 @@ def get(app, path_query: str):
             result = {"results": results, "count": len(ids), "page": page, "has_more": page * 20 < len(ids), "source": "OpenAlex", "checked_at": _now().isoformat(), "relation": kind, "seed_id": wid, "seed_title": seed_title, "seed_doi": seed_doi, "seed_keywords": seed_keywords[:8], "seed_topics": seed_topics[:5]}
             missing = len(batch_ids) - len(results)
             if missing:
-                result["warning"] = f"OpenAlex 未提供本頁 {missing} 篇論文的詳細資料；清單僅顯示可取得的來源。"  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                result["warning"] = tr("OpenAlex 未提供本页 {n} 篇论文的详细资料；清单仅显示可取得的来源。", n=missing)
             planning_store.cache_put(_root(app), cache_key, result)
             return result
         except Exception as exc:
@@ -1576,7 +1417,7 @@ def get(app, path_query: str):
                         work = _work(_openalex("/works/" + wid, {"select": "id,doi,title,authorships,publication_year,primary_location,best_oa_location,locations,open_access,cited_by_count,abstract_inverted_index"}, timeout=8))
                         tokens = _similarity_tokens((work.get("title") or "") + " " + (work.get("abstract") or ""))
                         similarity = max((_text_similarity(tokens, seed_tokens) for seed_tokens in seed_texts), default=0.0)
-                        work["recommendation_reason"] = f"與此分類中的 {len(related)} 篇種子論文相關"  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                        work["recommendation_reason"] = tr("与此分类中的 {n} 篇种子论文相关", n=len(related))
                         work["seed_ids"] = sorted(related)
                         work["_similarity"] = similarity
                         work["_seed_count"] = len(related)
@@ -1596,7 +1437,7 @@ def get(app, path_query: str):
                 result = {"results": results[:20], "count": len(results[:20]), "source": "OpenAlex", "checked_at": _now().isoformat(), "seeds": [i["id"] for i in seeds], "reason": reason}
                 partial_count = max(0, len(seeds) - resolved) + len(candidate_errors)
                 if partial_count and results:
-                    result["warning"] = f"有 {partial_count} 項種子或論文資料未能完整取得；目前只依成功取得的來源排序。"  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                    result["warning"] = tr("有 {n} 项种子或论文资料未能完整取得；目前只依成功取得的来源排序。", n=partial_count)
             planning_store.cache_put(_root(app), cache_key, result)
             return result
         except Exception as exc:
@@ -1621,7 +1462,7 @@ def _background_download(app, paper_key: str):
         try:
             data, filename, fetched_meta = app.lib.fetch(ref)
             if not data.startswith(b"%PDF"):
-                errors.append("來源回應不是 PDF")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                errors.append(tr("来源回应不是 PDF"))
                 continue
             merged = {**metadata, **(fetched_meta or {}), "title_en": metadata.get("title") or fetched_meta.get("title_en", ""),
                       "authors": metadata.get("authors") or fetched_meta.get("authors", ""), "year": metadata.get("year") or fetched_meta.get("year", ""),
@@ -1648,21 +1489,21 @@ def _background_download(app, paper_key: str):
             return
         except Exception as exc:
             errors.append(str(exc)[:180])
-    planning_store.update_saved(_root(app), paper_key, pdf_state="failed", pdf_error="；".join(errors[-3:]) or "找不到可下載的公開 PDF")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+    planning_store.update_saved(_root(app), paper_key, pdf_state="failed", pdf_error="；".join(errors[-3:]) or tr("找不到可下载的公开 PDF"))
 
 
 def attach_pdf(app, paper_key: str, data: bytes, filename: str) -> dict:
     record = planning_store.saved(_root(app), paper_key)
     if not record:
-        raise ValueError("找不到待補 PDF 的論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("找不到待补 PDF 的论文。"))
     if not data.startswith(b"%PDF"):
-        raise ValueError("選取的檔案不是有效的 PDF。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("选取的档案不是有效的 PDF。"))
     if record.get("pdf_state") == "running":
-        raise ValueError("公開 PDF 正在下載；完成或失敗後再附加自己的檔案。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("公开 PDF 正在下载；完成或失败后再附加自己的档案。"))
     if record.get("pdf_state") == "imported":
-        raise ValueError("這篇論文已在文獻庫；請從文獻庫開啟原始檔。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("这篇论文已在文献库；请从文献库开启原始档。"))
     if not planning_store.claim_pdf_download(_root(app), paper_key):
-        raise ValueError("PDF 作業剛開始，請等候完成或失敗後再重試。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("PDF 作业刚开始，请等候完成或失败后再重试。"))
     record = planning_store.saved(_root(app), paper_key) or record
     metadata = record["metadata"]
     meta = {"title_en": metadata.get("title") or "", "authors": metadata.get("authors") or "", "year": metadata.get("year") or "",
@@ -1701,17 +1542,17 @@ def _normalize_plan(plan: dict | None) -> dict:
             try:
                 output[key] = date.fromisoformat(value).isoformat()
             except ValueError as exc:
-                raise ValueError("閱讀日期格式不正確。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("阅读日期格式不正确。")) from exc
     if output.get("start_date") and output.get("due_date") and output["start_date"] > output["due_date"]:
-        raise ValueError("閱讀開始日不能晚於截止日期。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("阅读开始日不能晚于截止日期。"))
     reminders = plan.get("reminders") or {}
     if not isinstance(reminders, dict):
-        raise ValueError("提醒設定格式不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("提醒设定格式不正确。"))
     for key in ("start_time", "deadline_time"):
         try:
             time.fromisoformat(str(reminders.get(key) or "09:00")[:5])
         except ValueError as exc:
-            raise ValueError("提醒時間格式不正確。") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("提醒时间格式不正确。")) from exc
     output["reminders"] = {"start_enabled": bool(reminders.get("start_enabled")), "due_enabled": bool(reminders.get("due_enabled")),
                            "start_time": str(reminders.get("start_time") or "09:00")[:5], "deadline_time": str(reminders.get("deadline_time") or "09:00")[:5]}
     output["milestone_id"] = str(plan.get("milestone_id") or "")[:80]
@@ -1788,7 +1629,7 @@ def _resolve_step_paper(step: dict, by_exact: dict, by_alias: dict, by_title: di
     return None
 
 
-def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
+def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None, _target=""):
     # Accept both server-normalized paths and callers that provide a bare or
     # trailing-slash endpoint (for example, /candidate/).
     endpoint = "/" + str(endpoint or "").strip("/")
@@ -1854,9 +1695,9 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
     if endpoint == "/keywords/exclude":
         keyword_id, paper_id = str(body.get("keyword_id") or ""), str(body.get("paper_id") or "")
         if not app.lib.ws(paper_id):
-            raise ValueError(tr("找不到這篇論文"))
+            raise ValueError(tr("找不到这篇论文"))
         if keyword_id not in {row["id"] for row in planning_store.keyword_list(root, True)}:
-            raise ValueError(tr("找不到關鍵字"))
+            raise ValueError(tr("找不到关键字"))
         planning_store.keyword_exclude(root, keyword_id, paper_id, bool(body.get("excluded", True)))
         return {"ok": True}
     if endpoint == "/keywords/archive":
@@ -1875,7 +1716,7 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         keyword_id = str(body.get("keyword_id") or "").strip()
         all_kw = {row["id"]: row for row in planning_store.keyword_list(root, True)}
         if keyword_id and keyword_id not in all_kw:
-            raise ValueError(tr("找不到關鍵字"))
+            raise ValueError(tr("找不到关键字"))
         def run(cancel, report):
             kw_list = [all_kw[keyword_id]] if keyword_id else list(all_kw.values())
             total_matched = 0
@@ -1897,10 +1738,10 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         papers = [str(x) for x in body.get("paper_ids", []) if app.lib.ws(str(x))]
         known = {row["id"] for row in planning_store.keyword_list(root, True)}
         if any(identity not in known for identity in ids):
-            raise ValueError(tr("主題圖包含不屬於目前文獻庫的關鍵字"))
-        data = body.get("data") if isinstance(body.get("data"), dict) else _keyword_map_data(app, ids, papers, str(body.get("name") or tr("跨論文主題圖")))
+            raise ValueError(tr("主题图包含不属于目前文献库的关键字"))
+        data = body.get("data") if isinstance(body.get("data"), dict) else _keyword_map_data(app, ids, papers, str(body.get("name") or tr("跨论文主题图")))
         data = _keyword_map_validate(app, data)
-        return {"map": planning_store.keyword_map_save(root, str(body.get("name") or tr("跨論文主題圖")), data, str(body.get("id") or ""), int(body.get("revision") or 0))}
+        return {"map": planning_store.keyword_map_save(root, str(body.get("name") or tr("跨论文主题图")), data, str(body.get("id") or ""), int(body.get("revision") or 0))}
     if endpoint == "/keyword-maps/delete":
         planning_store.keyword_map_delete(root, str(body.get("id") or ""))
         return {"ok": True}
@@ -1917,9 +1758,9 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         revision = int(body.get("revision") or 0)
         snapshot = planning_store.latest_reading_path(root)
         if not snapshot or snapshot.get("path_id") != path_id:
-            raise ValueError(tr("這份閱讀路徑已被較新的結果取代，請重新載入。"))
+            raise ValueError(tr("这份阅读路径已被较新的结果取代，请重新载入。"))
         if int(snapshot.get("revision") or 0) != revision:
-            raise ValueError(tr("閱讀路徑已在其他頁面更新，請重新載入後再更新引用資料。"))
+            raise ValueError(tr("阅读路径已在其他页面更新，请重新载入后再更新引用资料。"))
         steps = list(snapshot.get("results") or [])[:30]
         by_openalex = {}
         paper_by_wid = {}
@@ -1959,7 +1800,7 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                 refs_by_wid[wid] = item.get("referenced_works") or []
         for wid in missing:
             if wid not in refs_by_wid and not any(item.startswith(wid + ":") for item in failures):
-                failures.append(f"{wid}: " + tr("來源未回傳這篇論文的引用資料"))
+                failures.append(f"{wid}: " + tr("来源未回传这篇论文的引用资料"))
         successful_sources = {by_openalex[wid] for wid in refs_by_wid}
         relations = [dict(source=rel.get("source"), target=rel.get("target"))
                      for rel in snapshot.get("relations") or []
@@ -1980,75 +1821,84 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         candidate_values = request.get("candidate_papers", request.get("papers", [])) or []
         search_values = request.get("search_results", []) or []
         if not isinstance(candidate_values, list) or not isinstance(search_values, list):
-            raise ValueError(tr("候選論文資料格式不正確。"))
+            raise ValueError(tr("候选论文资料格式不正确。"))
         if request.get("start_paper") is not None and not isinstance(request.get("start_paper"), dict):
-            raise ValueError(tr("起點論文資料格式不正確。"))
+            raise ValueError(tr("起点论文资料格式不正确。"))
         candidate_count, search_count = len(candidate_values), len(search_values)
         if candidate_count > 30 or search_count > 30 or candidate_count + search_count > 60:
-            raise ValueError(tr("候選資料過多，請減少候選論文後重試。"))
+            raise ValueError(tr("候选资料过多，请减少候选论文后重试。"))
         if not str(request.get("topic") or "").strip() and not str((request.get("start_paper") if isinstance(request.get("start_paper"), dict) else {}).get("title") or "").strip():
-            raise ValueError(tr("請輸入研究主題，或指定一篇起點論文。"))
+            raise ValueError(tr("请输入研究主题，或指定一篇起点论文。"))
         scope = tasks.scope_id(root)
+        target = ui_target()
         def persist(task):
             _persist_reading_path_task(root, request, task)
         def run(cancel, report):
-            result = post(app, "/reading-path", request, _cancel=cancel, _report=report)
+            result = post(app, "/reading-path", request, _cancel=cancel, _report=report, _target=target)
             if not result.get("results") or not result.get("path_id"):
-                raise ValueError(tr("AI 沒有產生可用的閱讀路徑，舊路徑仍已保留。"))
+                raise ValueError(tr("AI 没有产生可用的阅读路径，旧路径仍已保留。"))
             return {"path_id": result["path_id"], "revision": result["revision"],
-                    "result_count": len(result["results"]), "warning": result.get("warning") or ""}
-        task = tasks.submit("reading-path", run, retry_failed=True, scope=scope, on_update=persist)
+                    "target": result["target"], "result_count": len(result["results"]), "warning": result.get("warning") or ""}
+        task = tasks.submit("reading-path", run, retry_failed=True, scope=scope, on_update=persist, target=target)
         return {"task": task}
     if endpoint.startswith("/reading-path/tasks/") and endpoint.endswith("/cancel"):
         from . import tasks
         identity = endpoint.split("/")[-2]
         task = tasks.cancel(identity, scope=tasks.scope_id(root))
         if not task or task.get("kind") != "reading-path":
-            raise ValueError(tr("找不到這個閱讀路徑分析工作。"))
+            raise ValueError(tr("找不到这个阅读路径分析工作。"))
         return {"task": task}
     if endpoint.startswith("/reading-path/tasks/") and endpoint.endswith("/ack"):
         identity = endpoint.split("/")[-2]
         with _READING_PATH_TASK_CACHE_LOCK:
             saved, _ = planning_store.cache_get(root, READING_PATH_TASK_CACHE_KEY)
             if not isinstance(saved, dict) or (saved.get("task") or {}).get("id") != identity:
-                raise ValueError(tr("找不到這個閱讀路徑分析工作。"))
+                raise ValueError(tr("找不到这个阅读路径分析工作。"))
             saved["acknowledged"] = True
             planning_store.cache_put(root, READING_PATH_TASK_CACHE_KEY, saved)
         task = _current_reading_path_task(root)
         return {"task": task}
+    if endpoint == "/summary/save":
+        for field in ("expected_updated", "expected_markdown"):
+            if field in body and not isinstance(body[field], str):
+                raise ValueError(tr("摘要编辑基准格式不正确。"))
+        return {"summary": planning_store.summary_save(
+            root, body.get("paper_key"), body.get("summary_markdown"),
+            expected_updated=body.get("expected_updated"), expected_markdown=body.get("expected_markdown"))}
     if endpoint == "/export/summary":
         paper_key = str(body.get("paper_key") or "").strip()
         record = planning_store.summary(_root(app), paper_key) if paper_key else None
         if not record:
-            raise ValueError("找不到這篇論文的摘要。")  # i18n-ok: Research workspace message is fixed Traditional Chinese.
+            raise ValueError(tr("找不到这篇论文的摘要。"))
         return obsidian_export.export_to_vault([_summary_export_document(record)])
     if (endpoint.startswith("/paper/") and endpoint.endswith("/mindmap/tasks")) or (endpoint.startswith("/mindmap/tasks") and not endpoint.endswith("/cancel") and not endpoint.endswith("/ack")):
         from . import tasks
         pid = endpoint.strip("/").split("/")[1] if endpoint.startswith("/paper/") else str(body.get("pid") or body.get("paper_id") or "")
         ws = app.lib.ws(pid)
         if not ws:
-            raise ValueError(tr("找不到這篇論文。"))
+            raise ValueError(tr("找不到这篇论文。"))
         paper = ws.load("paper") or {}
         meta = paper.get("meta") or {}
-        title = str(meta.get("title_zh") or meta.get("title_en") or tr("未命名論文"))[:300]
+        title = str(meta.get("title_zh") or meta.get("title_en") or tr("未命名论文"))[:300]
         scope = tasks.scope_id(root)
+        target, _ = _mindmap_language_guide(meta)
         request = {"model": body.get("model")}
         def persist(task):
             _persist_mindmap_task(root, pid, request, task)
         def run(cancel, report):
-            report("starting", 0, 2, tr("正在整理論文文字…"), stage_label=tr("整理論文文字"))
-            result = post(app, f"/paper/{pid}/mindmap", body, _cancel=cancel, _report=report)
-            report("completed", 2, 2, tr("心智圖已完成"), stage_label=tr("心智圖已完成"), result_state="completed")
+            report("starting", 0, 2, tr("正在整理论文文字…"), stage_label=tr("整理论文文字"))
+            result = post(app, f"/paper/{pid}/mindmap", body, _cancel=cancel, _report=report, _target=target)
+            report("completed", 2, 2, tr("心智图已完成"), stage_label=tr("心智图已完成"), result_state="completed")
             return result
         task = tasks.submit("mindmap", run, retry_failed=True, scope=scope, on_update=persist,
-                            key=pid, paper_id=pid, title=title)
+                            key=pid, paper_id=pid, title=title, target=target)
         return {"task": task}
     if (endpoint.startswith("/paper/") and "/mindmap/tasks/" in endpoint and endpoint.endswith("/cancel")) or (endpoint.startswith("/mindmap/tasks/") and endpoint.endswith("/cancel")):
         from . import tasks
         identity = endpoint.split("/")[-2]
         task = tasks.cancel(identity, scope=tasks.scope_id(root))
         if not task or task.get("kind") != "mindmap":
-            raise ValueError(tr("找不到這個心智圖分析工作。"))
+            raise ValueError(tr("找不到这个心智图分析工作。"))
         return {"task": task}
     if (endpoint.startswith("/paper/") and "/mindmap/tasks/" in endpoint and endpoint.endswith("/ack")) or (endpoint.startswith("/mindmap/tasks/") and endpoint.endswith("/ack")):
         from . import tasks
@@ -2069,56 +1919,29 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         pid = endpoint.strip("/").split("/")[1]
         ws = app.lib.ws(pid)
         if not ws:
-            raise ValueError("找不到這篇論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("找不到这篇论文。"))
         paper = ws.load("paper") or {}
         meta = paper.get("meta") or {}
-        target_lang, guide = _mindmap_language_guide(meta)
-        title = str(meta.get("title_zh") or meta.get("title_en") or tr("未命名論文"))[:300]
+        target_lang, guide = _mindmap_language_guide({**meta, "target": _target} if _target else meta)
+        title = str(meta.get("title_zh") or meta.get("title_en") or tr("未命名论文"))[:300]
         source_text, source_hash = _mindmap_source(paper)
         if not source_text:
-            raise ValueError("這篇論文目前沒有可供分析的內文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("这篇论文目前没有可供分析的内文。"))
         cache_key = f"mindmap:{target_lang}:" + sha256(source_hash.encode()).hexdigest()
         previous, _ = planning_store.cache_get(root, cache_key)
         generation_revision = int((previous or {}).get("revision") or 0)
-        # POST is the explicit "產生/重新產生" action.  It must always invoke
+        # POST is the explicit "产生/重新产生" action.  It must always invoke
         # the model; cache lookup belongs to the GET path above.
         from ..chat import chat_models
         from ..engines import engines
         from ..engines import usage
         cfg, model = chat_models.engine_cfg(config.load(), body.get("model"))
         meter = usage.Meter(cfg.get("engine", ""))
-        branch_lines = "\n".join(f"   - {b}" for b in guide["branches"])
-        prompt = (
-            "你是一位資深的學術架構分析專家。請根據下方提供的論文文字，為其建構一份結構清晰、資訊密度高且具備強大可讀性的「Mermaid 心智圖 (mindmap)」。\n\n"  # i18n-ok: prompt
-            f"重要語言指引：此篇論文目標語言為【{guide['name']}】。心智圖的根節點、所有一級分類分支名稱、以及二級至末端節點文字，請一律使用【{guide['name']}】輸出。\n\n"  # i18n-ok: prompt
-            "【架構與層級規範】\n"  # i18n-ok: prompt
-            f"1. 根節點：論文核心主題或簡化標題（使用目標語言），語法如 `  root((論文標題))`。\n"  # i18n-ok: prompt
-            f"2. 主要分支（一級分支，請使用目標語言表達，依學術邏輯組織 5 至 7 個核心維度）：\n"  # i18n-ok: prompt
-            f"{branch_lines}\n"
-            "3. 層級深度：建議展開至 3 至 4 層；主要分支下設 2 至 4 個子分支（二級節點），末端節點（三級/四級節點）列出具體變數、數據指標、方法細節。\n\n"  # i18n-ok: prompt
-            "【節點內容與視覺渲染強化】\n"  # i18n-ok: prompt
-            "1. 精煉原則：節點文字必須精簡有力（建議控制在 6 至 20 個字），使用名詞短語或精要摘要，嚴禁整段複製長句。\n"  # i18n-ok: prompt
-            r"2. KaTeX 數學公式：遇到數學變數、維度、複雜度或重要公式時，自然運用行內 KaTeX 格式（如 $O(N^2)$、$d=512$、$\mathcal{L}_{\text{task}}$、$\alpha=0.5$）。" "\n"  # i18n-ok: prompt
-            "3. 基礎 Markdown 語法：\n"  # i18n-ok: prompt
-            "   - 專有名詞、模組名稱、演算法或程式碼變數，適當使用行內代碼（如 `ResNet-50`、`CrossAttention`、`AdamW`）。\n"  # i18n-ok: prompt
-            "   - 關鍵突破、重要量化成果或核心結論，適當使用粗體突顯（如 `提升 **+3.4%**`、`達到 **92.1%**`、`減少 **40%** 延遲`）。\n"  # i18n-ok: prompt
-            "4. 自然融入：以上格式化元素請自然融入學術脈絡中，切勿在每個節點硬性堆砌特殊符號，保持整體視覺清爽乾淨。\n\n"  # i18n-ok: prompt
-            "【語言與真實性規範】\n"  # i18n-ok: prompt
-            f"{guide['lang_rule']}\n\n"  # i18n-ok: prompt
-            "【Mermaid 語法與輸出格式嚴格要求】\n"  # i18n-ok: prompt
-            "1. 第 1 行必須為 `mindmap`。\n"  # i18n-ok: prompt
-            "2. 根節點緊接其後，縮排 2 個空格。\n"  # i18n-ok: prompt
-            "3. 層級縮排：每一層級嚴格固定縮排 2 個空格（第一層 2 空格、第二層 4 空格、第三層 6 空格、第四層 8 空格），嚴禁使用 Tab。\n"  # i18n-ok: prompt
-            '4. 標點安全：若節點文字中包含圓括號 ()、方括號 [] 或冒號等符號，請以雙引號與方括號包裹（例如 `    ["Cross-Entropy (CE) 損失"]`），防止 Mermaid 語法樹解析中斷。\n'  # i18n-ok: prompt
-            "5. 絕對限制：只輸出 Mermaid 程式碼本身！不要包含 Markdown 程式碼區塊標記（不要輸出 ```mermaid 或 ```），不要包含任何引言、前言、解釋或結尾問候語。\n\n"  # i18n-ok: prompt
-            f"論文標題：{title}\n"  # i18n-ok: prompt
-            f"目標語言：{guide['name']}\n"  # i18n-ok: prompt
-            f"來源文字（論文結構化原文與實驗數據）：\n{source_text}"  # i18n-ok: prompt
-        )
+        prompt = research_prompts.mindmap_prompt(title, source_text, target_lang)
         if _cancel and _cancel.is_set():
             return {}
         if _report:
-            _report("generating", 1, 2, tr("正在依據論文內文產生心智圖…"))
+            _report("generating", 1, 2, tr("正在依据论文内文产生心智图…"))
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], _cancel, meter).strip()
         bt = chr(96) * 3
         match = re.search(r"(?is)\b(mindmap\b.*?)(?:\n\s*" + bt + r"|$)", answer)
@@ -2127,12 +1950,11 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         answer = re.sub(r"^```(?:mermaid)?\s*", "", answer, flags=re.I)
         answer = re.sub(r"\s*```.*$", "", answer, flags=re.I | re.S).strip()
         if not answer.lower().startswith("mindmap") or len(answer) > 20000 or re.search(r"<\s*/?\s*(?:script|iframe|foreignObject)|javascript:", answer, re.I):
-            raise ValueError("模型未回傳安全且可辨識的 Mermaid mindmap，請重試。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("模型未回传安全且可辨识的 Mermaid mindmap，请重试。"))
         result = {"mermaid": answer, "title": title, "target": target_lang, "source_sha256": source_hash, "model": model.get("name", model.get("id", "")), "usage": meter.snapshot(), "generated_at": _now().isoformat(), "cached": False, "paper_id": pid}
         if _cancel and _cancel.is_set():
             raise engines.Cancelled()
         result = planning_store.save_mindmap(root, cache_key, {**result, "edited": False}, generation_revision)
-        planning_store.cache_put(root, "mindmap:" + sha256(source_hash.encode()).hexdigest(), result)
         return result
     if (endpoint.startswith("/paper/") and endpoint.endswith("/deep-analysis/tasks")) or (endpoint.startswith("/deep-analysis/tasks") and not endpoint.endswith("/cancel") and not endpoint.endswith("/ack")):
         pid = endpoint.strip("/").split("/")[1] if endpoint.startswith("/paper/") else str(body.get("pid") or body.get("paper_id") or "")
@@ -2163,19 +1985,19 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
     if endpoint == "/candidate":
         work = body.get("paper") or {}
         if not isinstance(work, dict) or not str(work.get("title") or "").strip():
-            raise ValueError("論文資料不完整，請重新搜尋後再加入候選清單。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("论文资料不完整，请重新搜寻后再加入候选清单。"))
         key = _key(work)
         if body.get("action") == "save-summary":
             markdown = str(body.get("summary_markdown") or "").strip()
             if not markdown:
-                raise ValueError("摘要內容是空的，沒有可儲存的內容。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-            record = planning_store.candidate_save_summary(root, key, markdown, str(body.get("model") or ""))
+                raise ValueError(tr("摘要内容是空的，没有可储存的内容。"))
+            record = planning_store.candidate_save_summary(root, key, markdown, str(body.get("model") or ""), target=body.get("target") or "")
             if not record:
-                raise ValueError("這篇論文已不在候選清單，摘要尚未儲存。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("这篇论文已不在候选清单，摘要尚未储存。"))
             return {"candidate": record}
         if body.get("action") == "retry-summary":
             if not planning_store.candidate_summary_status(root, key, "queued"):
-                raise ValueError(tr("這篇論文已不在候選清單中。"))
+                raise ValueError(tr("这篇论文已不在候选清单中。"))
             _ensure_summary_worker(app)
             return {"paper_key": key, "summary_status": "queued"}
         if body.get("action", "add") == "remove":
@@ -2194,7 +2016,7 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         removed = (current - new_ids) - {"paused"}
         if removed:
             if not isinstance(moves, dict) or any(not isinstance(moves.get(s), str) or moves[s] not in new_ids for s in removed):
-                raise ValueError("刪除狀態前，請指定論文要移到哪一欄。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("删除状态前，请指定论文要移到哪一栏。"))
             item_moves, saved_moves = [], []
             try:
                 for ws in app.lib.all():
@@ -2221,11 +2043,11 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         if saved_key:
             record = planning_store.saved(root, saved_key)
             if not record:
-                raise ValueError("找不到待補 PDF 的論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("找不到待补 PDF 的论文。"))
             fields = {}
             if "status" in body:
                 if not isinstance(body["status"], str) or body["status"] not in {x["id"] for x in planning_store.statuses(root)}:
-                    raise ValueError("這個閱讀狀態不存在。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                    raise ValueError(tr("这个阅读状态不存在。"))
                 fields["status"] = body["status"]
             if "reading_plan" in body:
                 fields["plan_json"] = json.dumps(_normalize_plan(body["reading_plan"]), ensure_ascii=False)
@@ -2237,18 +2059,18 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                 fields["archived"] = int(bool(body["archived"]))
             if "tags" in body:
                 if not isinstance(body["tags"], list):
-                    raise ValueError("分類格式不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                    raise ValueError(tr("分类格式不正确。"))
                 fields["category"] = json.dumps(list(dict.fromkeys(str(x)[:80] for x in body["tags"] if str(x).strip())), ensure_ascii=False)
             planning_store.update_saved(root, saved_key, **fields)
             return {"ok": True}
         ws = app.lib.ws(pid)
         if not ws:
-            raise ValueError("找不到這篇論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("找不到这篇论文。"))
         fields = {}
         if "status" in body:
             allowed = {x["id"] for x in planning_store.statuses(root)}
             if not isinstance(body["status"], str) or body["status"] not in allowed:
-                raise ValueError("這個閱讀狀態不存在。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("这个阅读状态不存在。"))
             fields["status"] = body["status"]
         if "reading_plan" in body:
             fields["reading_plan"] = _normalize_plan(body["reading_plan"])
@@ -2265,13 +2087,13 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
             fields["archived"] = bool(body["archived"])
         if "tags" in body:
             if not isinstance(body["tags"], list):
-                raise ValueError("分類格式不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("分类格式不正确。"))
             fields["tags"] = list(dict.fromkeys(str(x)[:120] for x in body["tags"] if str(x).strip()))[:30]
         return ws.patch_item(fields)
     if endpoint == "/save-paper":
         work = body.get("paper") or {}
         if not isinstance(work, dict) or not work.get("title"):
-            raise ValueError("論文資料不完整，請重新搜尋後再加入。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("论文资料不完整，请重新搜寻后再加入。"))
         existing = _find_existing(app, work)
         if existing:
             fields = {}
@@ -2298,7 +2120,7 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         key = str(body.get("paper_key") or "")
         saved = planning_store.saved(root, key)
         if not saved:
-            raise ValueError("找不到待補 PDF 的論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("找不到待补 PDF 的论文。"))
         if saved.get("pdf_state") == "running":
             return {"state": "running"}
         if saved.get("pdf_state") == "imported":
@@ -2309,13 +2131,13 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
     if endpoint == "/linked":
         key, pid = str(body.get("paper_key") or ""), str(body.get("library_id") or "")
         if not planning_store.saved(root, key) or not app.lib.ws(pid):
-            raise ValueError("論文與文獻庫項目無法配對。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("论文与文献库项目无法配对。"))
         planning_store.update_saved(root, key, pdf_state="imported", library_id=pid, pdf_error="")
         return {"library_id": pid}
     if endpoint == "/skip":
         key = str(body.get("paper_key") or "")
         if not key:
-            raise ValueError("論文識別資料不正確。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("论文识别资料不正确。"))
         planning_store.skip(root, key)
         return {"ok": True}
     if endpoint == "/ai-summary":
@@ -2323,43 +2145,35 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         # read personal notes here; use exactly the selected metadata provided.
         works = body.get("papers") or []
         if not isinstance(works, list) or not works or len(works) > 1:
-            raise ValueError("請選擇一篇候選論文再整理摘要。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请选择一篇候选论文再整理摘要。"))
         selected = [{"title": str(w.get("title") or "")[:400], "authors": str(w.get("authors") or "")[:500], "year": w.get("year"), "venue": str(w.get("venue") or "")[:300], "abstract": str(w.get("abstract") or "")[:5000]} for w in works]
         if not any(w["abstract"] for w in selected):
-            raise ValueError("所選論文沒有可供整理的摘要。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("所选论文没有可供整理的摘要。"))
         from ..chat import chat_models
         from ..engines import engines
         from ..engines import usage
         cfg, model = chat_models.engine_cfg(config.load(), body.get("model"))
-        if (body.get("lang") == "en") or (i18n.lang() == "en"):
-            prompt = (
-                "Please summarize the following paper abstract in English. "
-                "Base the summary solely on the provided information; do not invent research results, citations, or paper details. "
-                "If information is missing, mark as 'Not provided', and clearly identify any inferences. "
-                "Format using Markdown covering Research Problem, Methodology, Key Results, and Limitations.\n\n"
-                + json.dumps(selected, ensure_ascii=False)
-            )
-        else:
-            prompt = "請使用繁體中文（臺灣用語）整理下列已取得的論文摘要。只能整理提供的資料；不得補造研究結果、引用或論文資訊。缺少資料請標示「未提供」，推論請明確標示。使用 Markdown，包含研究問題、方法、結果與限制。\n\n" + json.dumps(selected, ensure_ascii=False)  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        target = _target or ui_target()
+        prompt = research_prompts.summary_prompt(selected, target)
         meter = usage.Meter(cfg.get("engine", ""))
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], None, meter)
-        return {"text": answer, "model": model.get("name", model.get("id", "")), "source_count": len(selected), "usage": meter.snapshot()}
+        return {"text": answer, "target": target, "model": model.get("name", model.get("id", "")), "source_count": len(selected), "usage": meter.snapshot()}
     if endpoint == "/ai-rewrite":
         selected = str(body.get("selected_text") or "").strip()[:2000]
         context = str(body.get("context") or "")[:2500]
         if not selected:
-            raise ValueError("請先在草稿中選取要改寫的文字。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请先在草稿中选取要改写的文字。"))
         from ..chat import chat_models
         from ..engines import engines
         from ..engines import usage
         cfg, model = chat_models.engine_cfg(config.load(), body.get("model"))
         meter = usage.Meter(cfg.get("engine", ""))
-        prompt = "請針對使用者選取的英文內容，提供 2 個意思相近、自然且符合學術寫作的英文改寫版本。保持原文主張強度，不新增資訊。只輸出 JSON 字串陣列。\n上下文（只用於理解）：" + context + "\n選取文字：" + selected  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        prompt = "请针对使用者选取的英文内容，提供 2 个意思相近、自然且符合学术写作的英文改写版本。保持原文主张强度，不新增资讯。只输出 JSON 字串阵列。\n上下文（只用于理解）：" + context + "\n选取文字：" + selected
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], None, meter)
         suggestions = _unwrap_json_list(engines.parse_json(answer))
         if not isinstance(suggestions, list) or not suggestions:
-            raise ValueError("模型未回傳可用的改寫建議，請重試或自行修改。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-        return {"suggestions": [str(x).strip()[:2000] for x in suggestions if str(x).strip()][:2], "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
+            raise ValueError(tr("模型未回传可用的改写建议，请重试或自行修改。"))
+        return {"target": "en", "suggestions": [str(x).strip()[:2000] for x in suggestions if str(x).strip()][:2], "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
     if endpoint == "/reading-path":
         from ..engines import engines
         cancel = _cancel or threading.Event()
@@ -2379,17 +2193,17 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         candidate_pool = body.get("candidate_papers") if isinstance(body.get("candidate_papers"), list) else legacy_pool
         search_pool = body.get("search_results") if isinstance(body.get("search_results"), list) else []
         if len(candidate_pool) > 30 or len(search_pool) > 30:
-            raise ValueError("候選資料過多，請減少候選論文後重試。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("候选资料过多，请减少候选论文后重试。"))
         reference_pool, related_pool, discovery_warnings = [], [], []
         if topic:
-            report("search", 0, 5, tr("正在搜尋相關論文。"), stage_label=tr("搜尋相關論文"))
+            report("search", 0, 5, tr("正在搜寻相关论文。"), stage_label=tr("搜寻相关论文"))
             check_cancel()
             topic_search = _search_works(root, topic, sort="relevance_score:desc")
             if topic_search.get("stale"):
-                discovery_warnings.append(tr("目前使用先前快取的搜尋資料，可能不是最新結果。"))
+                discovery_warnings.append(tr("目前使用先前快取的搜寻资料，可能不是最新结果。"))
             search_pool = [*search_pool, *(topic_search.get("results") or [])]
         if start_paper.get("title"):
-            report("seed", 1, 5, tr("正在補齊起點論文與參考資料。"), stage_label=tr("整理起點資料"))
+            report("seed", 1, 5, tr("正在补齐起点论文与参考资料。"), stage_label=tr("整理起点资料"))
             check_cancel()
             exact = None
             seed_aliases = _paper_aliases(start_paper)
@@ -2406,13 +2220,13 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                 lookup = _identifier_search(root, str(identifier))
                 exact = next(iter(lookup.get("results", [])), None) if lookup else None
                 if lookup and lookup.get("stale"):
-                    discovery_warnings.append(tr("起點論文使用先前快取的識別資料，可能不是最新結果。"))
+                    discovery_warnings.append(tr("起点论文使用先前快取的识别资料，可能不是最新结果。"))
             if not exact:
                 title_result = _search_works(root, str(start_paper.get("title")), sort="relevance_score:desc")
                 normalized_title = " ".join(str(start_paper.get("title")).casefold().split())
                 exact = next((work for work in title_result.get("results", []) if " ".join(str(work.get("title") or "").casefold().split()) == normalized_title), None)
                 if title_result.get("stale"):
-                    discovery_warnings.append(tr("目前使用先前快取的起點搜尋資料，可能不是最新結果。"))
+                    discovery_warnings.append(tr("目前使用先前快取的起点搜寻资料，可能不是最新结果。"))
             start_work = dict(exact or start_paper)
             if exact:
                 start_work.update({key: value for key, value in start_paper.items() if value not in (None, "", [], {}) and key not in ("title", "referenced_works", "related_works")})
@@ -2456,10 +2270,10 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                     previous, checked = planning_store.cache_get(root, expansion_key)
                     if isinstance(previous, dict) and isinstance(previous.get("works"), list):
                         expansion_works = previous["works"]
-                        discovery_warnings.append(tr("參考資料查詢失敗，改用先前快取的資料。"))
+                        discovery_warnings.append(tr("参考资料查询失败，改用先前快取的资料。"))
                     else:
                         expansion_works = []
-                        discovery_warnings.append(tr("部分起點參考資料暫時無法取得。"))
+                        discovery_warnings.append(tr("部分起点参考资料暂时无法取得。"))
             relation_by_id = {}
             for relation, ident in typed_ids:
                 relation_by_id.setdefault(ident, relation)
@@ -2470,12 +2284,12 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                 elif relation == "related": related_pool.append({**work, "seed_relation": "related"})
         else:
             start_work = None
-        report("candidates", 2, 5, tr("正在整理候選論文。"), stage_label=tr("整理候選論文"))
+        report("candidates", 2, 5, tr("正在整理候选论文。"), stage_label=tr("整理候选论文"))
         check_cancel()
         if not any((candidate_pool, reference_pool, related_pool, search_pool, [start_work] if start_work else [])):
-            raise ValueError("找不到可用的論文資料，請先搜尋主題或選擇候選論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("找不到可用的论文资料，请先搜寻主题或选择候选论文。"))
         if not topic and not start_paper.get("title"):
-            raise ValueError("請輸入研究主題，或指定一篇起點論文。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请输入研究主题，或指定一篇起点论文。"))
         from ..chat import chat_models
         from ..engines import usage
         cfg, model = chat_models.engine_cfg(config.load(), body.get("model"))
@@ -2495,48 +2309,24 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
                 "abstract": str(w.get("abstract") or "")[:1200],
             }
             if w.get("is_start_paper"):
-                entry["note"] = "起點論文（目前閱讀中）"  # i18n-ok: prompt note
+                entry["note"] = "起点论文（目前阅读中）"  # i18n-ok: prompt note
             elif w.get("seed_relation") == "reference":
-                entry["note"] = "起點論文之重要參考文獻（基礎背景）"  # i18n-ok: prompt note
+                entry["note"] = "起点论文之重要参考文献（基础背景）"  # i18n-ok: prompt note
             elif w.get("seed_relation") == "related":
-                entry["note"] = "起點論文之相關研究（主流方法／衍生延伸）"  # i18n-ok: prompt note
+                entry["note"] = "起点论文之相关研究（主流方法／衍生延伸）"  # i18n-ok: prompt note
             source.append(entry)
 
-        if (body.get("lang") == "en") or (i18n.lang() == "en"):
-            prompt = (
-                "You are an academic research mentor. Based on the candidate paper list below, plan a progressive reading path (from foundational to cutting-edge, about 5 to 10 papers) according to the research goal.\n"
-                "Rules:\n"
-                "1. Only recommend paper IDs that exist in the list. Do not invent papers or authors.\n"
-                "2. role: specify precise role according to reading order (e.g., 'Foundations', 'Prerequisites', 'Mainstream method', 'Starting paper', 'Representative baseline', 'Extension', 'Breakthrough').\n"
-                "3. reason: explain specifically 'why read this paper first, what concept it establishes or what method it provides for subsequent papers'.\n"
-                "4. priority: reading order (1 is first, incrementing sequentially).\n"
-                "5. Please write in English. Output a standard JSON array, each item containing id, role, reason, priority.\n\n"
-                f"Research goal: {goal or 'Build thematic context and master core research progressively'}\n"
-                f"Topic: {topic or str(start_paper.get('title') or '')}\n"
-                f"Candidate papers: {json.dumps(source, ensure_ascii=False)}"
-            )
-        else:
-            prompt = (
-                "你是一位學術研究導師。請根據下方已檢索到的候選論文清單，依研究目標規劃一份具備學習進階順序的閱讀路徑（由淺入深、由基礎到前沿，約 5 至 10 篇）。\n"  # i18n-ok: prompt
-                "規則：\n"  # i18n-ok: prompt
-                "1. 只能推薦清單中存在的論文 id，不得虛構論文或作者。\n"  # i18n-ok: prompt
-                "2. 角色（role）請依閱讀順序精準標註：如「基礎入門」、「先備背景」、「主流方法」、「起點核心」、「代表性研究」、「延伸探索」、「前沿突破」等。\n"  # i18n-ok: prompt
-                "3. 理由（reason）請具體說明「為什麼要先讀這篇、它為後續論文建立了什麼概念或提供了什麼方法」。\n"  # i18n-ok: prompt
-                "4. priority 請標記閱讀順序（1 為最先讀，數字依序遞增）。\n"  # i18n-ok: prompt
-                "5. 請使用繁體中文（臺灣用語）。輸出標準 JSON 陣列，每項包含 id、role、reason、priority。\n\n"  # i18n-ok: prompt
-                f"研究目標：{goal or '建立主題脈絡，由淺入深掌握核心研究'}\n"  # i18n-ok: prompt
-                f"主題：{topic or str(start_paper.get('title') or '')}\n"  # i18n-ok: prompt
-                f"候選論文：{json.dumps(source, ensure_ascii=False)}"  # i18n-ok: prompt
-            )
+        target = _target or ui_target()
+        prompt = research_prompts.reading_path_prompt(source, goal, topic or str(start_paper.get("title") or ""), target)
 
-        report("planning", 3, 5, tr("AI 正在規劃閱讀順序。"))
+        report("planning", 3, 5, tr("AI 正在规划阅读顺序。"))
         check_cancel()
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], cancel, meter)
-        report("validate", 4, 5, tr("正在驗證並保存閱讀路徑。"), stage_label=tr("規劃閱讀路徑"))
+        report("validate", 4, 5, tr("正在验证并保存阅读路径。"), stage_label=tr("规划阅读路径"))
         check_cancel()
         plan = _unwrap_json_list(engines.parse_json(answer))
         if not isinstance(plan, list):
-            raise ValueError("模型回傳的閱讀路徑格式不正確，請重試。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("模型回传的阅读路径格式不正确，请重试。"))
 
         output = []
         seen_keys = set()
@@ -2563,15 +2353,15 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
             })
         output.sort(key=lambda x: x["priority"])
         if not output:
-            return {"results": [], "model": model.get("name", model.get("id", "")), "source_count": len(capped_papers), "usage": meter.snapshot()}
+            return {"results": [], "target": target, "model": model.get("name", model.get("id", "")), "source_count": len(capped_papers), "usage": meter.snapshot()}
         check_cancel()
         snapshot = planning_store.replace_reading_path(root, {
-            "topic": topic, "goal": goal, "start_paper": start_paper,
+            "topic": topic, "goal": goal, "start_paper": start_paper, "target": target,
             "results": output, "model": model.get("name", model.get("id", "")),
             "source_count": len(capped_papers), "discovery_warnings": discovery_warnings,
         })
-        report("done", 5, 5, tr("閱讀路徑已完成"), stage_label=tr("閱讀路徑已完成"), result_state="completed")
-        return {"results": output, "path": snapshot, "path_id": snapshot["path_id"], "revision": snapshot["revision"],
+        report("done", 5, 5, tr("阅读路径已完成"), stage_label=tr("阅读路径已完成"), result_state="completed")
+        return {"results": output, "target": target, "path": snapshot, "path_id": snapshot["path_id"], "revision": snapshot["revision"],
                 "model": model.get("name", model.get("id", "")), "source_count": len(capped_papers),
                 "warning": "；".join(discovery_warnings), "usage": meter.snapshot()}  # i18n-ok: separator in localized warning text.
     if endpoint == "/ai-query":
@@ -2579,7 +2369,7 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         title = str(body.get("title") or "").strip()[:400]
         abstract = str(body.get("abstract") or "").strip()[:2000]
         if not query and not title and not abstract:
-            raise ValueError("請先輸入研究主題或提供論文標題。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请先输入研究主题或提供论文标题。"))
         from ..chat import chat_models
         from ..engines import engines
         from ..engines import usage
@@ -2588,37 +2378,38 @@ def post(app, endpoint: str, body: dict, *, _cancel=None, _report=None):
         meter = usage.Meter(cfg.get("engine", ""))
         if title or abstract:
             prompt = (
-                "你是一位學術文獻檢索專家。請依據下方論文的標題與摘要，提煉出 3 到 5 組精簡、標準的英文學術檢索關鍵詞或主題短語（Task、Method、Domain）。\n"  # i18n-ok: prompt
-                "規則：\n"  # i18n-ok: prompt
-                "1. 請去除自創的模型代號、專有名稱前綴或過於狹隘的專案簡稱（例如 Mask2Former、LLaVA、BERT-XYZ），提煉出通用學術方法與任務名詞（例如 Masked Attention Image Segmentation、Visual Instruction Tuning）。\n"  # i18n-ok: prompt
-                "2. 關鍵詞長度宜為 2 至 5 個英文單詞，適合直接在 OpenAlex 或 Google Scholar 檢索。\n"  # i18n-ok: prompt
-                "3. 保持純英文術語，每組短語務必精準聚焦在核心研究主題與方法。\n"  # i18n-ok: prompt
-                "4. 只輸出標準 JSON 陣列字串（例如 [\"Keyword 1\", \"Keyword 2\", ...]），不要有其他說明文字。\n\n"  # i18n-ok: prompt
-                f"論文標題：{title}\n"  # i18n-ok: prompt
+                "你是一位学术文献检索专家。请依据下方论文的标题与摘要，提炼出 3 到 5 组精简、标准的英文学术检索关键词或主题短语（Task、Method、Domain）。\n"  # i18n-ok: prompt
+                "规则：\n"  # i18n-ok: prompt
+                "1. 请去除自创的模型代号、专有名称前缀或过于狭隘的专案简称（例如 Mask2Former、LLaVA、BERT-XYZ），提炼出通用学术方法与任务名词（例如 Masked Attention Image Segmentation、Visual Instruction Tuning）。\n"  # i18n-ok: prompt
+                "2. 关键词长度宜为 2 至 5 个英文单词，适合直接在 OpenAlex 或 Google Scholar 检索。\n"  # i18n-ok: prompt
+                "3. 保持纯英文术语，每组短语务必精准聚焦在核心研究主题与方法。\n"  # i18n-ok: prompt
+                "4. 只输出标准 JSON 阵列字串（例如 [\"Keyword 1\", \"Keyword 2\", ...]），不要有其他说明文字。\n\n"  # i18n-ok: prompt
+                f"论文标题：{title}\n"  # i18n-ok: prompt
                 f"摘要：{abstract}"  # i18n-ok: prompt
             )
         else:
-            prompt = "將使用者的繁體中文研究主題轉為 3 到 5 組精簡、可編輯的英文 OpenAlex 搜尋詞。保留標準學術術語；不擴張成未提及的研究方向。只輸出 JSON 陣列字串。\n主題：" + query  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            prompt = "将使用者任意语言的研究主题转为 3 到 5 组精简、可编辑的英文 OpenAlex 搜寻词。保留标准学术术语；不扩张成未提及的研究方向。只输出 JSON 阵列字串。\n主题：" + query
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], None, meter)
         suggestions = _unwrap_json_list(engines.parse_json(answer))
         if not isinstance(suggestions, list):
-            raise ValueError("模型回傳的關鍵字格式不正確，請直接使用原始關鍵字搜尋。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-        return {"suggestions": [str(x).strip()[:160] for x in suggestions if str(x).strip()][:5], "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
+            raise ValueError(tr("模型回传的关键字格式不正确，请直接使用原始关键字搜寻。"))
+        return {"target": "en", "suggestions": [str(x).strip()[:160] for x in suggestions if str(x).strip()][:5], "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
     if endpoint == "/ai-category-explain":
         category = str(body.get("category") or "")[:100]
         work = body.get("paper") or {}
         if not category or not work.get("title"):
-            raise ValueError("請提供分類與論文資料。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请提供分类与论文资料。"))
         from ..chat import chat_models
         from ..engines import engines
         from ..engines import usage
         cfg, model = chat_models.engine_cfg(config.load(), body.get("model"))
         meter = usage.Meter(cfg.get("engine", ""))
         source = {"title": str(work.get("title"))[:400], "abstract": str(work.get("abstract") or "")[:5000]}
-        prompt = "請用繁體中文說明這篇論文與使用者選擇的分類可能有何關聯。只能根據提供的標題與摘要；若資料不足，直接說明不足，不要替論文補造方法或成果。這是待審閱的 AI 解讀，不是資料來源證明。\n分類：" + category + "\n論文資料：" + json.dumps(source, ensure_ascii=False)  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        target = _target or ui_target()
+        prompt = research_prompts.related_prompt(category, source, target)
         answer = engines.run(engines.for_translation(cfg), prompt, app.lib.root, [], None, meter)
-        return {"text": answer, "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
-    raise ValueError("不支援的研究工作區操作。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        return {"text": answer, "target": target, "model": model.get("name", model.get("id", "")), "usage": meter.snapshot()}
+    raise ValueError(tr("不支援的研究工作区操作。"))
 
 
 def offline_snapshot(ws) -> dict:

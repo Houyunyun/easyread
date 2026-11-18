@@ -136,7 +136,7 @@
       if ((PR.feature && !PR.feature("pages")) || !data?.page || block.querySelector("[data-zoom-page]") || !pageSource(data.page) || PR.state.paper?.meta?.source_type === "web") return;
       const button = document.createElement("button"); button.type = "button"; button.className = "fig-zoom-btn";
       button.dataset.zoomPage = data.page; button.dataset.zoomBlock = data.id;
-      button.title = PR.t("放大檢視原文第 {n} 頁", { n: data.page }); button.setAttribute("aria-label", button.title);
+      button.title = PR.t("放大检视原文第 {n} 页", { n: data.page }); button.setAttribute("aria-label", button.title);
       button.innerHTML = PR.icon("search", "sm");
       (block.querySelector(".figure-media") || block).append(button);
     });
@@ -163,7 +163,7 @@
       const pageNum = Number(zoomBtn.dataset.zoomPage);
       const src = pageSource(pageNum);
       if (!src) {
-        PR.toast && PR.toast(PR.t("此版本未收錄原頁圖"));
+        PR.toast && PR.toast(PR.t("此版本未收录原页图"));
         return;
       }
       e.preventDefault(); e.stopImmediatePropagation();

@@ -1,5 +1,5 @@
-/* 界面语言。代码里只写中文：PR.t("已导入 {n} 篇", { n })；中文原文就是键，英文在 web/i18n/en.json。
-   后端返回页面时按系统语言（或设置里选的）写好 <html lang>，英文时把词典塞进 #pr-i18n。 */
+/* 界面语言。PR.t 的源词条用简体中文；en / zh-Hant 词典只翻译界面，不转换论文或用户内容。
+   后端按系统语言（或设置里选的）写好 <html lang>，并把对应词典塞进 #pr-i18n。 */
 window.PR = window.PR || {};
 (function (PR) {
   "use strict";
@@ -13,24 +13,49 @@ window.PR = window.PR || {};
   const fill = (s, vars) => vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)) : s;
   PR.t = (zh, vars) => fill(PR.lang !== "zh" ? dict[zh] || zh : zh, vars);
 
-  /* 写死在 HTML 里的中文：按原文整句对照替换，HTML 不用改 */
+  // Built-in labels can be renamed. Only known defaults are UI copy; never translate custom names.
+  const statusDefaults = {
+    unread: { aliases: ["待阅读", "待閱讀", "To read"], label: () => PR.t("待阅读") },
+    reading: { aliases: ["阅读中", "閱讀中", "Reading"], label: () => PR.t("阅读中") },
+    organizing: { aliases: ["待整理", "To organize"], label: () => PR.t("待整理") },
+    done: { aliases: ["已完成", "Completed"], label: () => PR.t("已完成") },
+    paused: { aliases: ["暂停", "暫停", "Paused"], label: () => PR.t("暂停") },
+  };
+  PR.researchStatusLabel = function (status) {
+    const entry = statusDefaults[status.id];
+    return status.builtin && entry?.aliases.includes(status.label) ? entry.label() : status.label;
+  };
+
+  // CSS-generated labels share the same dictionaries as buttons and dialogs.
+  for (const [name, text] of Object.entries({
+    "appendix-label": PR.t("附录"), "question-label": PR.t("问　"),
+    "lost-quote-label": PR.t("（译文已改，未找到这段话）"),
+  })) document.documentElement.style.setProperty("--" + name, JSON.stringify(text));
+
+  /* Only static interface text is translated here. Dynamic UI must use PR.t at its source. */
   const CJK = /[一-鿿]/;
   const ATTRS = ["placeholder", "title", "aria-label", "alt"];
+  const CONTENT = 'script, style, [contenteditable], [translate="no"], [data-i18n-skip], #paper, #list, .bar-titles, .card, .cm, .ch-thread, .ch-title, .pn-rich, .pn-mindmap, .rw-paper, .rw-summary, .rw-quick-peek-title, .rp-current, .rp-deep-preview, .deep-modal-body, .mm-modal-sub, .smart-note, .smart-reason, .smart-quote, .np-ai-body, .kwm-node, me-tpc';
+  const isContent = (el) => el?.closest(CONTENT);
   PR.translateDom = function (root) {
     if (PR.lang === "zh") return;
     root = root || document.body;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (isContent(n.parentElement) || n.parentElement?.closest("textarea")) continue;
       const raw = n.nodeValue, key = raw.trim();
       if (key && CJK.test(key) && dict[key]) n.nodeValue = raw.replace(key, dict[key]);
     }
-    root.querySelectorAll("*").forEach((el) => ATTRS.forEach((a) => {
-      const v = el.getAttribute(a);
-      if (v && CJK.test(v) && dict[v.trim()]) el.setAttribute(a, dict[v.trim()]);
-    }));
+    [root, ...root.querySelectorAll("*")].forEach((el) => {
+      if (isContent(el)) return;
+      ATTRS.forEach((a) => {
+        const v = el.getAttribute(a);
+        if (v && CJK.test(v) && dict[v.trim()]) el.setAttribute(a, dict[v.trim()]);
+      });
+    });
   };
   if (PR.lang !== "zh") {
-    if (dict[document.title]) document.title = dict[document.title];
+    if (document.querySelector("title[data-i18n-title]") && dict[document.title]) document.title = dict[document.title];
     if (document.body) PR.translateDom(document.body);
     else document.addEventListener("DOMContentLoaded", () => PR.translateDom(document.body));
   }

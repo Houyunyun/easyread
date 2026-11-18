@@ -28,7 +28,7 @@ function setup(lang = 'en') {
   const PR = {lang, esc, titleHtml:esc, mdBlocks:esc, icon:() => '',
     t(text, vars) {
       translations.push(text);
-      const translated = dictionaries[lang][text] || text;
+      const translated = dictionaries[lang]?.[text] || text;
       return vars ? translated.replace(/\{(\w+)\}/g, (match, key) => vars[key] ?? match) : translated;
     },
     $:(selector, root) => root?.querySelector ? root.querySelector(selector) : nodes.get(selector) || null,
@@ -37,6 +37,12 @@ function setup(lang = 'en') {
   };
   const context = {window:{PR}, document:{addEventListener(name, handler) { if (!events.has(name)) events.set(name, []); events.get(name).push(handler); }},
     location:{search:''}, URL, URLSearchParams, setTimeout:() => 0, clearTimeout() {}, history:{replaceState() {}}};
+  const translate = PR.t;
+  vm.runInNewContext(read('js/common/i18n.js'), {window:{PR}, document:{
+    documentElement:{lang:lang === 'zh' ? 'zh-CN' : lang, dataset:{}, style:{setProperty() {}}},
+    getElementById:() => ({textContent:JSON.stringify(dictionaries[lang] || {})}), querySelector:() => null, addEventListener() {},
+  }});
+  PR.t = translate;
   const source = read('js/research/workspace.js').replace('  init();\n})(window.PR);', `
     window.workspace = { S, renderExplore, renderBoard, renderCandidates, renderSummaries, renderComparisonSetup,
       openModal, CLOSE_ONLY, queueModal, taskCard, quickPeekEditor, searchSources };
@@ -46,23 +52,32 @@ function setup(lang = 'en') {
 }
 function noChinese(html) { assert.doesNotMatch(html, /[\u4e00-\u9fff]/); }
 
-test('research literal keys exist in both dictionaries with matching placeholders', () => {
+test('PaperRead UI uses canonical Simplified keys with English and Traditional translations', () => {
   const keys = new Set();
-  for (const file of fs.readdirSync(path.join(web, 'js/research')).filter(file => file.endsWith('.js'))) {
-    const source = read('js/research/' + file);
+  const files = ['js/common/i18n.js', ...['research','reader'].flatMap(dir =>
+    fs.readdirSync(path.join(web, 'js/' + dir)).filter(file => file.endsWith('.js') && !['ink.js','stickers.js','mindmap-edit.js'].includes(file)).map(file => 'js/' + dir + '/' + file))];
+  for (const file of files) {
+    const source = read(file);
     for (const match of source.matchAll(/PR\.t\(("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g)) {
       const key = vm.runInNewContext(match[1]);
       if (/[\u4e00-\u9fff]/.test(key)) keys.add(key);
     }
-    assert.doesNotMatch(source, /固定使用繁體中文|i18n-dom:/);
+    assert.doesNotMatch(source, /固定.*繁[體体]中文|i18n-dom:/);
   }
-  assert.ok(keys.size > 450);
+  assert.ok(keys.size > 800);
+  // Same-length script aliases catch legacy Traditional keys. 套用 is a lexical
+  // alternative to 应用, not a Traditional spelling.
+  const legacy = new Map(Object.entries(dictionaries['zh-Hant'])
+    .filter(([key, value]) => key !== value && key.length === value.length && value !== '套用' && dictionaries.en[value])
+    .map(([key, value]) => [value, key]));
   for (const key of keys) {
+    assert.ok(!legacy.has(key), `Use Simplified ${legacy.get(key)}, not ${key}`);
     for (const lang of ['en', 'zh-Hant']) {
       assert.ok(dictionaries[lang][key], `${lang}: ${key}`);
       assert.deepEqual(placeholders(dictionaries[lang][key]), placeholders(key), `${lang}: ${key}`);
     }
-    noChinese(dictionaries.en[key]);
+    // This existing retranslation hint intentionally demonstrates a Chinese translation.
+    if (key !== '哪里译得不好？比如“standard error 应译标准误差”“太生硬”（可留空）') noChinese(dictionaries.en[key]);
   }
 });
 
@@ -108,7 +123,7 @@ test('board and candidate UI localizes statuses without translating custom data 
 
 test('modal close sentinel preserves close-only behavior while all displayed controls translate', () => {
   const s = setup(), modal = s.nodes.get('#rw-modal');
-  assert.equal(s.CLOSE_ONLY, '關閉');
+  assert.equal(typeof s.CLOSE_ONLY, 'symbol');
   s.openModal('Title', '<p>Body</p>', async () => {}, s.CLOSE_ONLY, {headerClose:true});
   assert.ok(!modal.innerHTML.includes('data-modal-save')); noChinese(modal.innerHTML);
   s.openModal('Title', '<p>Body</p>', async () => {});
@@ -122,10 +137,10 @@ test('comparison labels translate but protocol dimension values and custom text 
   s.S.compareDimensions.add('自己的维度');
   const html = s.renderComparisonSetup();
   assert.match(html, /data-compare-dimension="研究問題"/);
-  assert.ok(html.includes(dictionaries.en['研究問題']));
+  assert.ok(html.includes(dictionaries.en['研究问题']));
   assert.ok(html.includes('自己的维度'));
   assert.ok(s.S.compareDimensions.has('研究問題'));
-  assert.ok(!s.S.compareDimensions.has(dictionaries.en['研究問題']));
+  assert.ok(!s.S.compareDimensions.has(dictionaries.en['研究问题']));
   const visible = html.replace(/data-compare-dimension="[^"]*"/g, '').replaceAll('自己的维度', 'Custom');
   noChinese(visible);
 });
@@ -139,7 +154,7 @@ test('publication-check dialogs and asynchronous error messages translate after 
   assert.ok(s.calls[0].url.includes('/publication-check?doi=10.1%2Ftest'));
   s.nodes.set('#rw-venue-query', {value:''});
   await s.searchSources();
-  assert.equal(s.S.error, dictionaries.en['請輸入期刊或會議名稱。']);
+  assert.equal(s.S.error, dictionaries.en['请输入期刊或会议名称。']);
 });
 
 test('progress fields translate once and recurrence/follow enum values remain unchanged in both locales', () => {
@@ -162,5 +177,27 @@ test('progress fields translate once and recurrence/follow enum values remain un
     assert.ok(follows.includes('自定义主题'));
     assert.ok(follows.includes(dictionaries[lang]['探索主题']));
     if (lang === 'en') { noChinese(html); noChinese(milestones); noChinese(follows.replaceAll('自定义主题', 'Custom topic')); }
+  }
+});
+
+test('research board, discovery and dialogs follow all three locales without rewriting labels or titles', () => {
+  for (const lang of ['zh','en','zh-Hant']) {
+    const s = setup(lang), expected = key => dictionaries[lang]?.[key] || key;
+    s.S.statuses = [{id:'unread', label:'待閱讀', builtin:true}, {id:'reading', label:'我的自訂狀態', builtin:true}];
+    s.S.saved = [{paper_key:'test', metadata:{title:'不轉換的論文標題'}, status:'unread', pdf_state:'pending'}];
+    s.renderBoard();
+    const board = s.nodes.get("[data-view='board']").innerHTML;
+    assert.ok(board.includes(expected('待阅读')));
+    assert.ok(board.includes('我的自訂狀態'));
+    assert.ok(board.includes('不轉換的論文標題'));
+    assert.equal(s.S.statuses[0].label, '待閱讀');
+    s.renderExplore();
+    assert.ok(s.nodes.get("[data-view='explore']").innerHTML.includes(expected('出版来源')));
+    s.openModal('不轉換的標題', '<p>不轉換的內容</p>', () => {});
+    const modal = s.nodes.get('#rw-modal').innerHTML;
+    assert.ok(modal.includes(expected('关闭')));
+    assert.ok(modal.includes(expected('储存')));
+    assert.ok(modal.includes('不轉換的標題'));
+    assert.ok(modal.includes('不轉換的內容'));
   }
 });

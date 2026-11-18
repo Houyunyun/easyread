@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import os
+from unittest.mock import patch
 from easyread.research import deep_analysis
 from easyread.library import store
 
@@ -31,6 +33,7 @@ def fake_app(tmp_path):
     return FakeApp(tmp_path)
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class DeepAnalysisTest(unittest.TestCase):
     def test_deep_analysis_flow(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -93,7 +96,7 @@ class DeepAnalysisTest(unittest.TestCase):
             res = deep_analysis.apply_to_paper_note(ws, loaded["markdown"])
             assert res["ok"] is True
             note_body = (ws.load("reader").get("paper_note") or {}).get("body", "")
-            assert "論文深度剖析報告" in note_body
+            assert "论文深度剖析报告" in note_body
 
     def test_extract_paper_text_anti_truncation_keeps_later_sections(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -126,18 +129,18 @@ class DeepAnalysisTest(unittest.TestCase):
         # Korean target
         prompt_ko = deep_analysis.build_audit_prompt({"target": "ko"}, "Paper text")
         self.assertIn("韩语（한국어）", prompt_ko)
-        self.assertNotIn("繁體中文（臺灣習慣用語）", prompt_ko)
+        self.assertNotIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt_ko)
 
         # Japanese target
         prompt_ja = deep_analysis.build_audit_prompt({"target": "ja"}, "Paper text")
         self.assertIn("日本語", prompt_ja)
-        self.assertNotIn("繁體中文（臺灣習慣用語）", prompt_ja)
+        self.assertNotIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt_ja)
 
         # English target
         prompt_en = deep_analysis.build_audit_prompt({"target": "en"}, "Paper text")
-        self.assertIn("Please output the entire report in English", prompt_en)
-        self.assertNotIn("繁體中文（臺灣習慣用語）", prompt_en)
+        self.assertIn("只用英文（English）", prompt_en)
+        self.assertNotIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt_en)
 
         # Traditional Chinese target
         prompt_zh_tw = deep_analysis.build_audit_prompt({"target": "zh-Hant"}, "Paper text")
-        self.assertIn("繁體中文（臺灣習慣用語）", prompt_zh_tw)
+        self.assertIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt_zh_tw)

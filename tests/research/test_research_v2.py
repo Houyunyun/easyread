@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import os
+from unittest.mock import patch
 import io
 import urllib.error
 from datetime import date, timedelta
@@ -59,6 +61,7 @@ class FakeLibrary:
         return ws, True
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class ResearchV2Test(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -275,9 +278,9 @@ class ResearchV2Test(unittest.TestCase):
         self.assertTrue(saved_item["starred"])
         self.assertEqual(saved_item["reading_plan"]["reminders"]["start_time"], "08:30")
         self.assertEqual(saved_item["tags"], ["3D Vision"])
-        with self.assertRaisesRegex(ValueError, "不能晚於"):
+        with self.assertRaisesRegex(ValueError, "不能晚于"):
             research_v2._normalize_plan({"start_date": "2026-10-12", "due_date": "2026-10-11"})
-        with self.assertRaisesRegex(ValueError, "提醒時間"):
+        with self.assertRaisesRegex(ValueError, "提醒时间"):
             research_v2._normalize_plan({"reminders": {"start_time": "28:99"}})
 
     def test_abstract_reconstruction_and_missing_citation_count(self):
@@ -387,7 +390,7 @@ class ResearchV2Test(unittest.TestCase):
         with tempfile.TemporaryDirectory() as vault, mock.patch.object(research_v2.obsidian_export, "vault_path", lambda: Path(vault)):
             result = research_v2.post(self.app, "/export/summary", {"paper_key": key})
             self.assertEqual(len(result["written"]), 1)
-            exported = Path(vault) / "Research" / "06-論文摘要" / "Exportable Paper.md"
+            exported = Path(vault) / "Research" / "06-论文摘要" / "Exportable Paper.md"
             self.assertTrue(exported.is_file())
             self.assertIn("Evidence.", exported.read_text(encoding="utf-8"))
 
@@ -399,7 +402,7 @@ class ResearchV2Test(unittest.TestCase):
         planning_store.candidate_summary_status(self.root, key, "running")
         self.assertEqual(planning_store.recover_candidate_summaries(self.root), 1)
         self.assertEqual(planning_store.candidates(self.root)[0]["summary_status"], "queued")
-        with self.assertRaisesRegex(ValueError, "不支援的搜尋類型"):
+        with self.assertRaisesRegex(ValueError, "不支援的搜寻类型"):
             research_v2.get(self.app, research_v2.PREFIX + "/search?kind=semantic&q=test")
 
     def test_mindmap_cache_lookup_uses_same_evidence_hash_as_generation(self):
@@ -407,10 +410,9 @@ class ResearchV2Test(unittest.TestCase):
         ws.values["paper"] = {"meta": {"title_en": "Paper"}, "blocks": [
             {"id": "s1", "type": "paragraph", "page": 1, "en": "A finding."}]}
         self.lib.workspaces[ws.id] = ws
-        source_hash = research_v2.sha256(json.dumps([
-            {"id": "s1", "type": "paragraph", "page": 1, "text": "A finding."}], ensure_ascii=False).encode()).hexdigest()
-        cache_key = "mindmap:" + research_v2.sha256(source_hash.encode()).hexdigest()
-        planning_store.cache_put(self.root, cache_key, {"mermaid": "mindmap\n  root((Paper))", "source_sha256": source_hash})
+        _, source_hash = research_v2._mindmap_source(ws.values["paper"])
+        cache_key = "mindmap:zh:" + research_v2.sha256(source_hash.encode()).hexdigest()
+        planning_store.cache_put(self.root, cache_key, {"mermaid": "mindmap\n  root((Paper))", "target": "zh", "source_sha256": source_hash})
         result = research_v2.get(self.app, research_v2.PREFIX + "/paper/paper-map/mindmap")
         self.assertTrue(result["cached"])
         self.assertIn("mindmap", result["mermaid"])
@@ -495,7 +497,7 @@ class ResearchV2Test(unittest.TestCase):
              mock.patch.object(engines, "run", side_effect=fake_run):
             res_ko = research_v2.post(self.app, "/paper/paper-ko/mindmap", {})
             self.assertEqual(res_ko["target"], "ko")
-            self.assertIn("韓語（한국어，Korean）", captured_prompts[-1])
+            self.assertIn("韩语（한국어）", captured_prompts[-1])
             self.assertIn("연구 배경 및 문제", captured_prompts[-1])
             self.assertIn("핵심 구조 및 이론", captured_prompts[-1])
 
@@ -513,7 +515,7 @@ class ResearchV2Test(unittest.TestCase):
              mock.patch.object(engines, "run", side_effect=fake_run):
             res_ja = research_v2.post(self.app, "/paper/paper-ja/mindmap", {})
             self.assertEqual(res_ja["target"], "ja")
-            self.assertIn("日語（日本語，Japanese）", captured_prompts[-1])
+            self.assertIn("日语（日本語）", captured_prompts[-1])
             self.assertIn("研究背景と課題", captured_prompts[-1])
 
     def test_mindmap_source_extraction_precision_and_structures(self):
@@ -531,7 +533,7 @@ class ResearchV2Test(unittest.TestCase):
         }
         source_text, source_hash = research_v2._mindmap_source(paper)
         self.assertTrue(source_hash)
-        self.assertIn("已有術語表", source_text)
+        self.assertIn("已有术语表", source_text)
         self.assertIn("Multi-Head Attention = 多頭注意力機制", source_text)
         self.assertIn("Introduction", source_text)
         self.assertIn("Recurrent models compute sequentially.", source_text)
@@ -577,9 +579,9 @@ class ResearchV2Test(unittest.TestCase):
         with mock.patch.object(research_v2, "_openalex", return_value=response) as call:
             research_v2._search_works(self.root, "vision", source_id="https://openalex.org/S137773608")
         self.assertIn("primary_location.source.id:S137773608", call.call_args.args[1]["filter"])
-        with self.assertRaisesRegex(ValueError, "出版來源識別"):
+        with self.assertRaisesRegex(ValueError, "出版来源识别"):
             research_v2._search_works(self.root, "vision", source_id="Sbad")
-        with self.assertRaisesRegex(ValueError, "四位數"):
+        with self.assertRaisesRegex(ValueError, "四位数"):
             research_v2._search_works(self.root, "vision", year_from="19")
         with self.assertRaisesRegex(ValueError, "起始年份"):
             research_v2._search_works(self.root, "vision", year_from="2025", year_to="2024")
@@ -600,7 +602,7 @@ class ResearchV2Test(unittest.TestCase):
         self.assertEqual(research_v2._source_terms("CVPR"), ["CVPR"])
         self.assertEqual(research_v2._source_terms("Nature Communications, Science；ICCV ECCV"),
                          ["Nature Communications", "Science", "ICCV", "ECCV"])
-        with self.assertRaisesRegex(ValueError, "10 組"):
+        with self.assertRaisesRegex(ValueError, "10 组"):
             research_v2._source_terms(",".join(f"Source {i}" for i in range(11)))
 
     def test_major_conference_and_journal_aliases_include_miccai(self):
@@ -682,7 +684,7 @@ class ResearchV2Test(unittest.TestCase):
         self.assertEqual(params["page"], 2)
         self.assertEqual(result["source_ids"], ["S1", "S2"])
         with mock.patch.object(research_v2, "_openalex") as call:
-            with self.assertRaisesRegex(ValueError, "出版來源識別"):
+            with self.assertRaisesRegex(ValueError, "出版来源识别"):
                 research_v2._search_works(self.root, "vision", source_ids="S1|Sbad")
             call.assert_not_called()
 
@@ -695,7 +697,7 @@ class ResearchV2Test(unittest.TestCase):
             result = research_v2._source_search(self.root, "ICCV CVPR")
         self.assertEqual(result["failed_queries"], ["ICCV"])
         self.assertEqual({x["id"] for x in result["results"]}, {"https://openalex.org/S1", "venue:iccv"})
-        self.assertIn("查詢失敗", result["warning"])
+        self.assertIn("查询失败", result["warning"])
 
     def test_unindexed_exact_doi_returns_not_found_instead_of_a_service_error(self):
         def not_found_then_empty(path, *_args, **_kwargs):
@@ -808,7 +810,7 @@ class ResearchV2Test(unittest.TestCase):
 
     def test_work_relation_rejects_unresolvable_identifier(self):
         with mock.patch.object(research_v2, "_resolve_seed", return_value=None):
-            with self.assertRaisesRegex(ValueError, "找不到對應的 OpenAlex 論文識別資料"):
+            with self.assertRaisesRegex(ValueError, "找不到对应的 OpenAlex 论文识别资料"):
                 research_v2.get(self.app, research_v2.PREFIX + "/work/doi%3A10.9999%2Funknown?relation=related")
 
     def test_work_cited_by_includes_seed_metadata(self):
@@ -896,7 +898,7 @@ class ResearchV2Test(unittest.TestCase):
         self.assertIsNone(failed["library_id"] or None)
 
     def test_milestone_dates_and_author_follow_are_validated(self):
-        with self.assertRaisesRegex(ValueError, "結束日期"):
+        with self.assertRaisesRegex(ValueError, "结束日期"):
             planning_store.add_milestone(self.root, {"title": "Lab meeting", "start_date": "2026-10-12", "end_date": "2026-10-11"})
         with self.assertRaisesRegex(ValueError, "OpenAlex 作者"):
             planning_store.add_follow(self.root, "author", "A/1 OR filter")
@@ -954,7 +956,7 @@ class ResearchV2Test(unittest.TestCase):
             "paper_keys": ["openalex:W2", "openalex:W1"],
         })["path"]
         self.assertEqual([step["paper_key"] for step in reordered["results"]], ["openalex:W2", "openalex:W1"])
-        with self.assertRaisesRegex(ValueError, "重新載入"):
+        with self.assertRaisesRegex(ValueError, "重新载入"):
             research_v2.post(self.app, "/reading-path/reorder", {
                 "path_id": snapshot["path_id"], "revision": snapshot["revision"],
                 "paper_keys": ["openalex:W2", "openalex:W1"],
@@ -1065,7 +1067,7 @@ class ResearchV2Test(unittest.TestCase):
             })
         self.assertEqual(result["suggestions"], ["Masked Image Segmentation", "Transformer Architecture", "Universal Representation"])
         self.assertIn("Mask2Former", captured_prompt[0])
-        self.assertIn("去除自創的模型代號", captured_prompt[0])
+        self.assertIn("去除自创的模型代号", captured_prompt[0])
 
 
 if __name__ == "__main__":

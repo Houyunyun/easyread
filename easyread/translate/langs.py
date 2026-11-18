@@ -19,15 +19,23 @@ TARGETS = {
 DEFAULT = "zh"
 
 
+def normalize(code: str | None) -> str:
+    """Canonical target code; an unknown value is not an explicit paper target."""
+    tag = str(code or "").strip().lower().replace("_", "-")
+    aliases = {"zh-cn": "zh", "zh-sg": "zh", "zh-hans": "zh", "zh-tw": "zh-Hant",
+               "zh-hk": "zh-Hant", "zh-mo": "zh-Hant", "zh-hant": "zh-Hant"}
+    return aliases.get(tag, tag) if aliases.get(tag, tag) in TARGETS else ""
+
+
 def valid(code: str | None) -> str:
-    return code if code in TARGETS else DEFAULT
+    return normalize(code) or DEFAULT
 
 
 def of_paper(meta: dict | None, cfg: dict | None = None) -> str:
     """这篇论文的译文语言：翻过的用当时记下的，没翻过的用设置里的。"""
     meta = meta or {}
-    if meta.get("target") in TARGETS:
-        return meta["target"]
+    if normalize(meta.get("target")):
+        return normalize(meta["target"])
     if meta.get("title_zh"):  # 1.3 以前译的论文没记语言，都是中文
         return DEFAULT
     if cfg is None:
@@ -38,7 +46,8 @@ def of_paper(meta: dict | None, cfg: dict | None = None) -> str:
 
 def remember(ws, code: str | None) -> None:
     """导入时选了译文语言：记到这篇论文上。已经有译文的论文不改，免得一篇里混两种语言。"""
-    if code not in TARGETS:
+    code = normalize(code)
+    if not code:
         return
 
     def apply(paper):
@@ -61,12 +70,22 @@ def listing() -> list[dict]:
     return [{"id": k, "name": v[0]} for k, v in TARGETS.items()]
 
 
-def reply_lang(meta: dict | None) -> str:
-    """问 AI、整理笔记用什么语言回答：论文翻过就用译文语言，没翻过跟界面语言。提示词里的称呼。"""
+def reply_code(meta: dict | None = None) -> str:
+    """Paper target wins; old translated papers stay Simplified; otherwise use UI."""
     meta = meta or {}
-    if meta.get("target") in TARGETS:
-        return prompt_name(meta["target"])
+    if normalize(meta.get("target")):
+        return normalize(meta["target"])
     if meta.get("title_zh"):  # 1.3 以前译的论文没记语言，都是中文
-        return "中文"  # i18n-ok 提示词
+        return DEFAULT
     from ..app import i18n
-    return prompt_name(i18n.lang())
+    return valid(i18n.lang())
+
+
+def reply_lang(meta: dict | None) -> str:
+    """Language instruction for paper AI, including an unambiguous Chinese script."""
+    code = reply_code(meta)
+    if code == "zh":
+        return "简体中文（Simplified Chinese，仅用简体字）"  # i18n-ok: prompt
+    if code == "zh-Hant":
+        return "繁体中文（Traditional Chinese，仅用繁体字，台湾用语）"  # i18n-ok: prompt
+    return prompt_name(code)

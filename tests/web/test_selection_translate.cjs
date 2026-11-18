@@ -22,7 +22,7 @@ function reader() {
     selectionSpeech: (root, text) => { const player = { root, text, dispose() { this.disposed = true; } }; speech.push(player); return player; },
     api: (url, opts) => new Promise((resolve, reject) => requests.push({ url, opts, resolve, reject })),
   };
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../easyread/web/js/reader/selection-translate.js'), 'utf8'), {
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../easyread/web/js/common/clipboard.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '../../easyread/web/js/reader/selection-translate.js'), 'utf8'), {
     window: { PR }, navigator: { clipboard: { writeText: async text => copied.push(text) } },
   });
   return { PR, requests, popups, copied, speech, click: (popup, selector) => popup.click({ target: { closest: s => s === selector } }) };

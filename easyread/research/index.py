@@ -268,7 +268,7 @@ def _index_easyread(db: sqlite3.Connection, lib, encoder, cancel_event=None, pro
         except Exception as error:  # Includes lazy encoder failures; document_write has rolled back.
             errors.append(f"{ws.id}: {error}"[:260])
         if progress:
-            progress("indexing-papers", start + position, total, tr("索引 PaperRead 論文 {done}/{total}", done=position, total=len(workspaces)))
+            progress("indexing-papers", start + position, total, tr("索引 PaperRead 论文 {done}/{total}", done=position, total=len(workspaces)))
     cancelled = cancel_event and cancel_event.is_set()
     removed = [] if cancelled else [row[0] for row in db.execute("SELECT path FROM files WHERE path LIKE 'easyread/%'") if row[0] not in seen]
     for rel in removed:
@@ -283,7 +283,7 @@ def index_vault(rebuild: bool = False, library=None, semantic: bool = True, canc
     root = vault_path()
     vault_ready = root is not None and root.is_dir()
     if not vault_ready and library is None:
-        raise ValueError(tr("設定 Obsidian Vault 資料夾後即可建立研究索引。"))
+        raise ValueError(tr("设定 Obsidian Vault 资料夹后即可建立研究索引。"))
     db = _db(library)
     source_files = list(_source_files(root)) if vault_ready else []
     files_seen = 0
@@ -299,7 +299,7 @@ def index_vault(rebuild: bool = False, library=None, semantic: bool = True, canc
             encoder_attempted = True
             if progress:
                 progress("loading-model", files_seen, total,
-                         tr("載入本機多語向量模型（首次使用會下載）"))
+                         tr("载入本机多语向量模型（首次使用会下载）"))
             try:
                 encoder = _embedder()
             except Exception as error:  # model download/runtime failure leaves lexical search usable
@@ -338,7 +338,7 @@ def index_vault(rebuild: bool = False, library=None, semantic: bool = True, canc
             except Exception as error:  # A failed document must not block other replacements.
                 errors.append(f"{relative}: {error}"[:260])
             if progress:
-                progress("indexing-notes", files_seen, total, tr("索引 Obsidian 筆記 {done}/{total}", done=files_seen, total=len(source_files)))
+                progress("indexing-notes", files_seen, total, tr("索引 Obsidian 笔记 {done}/{total}", done=files_seen, total=len(source_files)))
         if cancel_event and cancel_event.is_set():
             raise InterruptedError(tr("索引工作已取消。"))
         existing = {relative for _, relative in source_files}
@@ -413,11 +413,11 @@ def search(query: str, limit: int = 10, kind: str = "", library=None) -> dict:
         needs_model = bool(has_vectors and _MODEL is None and not model_cached)
         try:
             if needs_model:
-                raise FileNotFoundError(tr("語意模型尚未下載。"))
+                raise FileNotFoundError(tr("语意模型尚未下载。"))
             if has_vectors:
                 query_vector = _query_vector(query)
             else:
-                raise FileNotFoundError(tr("語意索引尚未建立。"))
+                raise FileNotFoundError(tr("语意索引尚未建立。"))
             rows = db.execute("SELECT * FROM chunks WHERE embedding IS NOT NULL" + (" AND kind=?" if kind else ""), params).fetchall()
             import numpy as np
             semantic = []
@@ -434,7 +434,7 @@ def search(query: str, limit: int = 10, kind: str = "", library=None) -> dict:
         if not active_index and (needs_vectors or needs_model):
             def build_semantic_index(cancel_event, report):
                 if needs_model:
-                    report("loading-model", 0, 0, tr("載入本機多語向量模型（首次使用會下載）"))
+                    report("loading-model", 0, 0, tr("载入本机多语向量模型（首次使用会下载）"))
                     _embedder()
                 return index_vault(library=library, semantic=True, cancel_event=cancel_event, progress=report)
             index_status["semantic_task"] = tasks.submit("index", build_semantic_index, scope=scope, key=vault_key)

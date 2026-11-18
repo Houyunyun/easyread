@@ -114,7 +114,7 @@ class LangsTest(unittest.TestCase):
 
     def test_reply_language(self):
         self.assertEqual(langs.reply_lang({"target": "de"}), "德语（Deutsch）")
-        self.assertEqual(langs.reply_lang({"title_zh": "旧论文"}), "中文")
+        self.assertEqual(langs.reply_lang({"title_zh": "旧论文"}), "简体中文（Simplified Chinese，仅用简体字）")
         with mock.patch("easyread.app.i18n.lang", lambda: "en"):
             self.assertEqual(langs.reply_lang({}), "英文（English）")
 

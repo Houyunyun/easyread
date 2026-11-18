@@ -26,6 +26,14 @@ AI actions use your existing CLI or API models configured under **Settings → M
 
 Long-running analysis, maps and comparisons appear in the task monitor. You can cancel work, open completed results and retry failures. Restarted services mark interrupted tasks rather than presenting them as completed.
 
+## Language and input modes
+
+The UI defaults to Simplified Chinese and supports English and Traditional Chinese. Paper-specific AI annotations, maps, deep analysis and note assistance follow the paper target language, falling back to the UI when unspecified. Research summaries, reading paths and comparisons capture the UI language when started. English search terms/paraphrases are explicitly English-output tools. Source quotations and user-authored content are never silently converted. Saved results retain and display their actual generation language.
+
+Handwriting supports mouse/touch or pen-only input. Pen-only mode accepts browser Pointer Events marked `pen`, suppresses accidental nonpen and compatibility-mouse input during contact, and releases guards when tools close. The sticker library opens independently without enabling handwriting.
+
+Comparisons are generated and saved in the local library without requiring a Vault; Obsidian export is a separate action. Multi-content ZIP downloads also work without a Vault. Saved summaries have a Markdown editor, deep reports can be appended to paper notes, and scanned keyword relations have an editable map view.
+
 ## Semantic retrieval
 
 Cross-paper semantic retrieval uses FastEmbed and `intfloat/multilingual-e5-small`. Its pinned model revision is downloaded on first use (approximately 250 MB), then cached below `.research-os/` in the EasyRead data directory. Indexes are scoped to the library and Vault so one library's results do not leak into another.

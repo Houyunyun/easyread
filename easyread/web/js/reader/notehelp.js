@@ -4,7 +4,7 @@
   "use strict";
   const S = PR.state;
   const NAMES = { review: PR.t("AI 点评"), revise: PR.t("AI 改过的笔记"), draft: PR.t("AI 起的草稿") };
-  const ai = { mode: null, text: "", model: "", notice: "", streaming: false, error: "", ctrl: null };
+  const ai = { mode: null, text: "", model: "", target: "", notice: "", streaming: false, error: "", ctrl: null };
   const noteNow = () => { const ta = PR.$("#paperNote"); return ta ? ta.value : (S.reader.paper_note || {}).body || ""; };
 
   PR.noteHelpOn = () => PR.store.mode === "server" && PR.feature("chat") && PR.canChat && PR.canChat();
@@ -24,7 +24,7 @@
     const apply = ai.mode === "review" ? '<button class="btn sm" data-nh="append">' + PR.t("追加到笔记末尾") + "</button>"
       : '<button class="btn sm accent" data-nh="replace">' + PR.t("替换我的笔记") + '</button><button class="btn sm" data-nh="append">' + PR.t("追加到末尾") + "</button>";
     const notice = ai.notice ? '<div class="np-ai-notice"><span class="np-ai-notice-icon">💡</span><span>' + PR.esc(ai.notice) + '</span></div>' : "";
-    return '<div class="np-ai"><div class="np-ai-head"><b>' + NAMES[ai.mode] + "</b>" + (ai.model ? "<small>" + PR.esc(ai.model) + "</small>" : "") + '<span class="grow"></span>' +
+    return '<div class="np-ai"><div class="np-ai-head"><b>' + NAMES[ai.mode] + "</b>" + (ai.model ? "<small>" + PR.esc(ai.model) + "</small>" : "") + (PR.aiOutputLanguage(ai.target) ? "<small>" + PR.esc(PR.aiOutputLanguage(ai.target)) + "</small>" : "") + '<span class="grow"></span>' +
       (ai.streaming ? '<button class="btn sm" data-nh="stop">' + PR.t("停止") + "</button>" : '<button class="btn icon" data-nh="close" title="' + PR.t("丢掉") + '">×</button>') + "</div>" +
       notice +
       '<div class="np-ai-body">' + (ai.text ? PR.mdBlocks(ai.text) : ai.streaming ? '<p class="hint"><span class="spin"></span> ' + PR.t("正在想…") + "</p>" : "") +
@@ -42,13 +42,13 @@
 
   function notifyDone(mode) {
     const title = mode === "draft"
-      ? PR.t("AI 筆記起草已完成")
+      ? PR.t("AI 笔记起草已完成")
       : mode === "review"
-        ? PR.t("AI 筆記點評已完成")
-        : PR.t("AI 筆記修改已完成");
+        ? PR.t("AI 笔记点评已完成")
+        : PR.t("AI 笔记修改已完成");
 
     PR.toast(PR.esc(title), {
-      label: PR.t("查看結果"),
+      label: PR.t("查看结果"),
       fn: () => {
         if (PR.openPaperNotes) PR.openPaperNotes();
         setTimeout(() => {
@@ -62,7 +62,7 @@
       try {
         const paperTitle = (S.paper && S.paper.meta && (S.paper.meta.title_zh || S.paper.meta.title_en)) || "";
         const n = new Notification(title, {
-          body: paperTitle ? String(paperTitle).slice(0, 80) : PR.t("點擊返回閱讀器查看生成內容"),
+          body: paperTitle ? String(paperTitle).slice(0, 80) : PR.t("点击返回阅读器查看生成内容"),
           icon: "/web/favicon.svg",
         });
         n.onclick = () => {
@@ -81,7 +81,7 @@
     ai.ctrl && ai.ctrl.abort();
     const note = noteNow();  // 先取再重画：输入框里可能有还没存下的字（自动保存有 0.6 秒延迟）
     if (note !== ((S.reader.paper_note || {}).body || "")) PR.commit({ op: "paper_note", body: note });
-    Object.assign(ai, { mode, text: "", model: "", notice: "", streaming: true, error: "", ctrl: new AbortController() });
+    Object.assign(ai, { mode, text: "", model: "", target: "", notice: "", streaming: true, error: "", ctrl: new AbortController() });
     PR.renderNotesPanel();
     updateTopbarIndicator(true);
     let aborted = false;
@@ -103,6 +103,7 @@
           if (!line.trim()) continue;
           const ev = JSON.parse(line);
           if (ev.model) ai.model = ev.model;
+          if (ev.target) ai.target = ev.target;
           if (ev.notice) ai.notice = ev.notice;
           if (ev.t) { ai.text += ev.t; paintSoon(); }
           if (ev.error) ai.error = ev.error;

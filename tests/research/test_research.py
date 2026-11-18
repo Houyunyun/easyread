@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import tempfile
 import threading
 import unittest
+import os
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 from unittest import mock
 
-from easyread.research import comparison, index, markdown, proposals, tasks
+from easyread.research import api, comparison, comparison_store, index, markdown, proposals, tasks
 from easyread.research.store import normalize_folders
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class ResearchIndexTest(unittest.TestCase):
     def test_cjk_chunks_stay_below_embedding_safe_character_bound(self):
         body = "研究方法與視覺表徵。" * 120
@@ -46,6 +49,7 @@ class ResearchIndexTest(unittest.TestCase):
                 normalize_folders([invalid])
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class ComparisonTest(unittest.TestCase):
     class Workspace:
         def __init__(self, identity: str, title: str):
@@ -72,7 +76,7 @@ class ComparisonTest(unittest.TestCase):
         paper, chunks = comparison._paper_text(self.Library().ws("paper-1"))
         joined = "\n".join(chunks)
         self.assertEqual(paper["title"], "Paper One")
-        for expected in ("b1 p.1", "b2 p.2", "b3 p.3", "個人批註", "My method summary"):
+        for expected in ("b1 p.1", "b2 p.2", "b3 p.3", "个人批注", "My method summary"):
             self.assertIn(expected, joined)
 
     def test_comparison_rejects_pdf_changed_since_parsing(self):
@@ -83,19 +87,16 @@ class ComparisonTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA-256"):
                 comparison._paper_text(ws)
 
-    def test_comparison_stages_a_note_until_user_accepts(self):
+    def test_comparison_persists_locally_without_vault_until_explicit_export(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            state = root / ".research-os"
             def fake_model(_cfg, prompt, *_args):
-                return "## 比較範圍\n\n兩篇論文。\n\n## 候選研究問題\n\n待驗證：資料集差異。" if "請輸出：" in prompt else "方法與實驗摘要。"
-            def run_now(kind, runner, retry_failed=False, *, scope="", on_update=None):
+                return "## 比較範圍\n\n兩篇論文。\n\n## 候選研究問題\n\n待驗證：資料集差異。" if "请输出：" in prompt else "方法與實驗摘要。"
+            def run_now(kind, runner, retry_failed=False, *, scope="", on_update=None, target=""):
                 self.assertEqual(kind, "comparison")
+                self.assertEqual(target, "zh")
                 return {"state": "completed", "result": runner(threading.Event(), lambda *_args: None)}
-            with mock.patch.object(comparison, "vault_path", lambda: root), \
-                 mock.patch.object(proposals, "vault_path", lambda: root), \
-                 mock.patch("easyread.research.store.vault_path", lambda: root), \
-                 mock.patch.object(proposals, "state_dir", lambda: state), \
+            with mock.patch("easyread.research.store.settings", return_value={}), \
                  mock.patch.object(comparison.tasks, "submit", run_now), \
                  mock.patch("easyread.chat.chat_models.engine_cfg", lambda *_args: ({"engine": "test"}, {"id": "test", "name": "Test"})), \
                  mock.patch("easyread.engines.engines.for_translation", lambda cfg: cfg), \
@@ -106,24 +107,25 @@ class ComparisonTest(unittest.TestCase):
                 proposal = result["result"]["proposal"]
                 destination = root / proposal["target"]
                 self.assertEqual(proposal["status"], "pending")
-                self.assertFalse(destination.exists())
-                self.assertEqual(proposals.latest_pending_comparison()["id"], proposal["id"])
-                self.assertIn("## 參考論文", proposal["content"])
+                self.assertTrue(destination.is_file())
+                self.assertEqual(proposal["storage"], "library")
+                self.assertEqual(comparison_store.latest(root, pending=True)["id"], proposal["id"])
+                self.assertIn("## 参考论文", proposal["content"])
                 self.assertIn("Paper One", proposal["content"])
-                accepted = proposals.decide(proposal["id"], accept=True)
+                accepted = api.post(SimpleNamespace(lib=library), f"/proposals/{proposal['id']}/review", {"decision": "accept"})
                 self.assertEqual(accepted["status"], "accepted")
                 self.assertTrue(destination.exists())
-                index = json.loads((root / "Research" / ".paperread-index.json").read_text(encoding="utf-8"))
-                self.assertIn(proposal["target"], {entry.get("path", "") for entry in index["documents"].values()})
-                self.assertIsNone(proposals.latest_pending_comparison())
+                self.assertFalse((root / "Research").exists())
+                self.assertIsNone(comparison_store.latest(root, pending=True))
+                self.assertEqual(comparison_store.get(root, proposal["id"])["output_target"], "zh")
 
     def test_selected_papers_must_be_unique_and_within_limit(self):
-        with mock.patch.object(comparison, "vault_path", lambda: Path("C:/vault")):
-            for ids in (["paper-1"], ["paper-1", "paper-1"], ["a", "b", "c", "d", "e", "f"]):
-                with self.subTest(ids=ids), self.assertRaises(ValueError):
-                    comparison.start(self.Library(), ids, ["核心方法"])
+        for ids in (["paper-1"], ["paper-1", "paper-1"], ["a", "b", "c", "d", "e", "f"]):
+            with self.subTest(ids=ids), self.assertRaises(ValueError):
+                comparison.start(self.Library(), ids, ["核心方法"])
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class ProposalConflictTest(unittest.TestCase):
     def test_accept_refuses_to_overwrite_note_changed_after_review(self):
         with tempfile.TemporaryDirectory() as temp:

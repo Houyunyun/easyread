@@ -1,7 +1,7 @@
-"""界面语言：中文系统显示中文，其余显示英文；设置里可以手动指定。
+"""界面语言：跟随系统或手动选择简体中文、繁体中文、英文。
 
-代码里只写中文：前端 `PR.t("中文 {n}", {n})`，后端 `tr("中文 {n}", n=…)`。
-中文原文就是词条的键，英文在 web/i18n/en.json；缺了哪条英文，tests/app/test_i18n.py 会报出来。
+代码里的界面原文只写简体中文：前端 `PR.t("中文 {n}", {n})`，后端 `tr("中文 {n}", n=…)`。
+原文就是词条的键，译文在 web/i18n/{en,zh-Hant}.json；不转换论文或用户内容。
 """
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ def tr(text: str, **kw) -> str:
 
 
 def inject(page: str, language: str | None = None) -> str:
-    """返回页面时写上语言，英文时把词典也塞进去，前端同步就能用。"""
+    """返回页面时写上语言，英文或繁体中文同时注入对应词典。"""
     picked = choice() if language is None else language  # 设置里的“界面语言”要显示当前选的是哪项
     language = language or lang()
     from . import config  # 用到时再导入，见文件开头

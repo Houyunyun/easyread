@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from ..app.i18n import tr
 from ..library import planning_store
 
 
@@ -16,7 +17,7 @@ def get(root, endpoint: str):
 
 def post(root, endpoint: str, body: dict):
     if endpoint in ("/milestones", "/follows", "/reminders/claim") and len(json.dumps(body, ensure_ascii=False)) > 64000:
-        raise ValueError("Planning request too large")
+        raise ValueError(tr("规划请求过大"))
     if endpoint == "/milestones":
         return {"milestone": planning_store.add_milestone(root, body)}
     if endpoint == "/milestones/delete":
@@ -32,6 +33,6 @@ def post(root, endpoint: str, body: dict):
             not isinstance(event, dict) or not isinstance(event.get("key"), str) or not 1 <= len(event["key"]) <= 300
             for event in events
         ):
-            raise ValueError("Invalid reminder events")
+            raise ValueError(tr("提醒事件无效"))
         return {"claimed": planning_store.claim_reminders(root, events)}
     return None

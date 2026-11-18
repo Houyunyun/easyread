@@ -20,14 +20,14 @@ def parse(value=None) -> str:
 
 
 # Original instructions based on ASD-STE100 Issue 9 (2025-01-15).
-# STE is an English standard. This mode applies its clarity principles to Chinese.
+# STE is an English standard. This mode applies its clarity principles to the reply language.
 # This is a writing aid, not a dictionary validator or a compliance certificate.
 # Reference: https://www.asd-ste100.org/STE_faq.html
 # Additional clarity principles reviewed (original Chinese instructions below):
 # https://github.com/danyuchn/asd-ste100-skill/blob/7d4a135a199a5d7447c4886bcd7ffe742a627bc9/SKILL.md
 STE100_INSTRUCTIONS = """本次使用 ASD-STE100 问答模式。以前的对话只提供语境，不决定本次的语言和格式。
-只输出中文回答，不附英文答案、英文草稿或双语对照。专业名词、缩略语、代码和公式可以保留必要的原文。
-ASD-STE100 是英文标准。本模式借鉴 Issue 9 的简明技术写作原则，用这些原则组织中文答案；不要把英文的词数限制机械地套到中文，也不要声称中文答案符合英文标准。
+只使用{language}回答，不附双语对照。专业名词、缩略语、代码和公式可以保留必要的原文。
+ASD-STE100 是英文标准。本模式借鉴 Issue 9 的简明技术写作原则，用这些原则组织答案；不要机械套用词数限制，也不要声称答案已通过标准认证。
 - 用简明、直接的短句，每句表达一个主要意思，每段围绕一个主题。三个或更多步骤、条件或并列要点用列表。
 - 优先用主动表达，明确谁做什么、动作涉及哪个对象。不知道行为主体时不要猜测，也不要省掉主语造成歧义。
 - 读者需要操作说明时，先说适用条件，再按顺序列出动作和必要的结果或限制；每一步说明一个动作。不要把描述性结论改成操作命令。
@@ -59,12 +59,4 @@ XRAY_INSTRUCTIONS = """本次使用精读问答模式。以前的对话只提供
 
 def ste100_instructions(meta: dict | None = None) -> str:
     from ..translate import langs
-    language = langs.reply_lang(meta)
-    if language == langs.prompt_name("zh"):
-        return STE100_INSTRUCTIONS
-    return STE100_INSTRUCTIONS.replace(
-        "只输出中文回答，不附英文答案、英文草稿或双语对照。",  # i18n-ok: model instructions
-        f"只使用{language}回答，不附双语对照。"  # i18n-ok: model instructions
-    ).replace("组织中文答案", f"组织{language}答案").replace(  # i18n-ok: model instructions
-        "不要把英文的词数限制机械地套到中文", "不要机械套用词数限制"  # i18n-ok: model instructions
-    ).replace("中文答案符合英文标准", "答案已通过标准认证")  # i18n-ok: model instructions
+    return STE100_INSTRUCTIONS.replace("{language}", langs.reply_lang(meta))

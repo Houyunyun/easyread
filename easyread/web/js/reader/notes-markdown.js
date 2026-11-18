@@ -52,7 +52,7 @@
     if (!pick.quote || !item.data?.quote || item.src !== "mine") return "";
     const result = translatedExportQuote(item);
     const side = item.data.side;
-    return PR.t("「{q}」", { q: result.text }) + (side === "en" ? PR.t(result.translated ? "（譯文）" : "（原文，尚無譯文對齊）") : ""); // i18n-ok: both branch labels are passed to PR.t.
+    return PR.t("「{q}」", { q: result.text }) + (side === "en" ? (result.translated ? PR.t("（译文）") : PR.t("（原文，尚无译文对齐）")) : "");
   }
 
   function exportQuoteDetails(item, pick) {
@@ -62,7 +62,7 @@
     const side = item.data.side;
     return {
       text: result.text,
-      label: result.formula ? PR.t("公式") : side === "en" ? PR.t(result.translated ? "引用（中文譯文；原始劃線為英文）" : "引用（英文原文；尚無譯文對齊）") : PR.t("引用（中文譯文）"), // i18n-ok: all export labels are passed to PR.t.
+      label: result.formula ? PR.t("公式") : side === "en" ? (result.translated ? PR.t("引用（中文译文；原始划线为英文）") : PR.t("引用（英文原文；尚无译文对齐）")) : PR.t("引用（中文译文）"),
       formula: !!result.formula,
     };
   }
@@ -74,7 +74,7 @@
   function mineAnnotationLines(item, pick) {
     const d = item.data || {};
     const quote = exportQuoteDetails(item, pick);
-    const noteLabel = d.kind === "question" ? PR.t("我的問題") : PR.t("我的注記");
+    const noteLabel = d.kind === "question" ? PR.t("我的问题") : PR.t("我的注记");
     const lines = [];
     if (quote.formula) {
       lines.push("- **" + quote.label + "**");
@@ -104,28 +104,28 @@
         question: annotations.filter((it) => it.src === "mine" && it.data.kind === "question"),
         ai: annotations.filter((it) => it.src !== "mine"),
       };
-      const labels = { note: PR.t("我的筆記"), highlight: PR.t("我的劃線"), question: PR.t("我的問題"), ai: PR.t("AI 的回答和解釋") };
+      const labels = { note: PR.t("我的笔记"), highlight: PR.t("我的划线"), question: PR.t("我的问题"), ai: PR.t("AI 的回答和解释") };
       const order = Array.isArray(exportOptions.order) ? exportOptions.order : ["paper", "note", "highlight", "question", "ai", "chat", "mindmap", "deep_analysis"];
       for (const kind of order) {
-        if (kind === "paper" && pick.paper && pn) out.push("## " + PR.t("論文筆記"), "", pn, "");
+        if (kind === "paper" && pick.paper && pn) out.push("## " + PR.t("论文笔记"), "", pn, "");
         else if (groups[kind] && pick[kind] && groups[kind].length) {
           out.push("## " + labels[kind], "");
           let lastSec = "";
           for (const it of groups[kind]) {
-            const sec = it.anchor === "head" ? PR.t("論文開頭") : PR.sectionOf(it.anchor);
+            const sec = it.anchor === "head" ? PR.t("论文开头") : PR.sectionOf(it.anchor);
             if (sec !== lastSec) { out.push("### " + sec, ""); lastSec = sec; }
             const d = it.data;
             const q = exportQuote(it, pick);
             if (it.src === "mine") { out.push(...mineAnnotationLines(it, pick)); if (PR.noteMedia?.has(d)) out.push(PR.noteMedia.markdown(d)); }
-            else out.push("- " + (d.title ? "**" + d.title + "** " : "") + q + (d.q ? PR.t("（問：{q}）", { q: d.q }) : "") + "\n\n  " + (d.body || "").replace(/\n/g, "\n  "));
+            else out.push("- " + (d.title ? "**" + d.title + "** " : "") + q + (d.q ? PR.t("（问：{q}）", { q: d.q }) : "") + "\n\n  " + (d.body || "").replace(/\n/g, "\n  "));
           }
           out.push("");
         } else if (kind === "chat" && pick.chat && exportOptions.chat?.length) {
-          out.push("## " + PR.t("問 AI 的對話"), "");
+          out.push("## " + PR.t("问 AI 的对话"), "");
           for (const c of exportOptions.chat) out.push(c.role === "user" ? PR.t("**我**：") + c.content : PR.t("**AI**（{model}）：", { model: c.model || "" }) + c.content, "");
-        } else if (kind === "mindmap" && pick.mindmap && exportOptions.mindmap) { const fence = String.fromCharCode(96).repeat(3); out.push("## " + PR.t("論文心智圖"), "", fence + "mermaid", exportOptions.mindmap, fence, "");
+        } else if (kind === "mindmap" && pick.mindmap && exportOptions.mindmap) { const fence = String.fromCharCode(96).repeat(3); out.push("## " + PR.t("论文心智图"), "", fence + "mermaid", exportOptions.mindmap, fence, "");
         } else if (kind === "deep_analysis" && pick.deep_analysis && exportOptions.deepAnalysis) {
-          out.push("## " + PR.t("論文深度剖析"), "", exportOptions.deepAnalysis, "");
+          out.push("## " + PR.t("论文深度剖析"), "", exportOptions.deepAnalysis, "");
         }
       }
       return PR.unlink ? PR.unlink(out.join("\n")) : out.join("\n");

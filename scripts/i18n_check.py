@@ -55,17 +55,18 @@ def scan_js(path: Path, keys: set, raw: list):
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     code = _strip_js_comments(text)
+    for line_no, line in enumerate(lines, 1):
+        if re.search(r"i18n-dom:|固定.*繁[體体]中文", line):
+            raw.append(f"{path.relative_to(ROOT)}:{line_no}: fixed-language UI bypass: {line.strip()[:100]}")
     for m in re.finditer(_JS_STR, code, re.S):
         lit = m[0]
         if not CJK.search(lit):
             continue
         line_no = code.count("\n", 0, m.start()) + 1
-        if "i18n-ok" in lines[line_no - 1]:
-            continue
         before = code[max(0, m.start() - 6):m.start()]
         if re.search(r"\bt\(\s*$", before) and not lit.startswith("`"):
-            keys.add(_unquote(lit))
-        else:
+            keys.add(_unquote(lit))  # A comment must not hide a real translation key.
+        elif "i18n-ok" not in lines[line_no - 1]:
             raw.append(f"{path.relative_to(ROOT)}:{line_no}: {lit[:70]}")
 
 
@@ -122,9 +123,12 @@ def collect():
         parser = _Html()
         parser.feed(path.read_text(encoding="utf-8"))
         keys.update(parser.found)
-    for path in sorted((ROOT / "easyread").glob("*.py")):
+    package = ROOT / "easyread"
+    for path in sorted(package.rglob("*.py")):
         if path.name not in PY_SKIP:
-            scan_py(path, keys, raw)
+            # The backend is package-based. Collect every tr() key, while model
+            # instructions and data labels in subpackages have separate tests.
+            scan_py(path, keys, raw if path.parent == package else [])
     return keys, raw
 
 

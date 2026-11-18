@@ -102,7 +102,8 @@ function createMindmapEnv(customWindow = {}) {
   };
 
   const code = fs.readFileSync(path.join(__dirname, "../../easyread/web/js/reader/mindmap-view.js"), "utf8");
-  vm.runInNewContext(code, { window: win, document, PR, console, setTimeout: win.setTimeout });
+  const language = fs.readFileSync(path.join(__dirname, "../../easyread/web/js/common/ai-language.js"), "utf8");
+  vm.runInNewContext(language + "\n" + code, { window: win, document, PR, console, setTimeout: win.setTimeout });
 
   return { PR, win, document, listeners };
 }
@@ -228,8 +229,8 @@ test("mount initializes MindElixir, uses PR.md for rich math/formatting, and han
   const toolbar = container.children.find(c => c.className === "mm-toolbar");
   assert.ok(toolbar);
 
-  // 檢查按鈕文字改為「詳細檢視」
-  assert.match(toolbar.innerHTML, /詳細檢視/);
+  // UI defaults to Simplified Chinese; mindmap data above remains unchanged.
+  assert.match(toolbar.innerHTML, /详细检视/);
   // 檢查新樹狀分支 SVG 圖示（非原本的 plus/minus）
   assert.match(toolbar.innerHTML, /data-mm-act="expand-all"/);
   assert.match(toolbar.innerHTML, /data-mm-act="collapse-main"/);
@@ -494,4 +495,24 @@ test("planner does not destroy or reset rendered mindmap on repeated research-ta
   await new Promise((r) => setImmediate(r));
   assert.equal(renderPanelCalls, 1);
   assert.equal(destroyCalls, 0);
+});
+
+test('MindElixir context-menu labels use UI dictionaries without changing editable node content', () => {
+  for (const lang of ['zh', 'en', 'zh-Hant']) {
+    const dict = lang === 'zh' ? {} : JSON.parse(fs.readFileSync(path.join(__dirname, '../../easyread/web/i18n/' + lang + '.json'), 'utf8'));
+    class FakeMindElixir {
+      constructor(opts) { this.opts = opts; }
+      init(data) { this.data = data; }
+      scaleFit() {}
+      toCenter() {}
+    }
+    const {PR, document} = createMindmapEnv({MindElixir:FakeMindElixir});
+    PR.t = key => dict[key] || key;
+    const container = document.createElement('div');
+    const ctrl = PR.mindmap.mount(container, {editable:true, data:{nodeData:{id:'root', topic:'保留節點原文'}}});
+    assert.equal(ctrl.instance.opts.contextMenu.locale.addChild, PR.t('添加子节点'));
+    assert.equal(ctrl.instance.opts.contextMenu.locale.removeNode, PR.t('删除节点'));
+    assert.equal(ctrl.instance.opts.contextMenu.locale.clickTips, PR.t('请选择目标节点'));
+    assert.equal(ctrl.instance.data.nodeData.topic, '保留節點原文');
+  }
 });

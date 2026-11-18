@@ -63,10 +63,10 @@ class ResearchTaskTests(unittest.TestCase):
     def test_reading_path_task_endpoint_persists_and_recovers_completion(self):
         original_post = research_v2.post
 
-        def mocked_path(app, endpoint, body, *, _cancel=None, _report=None):
+        def mocked_path(app, endpoint, body, *, _cancel=None, _report=None, _target=""):
             _report("planning", 3, 5, "AI 正在規劃閱讀順序。")
             return {"results": [{"paper_key": "openalex:W1"}], "path_id": "path-1", "revision": 1,
-                    "warning": "部分搜尋資料使用快取。"}
+                    "target": _target, "warning": "部分搜尋資料使用快取。"}
 
         with mock.patch("easyread.research.workspace.post", side_effect=mocked_path):
             submitted = original_post(self.app, "/reading-path/tasks", {
@@ -97,7 +97,7 @@ class ResearchTaskTests(unittest.TestCase):
         self.app.lib.ws = lambda pid: fake_ws
         original_post = research_v2.post
 
-        def mocked_post(app, endpoint, body, *, _cancel=None, _report=None):
+        def mocked_post(app, endpoint, body, *, _cancel=None, _report=None, _target=""):
             if endpoint.startswith("/paper/") and endpoint.endswith("/mindmap"):
                 _report("generating", 1, 2, "正在依據論文內文產生心智圖…")
                 return {"mermaid": "mindmap\n  root((注意力機制論文))", "title": "注意力機制論文", "paper_id": "p-100", "cached": False}

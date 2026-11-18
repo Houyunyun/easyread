@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -58,6 +59,34 @@ class I18nTest(unittest.TestCase):
     def test_every_ui_string_has_english(self):
         result = subprocess.run([sys.executable, str(ROOT / "scripts" / "i18n_check.py")], capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stdout[-3000:])
+
+    def test_simplified_default_and_user_values_are_not_converted(self):
+        for language, label in (("zh", "作者：繁體用戶"), ("en", "Authors: 繁體用戶"), ("zh-Hant", "作者：繁體用戶")):
+            with self.subTest(language=language), mock.patch.object(i18n, "lang", lambda: language):
+                self.assertEqual(i18n.tr("作者：{authors}", authors="繁體用戶"), label)
+        with mock.patch.dict(os.environ, {"EASYREAD_LANG": "zh"}), mock.patch.object(i18n, "system_lang", lambda: "zh-Hant"):
+            self.assertEqual(i18n.lang(), "zh")
+            self.assertEqual(i18n.tr("研究探索"), "研究探索")
+
+    def test_checker_rejects_fixed_traditional_bypass_comments(self):
+        from scripts.i18n_check import scan_js
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            path = Path(directory) / "new-ui.js"
+            path.write_text('button.textContent = "關閉"; // i18n-ok: UI 固定使用繁體中文。\n'
+                            'PR.t("缺失词条"); // i18n-ok\n', encoding="utf-8")
+            keys, raw = set(), []
+            scan_js(path, keys, raw)
+        self.assertIn("缺失词条", keys)
+        self.assertTrue(any("fixed-language UI bypass" in item for item in raw), raw)
+
+    def test_checker_rejects_dynamic_dom_translation_bypass(self):
+        from scripts.i18n_check import scan_js
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            path = Path(directory) / "export-ui.js"
+            path.write_text('button.textContent = "匯出"; /* i18n-dom: translated later */', encoding="utf-8")
+            keys, raw = set(), []
+            scan_js(path, keys, raw)
+        self.assertTrue(any("fixed-language UI bypass" in item for item in raw), raw)
 
     def test_traditional_interface_dictionary_and_injection(self):
         traditional = i18n.ui_dict("zh-Hant")

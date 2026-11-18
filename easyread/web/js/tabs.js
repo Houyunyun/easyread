@@ -302,7 +302,7 @@
       const badge = document.createElement("span");
       badge.className = "tab-sleep-badge";
       badge.textContent = "☾";
-      badge.title = t("此分頁已休眠以節省記憶體，點擊即可恢復");
+      badge.title = t("此分页已休眠以节省记忆体，点击即可恢复");
       tab.button.prepend(badge);
     }
   }
@@ -353,7 +353,7 @@
       tab.title = libTitle;
     } else if (tab.frame?.contentDocument?.title) {
       const docTitle = tab.frame.contentDocument.title.replace(/\s*[·|–-]\s*(PaperRead|EasyRead).*$/i, "");
-      if (docTitle && docTitle !== t("正在打開…")) {
+      if (docTitle && docTitle !== t("正在打开…")) {
         tab.title = docTitle;
         const textEl = tab.button.querySelector(".tab-text");
         if (textEl) textEl.textContent = docTitle;
@@ -464,7 +464,7 @@
         window.close();
       }
     } catch (_) {
-      notify(t("尚未保存成功，請保持標籤打開，稍後重試"));
+      notify(t("尚未保存成功，请保持标签打开，稍后重试"));
     } finally {
       tab.closing = false;
     }
@@ -647,7 +647,7 @@
     moving.forEach(tab => { tab.transferring = true; });
     const saved = await Promise.all(moving.map(save));
     moving.forEach(tab => { tab.transferring = false; });
-    if (saved.includes(false)) return notify(t("尚未保存成功，請保持標籤打開，稍後重試"));
+    if (saved.includes(false)) return notify(t("尚未保存成功，请保持标签打开，稍后重试"));
     const affectedGroups = new Set();
     (tabIds || []).forEach(id => {
       const tab = tabs.get(id);
@@ -689,7 +689,7 @@
     if (items.length === 0) return;
 
     for (const item of items) {
-      if (!await save(item)) { notify(t("尚未保存成功，請保持標籤打開，稍後重試")); return; }
+      if (!await save(item)) { notify(t("尚未保存成功，请保持标签打开，稍后重试")); return; }
     }
 
     const token = "dt-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
@@ -734,7 +734,7 @@
       }
       setTimeout(() => {
         if (typeof window !== "undefined" && window.outerWidth > halfW + 100) {
-          notify(t("提示：瀏覽器限制腳本縮小原視窗，可按鍵盤 Win + ← 將原視窗貼齊左側並排"));
+          notify(t("提示：浏览器限制脚本缩小原视窗，可按键盘 Win + ← 将原视窗贴齐左侧并排"));
         }
       }, 500);
     }
@@ -792,7 +792,7 @@
         // Attach tabs from other window
         for (const item of data.tabs || []) {
           if (!tabs.has(item.id)) {
-            create(item.id, item.url, item.title || t("論文"));
+            create(item.id, item.url, item.title || t("论文"));
             if (item.group) {
               if (!groups.has(item.group)) {
                 const groupInfo = (data.groups || []).find(g => g.id === item.group);
@@ -991,10 +991,10 @@
       subWrap.className = "tab-menu-submenu-wrap";
       const subTitle = document.createElement("div");
       subTitle.className = "tab-menu-item";
-      subTitle.innerHTML = `<span>${t("加入分頁群組")}</span><span class="menu-arrow">▸</span>`; // i18n-ok: translated with t()
+      subTitle.innerHTML = `<span>${t("加入分页群组")}</span><span class="menu-arrow">▸</span>`; // i18n-ok: translated with t()
       const submenu = document.createElement("div");
       submenu.className = "tab-menu-submenu";
-      addItem("new-group", "+ " + t("新建群組"), submenu);
+      addItem("new-group", "+ " + t("新建群组"), submenu);
       if (groups.size > 0) addSep(submenu);
       groups.forEach(g => {
         const it = document.createElement("div");
@@ -1013,18 +1013,18 @@
       subWrap.append(subTitle, submenu);
       contextMenu.append(subWrap);
 
-      if (tab.group) addItem("remove-group", t("從群組移出"));
-      addItem("detach-tab", t("移至新視窗 (雙開)"));
-      addItem("sleep-tab", count > 1 ? t("休眠已選分頁") : t("休眠此分頁"));
+      if (tab.group) addItem("remove-group", t("从群组移出"));
+      addItem("detach-tab", t("移至新视窗 (双开)"));
+      addItem("sleep-tab", count > 1 ? t("休眠已选分页") : t("休眠此分页"));
       addSep();
-      addItem("close-selected", count > 1 ? t("關閉已選的 {n} 個分頁", { n: count }) : t("關閉分頁"));
-      addItem("close-others", t("關閉其他分頁"));
-      addItem("close-right", t("關閉右側分頁"));
+      addItem("close-selected", count > 1 ? t("关闭已选的 {n} 个分页", { n: count }) : t("关闭分页"));
+      addItem("close-others", t("关闭其他分页"));
+      addItem("close-right", t("关闭右侧分页"));
     } else {
-      addItem("close-others", t("關閉其他分頁"));
+      addItem("close-others", t("关闭其他分页"));
     }
     addSep();
-    addItem("toggle-autohide", isAutoHide ? t("✓ 自動隱藏標籤列") : t("自動隱藏標籤列"));
+    addItem("toggle-autohide", isAutoHide ? t("✓ 自动隐藏标签列") : t("自动隐藏标签列"));
     contextMenu.hidden = false;
 
     const x = Math.min(e.clientX, window.innerWidth - 200);
@@ -1037,7 +1037,7 @@
       if (!item) return;
       const action = item.dataset.action;
       if (action === "new-group") {
-        const title = prompt(t("請輸入群組名稱："), t("未命名群組"));
+        const title = prompt(t("请输入群组名称："), t("未命名群组"));
         if (title) {
           const g = createGroup("g-" + Date.now(), title);
           selectedTabs.forEach(id => setTabGroup(id, g.id));
@@ -1080,7 +1080,7 @@
     popInput.type = "text";
     popInput.className = "group-popover-input";
     popInput.value = group.title;
-    popInput.placeholder = t("群組名稱");
+    popInput.placeholder = t("群组名称");
     groupPopover.append(popInput);
 
     const colorsDiv = document.createElement("div");
@@ -1099,11 +1099,11 @@
     const ungrpBtn = document.createElement("button");
     ungrpBtn.className = "group-popover-btn";
     ungrpBtn.dataset.act = "ungroup";
-    ungrpBtn.textContent = t("解散群組");
+    ungrpBtn.textContent = t("解散群组");
     const clsAllBtn = document.createElement("button");
     clsAllBtn.className = "group-popover-btn danger";
     clsAllBtn.dataset.act = "close-all";
-    clsAllBtn.textContent = t("關閉全部");
+    clsAllBtn.textContent = t("关闭全部");
     actsDiv.append(ungrpBtn, clsAllBtn);
     groupPopover.append(actsDiv);
     groupPopover.hidden = false;
@@ -1115,7 +1115,7 @@
     const input = popInput;
     input.focus();
     input.oninput = () => {
-      group.title = input.value || t("未命名群組");
+      group.title = input.value || t("未命名群组");
       renderGroupChip(group);
       saveTabsSession();
     };
@@ -1164,7 +1164,7 @@
     if (url.pathname === "/open") {
       try {
         const response = await fetch(url.href);
-        if (!response.ok) throw new Error(t("沒有這篇論文"));
+        if (!response.ok) throw new Error(t("没有这篇论文"));
         const target = new URL(response.url);
         const block = url.searchParams.get("block");
         if (block) target.hash = block;
@@ -1180,7 +1180,7 @@
 
     const existing = tabs.has(id);
     if (!existing) {
-      create(id, url.href, t("正在打開…"));
+      create(id, url.href, t("正在打开…"));
       // Attempt to auto-categorize based on library categories
       tryAutoGroup(id);
     }
@@ -1196,7 +1196,7 @@
       select(id); return;
     }
     if (existing && url.searchParams.has("open")) {
-      if (!await save(tab)) return notify(t("尚未保存成功，請保持標籤打開，稍後重試"));
+      if (!await save(tab)) return notify(t("尚未保存成功，请保持标签打开，稍后重试"));
       tab.url = url.href;
       if (tab.sleepState) tab.sleepState.url = url.href;
       tab.frame.src = url.href;
@@ -1280,7 +1280,7 @@
     const updateTitle = () => {
       const title = tab.id === "library"
         ? (win.PR?.t ? win.PR.t("文献库") : (window.PR?.t ? window.PR.t("文献库") : t("文献库")))
-        : (doc.title.replace(/\s*[·|–-]\s*(PaperRead|EasyRead).*$/i, "") || t("論文"));
+        : (doc.title.replace(/\s*[·|–-]\s*(PaperRead|EasyRead).*$/i, "") || t("论文"));
       tab.title = title;
       const textEl = tab.button.querySelector(".tab-text");
       if (textEl) textEl.textContent = title;
@@ -1425,7 +1425,7 @@
       const x = document.createElement("button");
       x.className = "tab-close";
       x.textContent = "×";
-      x.setAttribute("aria-label", t("關閉論文"));
+      x.setAttribute("aria-label", t("关闭论文"));
       x.onclick = (e) => {
         e.stopPropagation();
         void close(id);

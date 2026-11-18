@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+import os
+from unittest.mock import patch
 from pathlib import Path
 
 from easyread.translate import langs
@@ -8,6 +10,7 @@ from easyread.chat import smart_annotations
 from easyread.library.store import Workspace, empty_reader, write_json_atomic
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class SmartAnnotationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -44,16 +47,16 @@ class SmartAnnotationTests(unittest.TestCase):
         paper = self.ws.load("paper")
         sources = smart_annotations._sources(paper)
         prompt_tw = smart_annotations._prompt("測試論文", "auto", "", sources, meta={"target": "zh-Hant"})
-        self.assertIn("quote 必須逐字從對應區塊的 TEXT 複製", prompt_tw)
+        self.assertIn("quote 必须逐字从对应区块的 TEXT 复制", prompt_tw)
         self.assertIn('"quote"', prompt_tw)
-        self.assertIn("繁體中文（臺灣用語）", prompt_tw)
+        self.assertIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt_tw)
         self.assertIn("TEXT: 我們提出一個新的方法。我們比較結果。", prompt_tw)
         self.assertNotIn("ZH: ", prompt_tw)
         self.assertNotIn("EN: ", prompt_tw)
 
         prompt_ja = smart_annotations._prompt("測試論文", "auto", "", sources, meta={"target": "ja"}, prior_notes=["[方法] 提出新架構"])
         self.assertIn("用" + langs.reply_lang({"target": "ja"}), prompt_ja)
-        self.assertIn("前段已標註之論點摘要", prompt_ja)
+        self.assertIn("前段已标注之论点摘要", prompt_ja)
         self.assertIn("[方法] 提出新架構", prompt_ja)
 
     def test_sources_integrate_user_edits_from_reader(self):
@@ -396,12 +399,12 @@ class SmartAnnotationTests(unittest.TestCase):
         paper = self.ws.load("paper")
         sources = smart_annotations._sources(paper)
         prompt_concise = smart_annotations._prompt("測試論文", "auto", "", sources, intensity="concise")
-        self.assertIn("精簡模式", prompt_concise)
-        self.assertIn("核心主張", prompt_concise)
-        self.assertIn("關鍵詞", prompt_concise)
+        self.assertIn("精简模式", prompt_concise)
+        self.assertIn("核心主张", prompt_concise)
+        self.assertIn("关键词", prompt_concise)
 
         prompt_detailed = smart_annotations._prompt("測試論文", "auto", "", sources, intensity="detailed")
-        self.assertIn("詳細模式", prompt_detailed)
+        self.assertIn("详细模式", prompt_detailed)
 
     def test_research_task_external_registry(self):
         from easyread.research import tasks as rtasks

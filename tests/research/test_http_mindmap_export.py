@@ -44,7 +44,8 @@ class MindmapHTTPTest(PortFixture):
             while tasks.get(task['id'])['state'] not in ('completed', 'failed') and time.monotonic() < deadline:
                 time.sleep(.01)
             self.assertEqual(tasks.get(task['id'])['state'], 'completed')
-        saved = request(prefix + '/save', {'mermaid': 'mindmap\n  root((Edited))', 'revision': 1})
+        identity = request(prefix)
+        saved = request(prefix + '/save', {'target': identity['target'], 'source_sha256': identity['source_sha256'], 'mermaid': 'mindmap\n  root((Edited))', 'revision': 1})
         self.assertEqual(saved['revision'], 2)
 
         def poll(_):

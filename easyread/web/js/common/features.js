@@ -17,8 +17,8 @@
   /* [id, 名字, 默认键, 分组, 依赖的功能] */
   PR.KEY_ACTIONS = [
     ["research", PR.t("研究"), "r", PR.t("面板"), "research"],
-    ["inkToggle", PR.t("切換手寫"), "w", PR.t("手寫工具")], ["inkEraser", PR.t("切換橡皮擦"), "x", PR.t("手寫工具")],
-    ["stickerToggle", PR.t("貼紙素材庫"), "s", PR.t("手寫工具")],
+    ["inkToggle", PR.t("切换手写"), "w", PR.t("手写工具")], ["inkEraser", PR.t("切换橡皮擦"), "x", PR.t("手写工具")],
+    ["stickerToggle", PR.t("贴纸素材库"), "s", PR.t("手写工具")],
     ["next", PR.t("下一段"), "j", PR.t("阅读")], ["prev", PR.t("上一段"), "k", PR.t("阅读")],
     ["mode", PR.t("单语 / 双语"), "b", PR.t("阅读")], ["toc", PR.t("目录"), "t", PR.t("阅读")],
     ["fontUp", PR.t("字号变大"), "=", PR.t("阅读")], ["fontDown", PR.t("字号变小"), "-", PR.t("阅读")], ["fontReset", PR.t("恢复默认字号"), "0", PR.t("阅读")],

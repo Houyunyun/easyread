@@ -8,9 +8,9 @@
   let assets = [], preview = null, selected = null, selectedIds = new Set(), selectedInkIds = new Set(), gesture = null, lasso = null, offlineLicenses = null;
   let filter = "all", category = "", query = "", settings = PR.ls.get(storageKey, { favorites: [], recent: [], custom: [] });
   if (!settings || !Array.isArray(settings.favorites) || !Array.isArray(settings.recent) || !Array.isArray(settings.custom)) settings = { favorites: [], recent: [], custom: [] };
-  const saveSettings = () => { const ok = PR.ls.set(storageKey, settings); if (!ok) PR.toast(PR.t("無法儲存貼紙偏好，瀏覽器儲存空間不足")); return ok; };
+  const saveSettings = () => { const ok = PR.ls.set(storageKey, settings); if (!ok) PR.toast(PR.t("无法储存贴纸偏好，浏览器储存空间不足")); return ok; };
   const allAssets = () => [...assets, ...settings.custom.filter(a => a && /^custom-[a-z0-9]+$/.test(a.id) && validData(a.customData))];
-  const assetOf = id => { if (id === "paperread-text-box") return { id, name:PR.t("文字方塊"), source:"text" }; const stored = live().find(s => s.assetId === id && validData(s.customData)); return allAssets().find(a => a.id === id) || (stored && { id, customData: stored.customData }); };
+  const assetOf = id => { if (id === "paperread-text-box") return { id, name:PR.t("文字方块"), source:"text" }; const stored = live().find(s => s.assetId === id && validData(s.customData)); return allAssets().find(a => a.id === id) || (stored && { id, customData: stored.customData }); };
   function safeLink(value) {
     if (typeof value !== "string" || value.length > 2048 || /[\x00-\x20\x7f]/.test(value)) return null;
     try { const url = new URL(value); return ["http:","https:"].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : null; } catch (_) { return null; }
@@ -118,50 +118,50 @@
     assets = checked.filter(Boolean); renderPanel(); PR.renderInk();
   }
   const labels = {
-    k0: PR.t("貼紙素材庫"),
-    k1: PR.t("關閉"),
-    k2: PR.t("貼紙篩選"),
-    k3: PR.t("全部貼紙"),
+    k0: PR.t("贴纸素材库"),
+    k1: PR.t("关闭"),
+    k2: PR.t("贴纸筛选"),
+    k3: PR.t("全部贴纸"),
     k4: PR.t("最近使用"),
     k5: PR.t("收藏"),
-    k6: PR.t("我的貼紙"),
-    k7: PR.t("搜尋"),
-    k8: PR.t("分類"),
-    k9: PR.t("全部分類"),
-    k10: PR.t("找不到貼紙"),
-    k11: PR.t("加入自己的貼紙"),
+    k6: PR.t("我的贴纸"),
+    k7: PR.t("搜寻"),
+    k8: PR.t("分类"),
+    k9: PR.t("全部分类"),
+    k10: PR.t("找不到贴纸"),
+    k11: PR.t("加入自己的贴纸"),
     k12: PR.t("插入"),
-    k13: PR.t("選擇貼紙以預覽"),
-    k14: PR.t("素材來源與授權"),
-    k15: PR.t("複製"),
+    k13: PR.t("选择贴纸以预览"),
+    k14: PR.t("素材来源与授权"),
+    k15: PR.t("复制"),
     k17: PR.t("角度"),
-    k19: PR.t("解除鎖定"),
-    k20: PR.t("鎖定"),
-    k21: PR.t("移至最上層"),
-    k22: PR.t("上移一層"),
-    k23: PR.t("下移一層"),
-    k24: PR.t("移至最下層"),
-    k25: PR.t("刪除"),
-    k28: PR.t("自訂素材庫只儲存在目前瀏覽器；已插入的自訂貼紙會隨論文註記保存。"),
+    k19: PR.t("解除锁定"),
+    k20: PR.t("锁定"),
+    k21: PR.t("移至最上层"),
+    k22: PR.t("上移一层"),
+    k23: PR.t("下移一层"),
+    k24: PR.t("移至最下层"),
+    k25: PR.t("删除"),
+    k28: PR.t("自订素材库只储存在目前浏览器；已插入的自订贴纸会随论文注记保存。"),
     k29: PR.t("未修改"),
-    k30: PR.t("搜尋貼紙標籤…"),
-    k31: PR.t("線條顏色"),
-    k32: PR.t("線條粗細"),
+    k30: PR.t("搜寻贴纸标签…"),
+    k31: PR.t("线条颜色"),
+    k32: PR.t("线条粗细"),
     k33: PR.t("更多操作"),
-    k34: PR.t("學術"),
-    k35: PR.t("重點"),
-    k36: PR.t("問題"),
+    k34: PR.t("学术"),
+    k35: PR.t("重点"),
+    k36: PR.t("问题"),
     k37: PR.t("注意"),
-    k38: PR.t("科學"),
-    k39: PR.t("數學"),
-    k40: PR.t("機器學習"),
-    k41: PR.t("箭頭"),
-    k42: PR.t("形狀"),
-    k43: PR.t("便條"),
-    k44: PR.t("裝飾"),
-    k45: PR.t("方向鍵移動，Shift 加方向鍵縮放，Alt 加左右方向鍵旋轉"),
-    k46: PR.t("群組"),
-    k47: PR.t("解除群組"),
+    k38: PR.t("科学"),
+    k39: PR.t("数学"),
+    k40: PR.t("机器学习"),
+    k41: PR.t("箭头"),
+    k42: PR.t("形状"),
+    k43: PR.t("便条"),
+    k44: PR.t("装饰"),
+    k45: PR.t("方向键移动，Shift 加方向键缩放，Alt 加左右方向键旋转"),
+    k46: PR.t("群组"),
+    k47: PR.t("解除群组"),
   };
   function previewHtml(chosen) {
     if (!chosen) return `<span class="sticker-preview-empty">${labels.k13}</span>`;
@@ -191,12 +191,12 @@
     if (newGrid && prevScrollTop > 0) newGrid.scrollTop = prevScrollTop;
   }
   function setMode(on) {
-    if (!on && gesture) finishGesture(true);
-    if (on && document.getElementById("inkToggle").getAttribute("aria-pressed") !== "true") PR.toggleInk();
+    cancelGesture();
+    if (on) PR.finishInkGesture?.();
     if (on && layer.classList.contains("erase")) PR.setInkEraser?.(false);
     PR.stickerMode = on;
     layer.classList.toggle("sticker-mode", on);
-    if (!on) { PR.lassoMode=false; lasso=null; clearSelection(); bar.hidden = true; document.querySelector("[data-ink-lasso]")?.setAttribute("aria-pressed","false"); }
+    if (!on) { PR.lassoMode=false; layer.classList.toggle("lasso-mode", false); clearSelection(); bar.hidden = true; document.querySelector("[data-ink-lasso]")?.setAttribute("aria-pressed","false"); }
     PR.renderInk();
   }
   PR.setStickerMode = setMode;
@@ -209,6 +209,7 @@
   PR.toggleStickerPanel = function () {
     if (!panel) return;
     if (panel.hidden) {
+      PR.setInkActive?.(false);
       panel.hidden = false;
       toggle.setAttribute("aria-expanded", "true");
       PR.setLassoMode && PR.setLassoMode(false);
@@ -220,12 +221,11 @@
   };
   PR.setLassoMode = on => {
     if (on) setMode(true);
-    PR.lassoMode=!!on; if (!on) lasso=null;
+    PR.lassoMode=!!on; if (!on && lasso) { const id=lasso.pointer; lasso=null; releasePointer(id); }
     layer.classList.toggle("lasso-mode",!!on);
     document.querySelector("[data-ink-lasso]")?.setAttribute("aria-pressed",String(!!on));
     PR.renderInk();
   };
-  document.getElementById("inkToggle").addEventListener("click", () => { if (document.getElementById("inkToggle").getAttribute("aria-pressed") !== "true") { setMode(false); PR.closeStickerPanel(); } });
   toggle.addEventListener("click", () => { PR.toggleStickerPanel(); });
   panel.addEventListener("dblclick", e => {
     const b = e.target.closest("[data-asset]");
@@ -326,7 +326,7 @@
   }
   const moveStroke=(stroke,dx,dy)=>({...stroke,points:stroke.points.map(([x,y])=>[x+dx,y+dy])});
   function insert(id, x, y) {
-    const a=assetOf(id), b=nearest(y ?? window.innerHeight/2); if (!a || !b || innerWidth < 768) { PR.toast(PR.t("目前無法插入貼紙")); return; }
+    const a=assetOf(id), b=nearest(y ?? window.innerHeight/2); if (!a || !b || innerWidth < 768) { PR.toast(PR.t("目前无法插入贴纸")); return; }
     setMode(true); const image=new Image();
     image.onload=() => {
       if (innerWidth < 768 || !b.isConnected) return;
@@ -334,7 +334,7 @@
       const w=100, h=Math.max(20,Math.min(300,w*image.naturalHeight/image.naturalWidth));
       const s={ id:PR.uid("s"), assetId:a.id, anchor:b.dataset.id, textHash:PR.hashText(b.innerText || ""), ref:[r.width,r.height], x:(x ?? r.left+r.width/2)-r.left-w/2, y:(y ?? Math.max(r.top,Math.min(r.bottom,innerHeight/2)))-r.top-h/2, width:w, height:h, rotation:0, opacity:1, z:Math.max(0,...live().map(v=>v.z))+1, locked:false, ...(a.customData ? { customData:a.customData } : {}) };
       setSelection([s.id],s.id); update(null,s); settings.recent=[id,...settings.recent.filter(v=>v!==id)].slice(0,30); saveSettings(); renderPanel();
-    }; image.onerror=() => PR.toast(PR.t("貼紙載入失敗")); image.src=sourceOf(a);
+    }; image.onerror=() => PR.toast(PR.t("贴纸载入失败")); image.src=sourceOf(a);
   }
   PR.insertInkText = (x, y) => {
     const b=nearest(y); if (!b) return;
@@ -348,7 +348,7 @@
     const group=[...layer.querySelectorAll("[data-sticker]")].find(node=>node.dataset.sticker===s.id), content=group?.querySelector("[data-sticker-content]"), rect=content?.getBoundingClientRect();
     if (!rect || s.locked) return;
     const input=document.createElement("textarea"), matrix=content.getScreenCTM(), width=Number(content.getAttribute("width")), height=Number(content.getAttribute("height"));
-    input.className="ink-text-editor"; input.setAttribute("aria-label",PR.t("編輯文字方塊")); input.maxLength=2000; input.value=s.text || "";
+    input.className="ink-text-editor"; input.setAttribute("aria-label",PR.t("编辑文字方块")); input.maxLength=2000; input.value=s.text || "";
     if (matrix && width>0 && height>0) {
       input.style.left="0px"; input.style.top="0px"; input.style.width=width+"px"; input.style.height=height+"px"; input.style.fontSize=(textSize(s)*width/s.width)+"px"; input.style.color=textColor(s); input.style.fontWeight=textBold(s) ? "700" : "400";
       input.style.transformOrigin="0 0"; input.style.transform=`matrix(${matrix.a},${matrix.b},${matrix.c},${matrix.d},${matrix.e},${matrix.f})`;
@@ -380,7 +380,7 @@
         const content=document.createElementNS("http://www.w3.org/1999/xhtml","div"); content.className="ink-text-content"; content.style.fontSize=(textSize(s)*p.scale)+"px"; content.style.color=textColor(s); content.style.fontWeight=textBold(s) ? "700" : "400"; content.innerHTML=textHtml(s.text); box.append(content); g.append(box);
       } else {
         const img=el("image", { href:stickerSource(a,s),x:0,y:0,width:w,height:h,opacity:s.opacity,preserveAspectRatio:"none","data-sticker-content":"" });
-        const url=safeLink(s.href); if (url) { const link=el("a",{href:url,target:"_blank",rel:"noopener noreferrer","aria-label":PR.t("開啟超連結"),"data-sticker-link":""}); link.append(img); g.append(link); } else g.append(img);
+        const url=safeLink(s.href); if (url) { const link=el("a",{href:url,target:"_blank",rel:"noopener noreferrer","aria-label":PR.t("开启超连结"),"data-sticker-link":""}); link.append(img); g.append(link); } else g.append(img);
       }
       if (selectedIds.has(s.id) && PR.stickerMode) {
         g.append(el("rect",{x:0,y:0,width:w,height:h,fill:"none",stroke:"#2878c8","stroke-width":2,"pointer-events":"none"}));
@@ -417,7 +417,7 @@
     const color=/^#[0-9a-f]{6}$/i.test(s.strokeColor || "") ? s.strokeColor : defaultStrokeColor();
     const strokeWidth=Number.isFinite(s.strokeWidth) && s.strokeWidth >= 1 && s.strokeWidth <= 4 ? s.strokeWidth : 2;
     bar.hidden=false;
-    bar.innerHTML=`${lucide?`<label class="sticker-color" title="${labels.k31}"><input data-field="strokeColor" type="color" aria-label="${labels.k31}" value="${color}"></label><label class="sticker-stroke" title="${labels.k32}"><span aria-hidden="true">${PR.icon("marker","sm")}</span><input data-field="strokeWidth" type="range" aria-label="${labels.k32}" min="1" max="4" step="0.25" value="${strokeWidth}"></label>`:""}${asset?.source === "text" ? `<label class="sticker-color" title="${PR.t("文字顏色")}"><input data-field="textColor" type="color" aria-label="${PR.t("文字顏色")}" value="${textColor(s)}"></label><div class="sticker-font-size"><button type="button" data-action="text-size-down" aria-label="${PR.t("縮小文字")}" title="${PR.t("縮小文字")}">−</button><input data-field="textSize" type="number" inputmode="numeric" aria-label="${PR.t("文字大小")}" min="10" max="72" step="1" value="${textSize(s)}"><button type="button" data-action="text-size-up" aria-label="${PR.t("放大文字")}" title="${PR.t("放大文字")}">+</button></div><button class="sticker-bold" data-action="text-bold" aria-label="${PR.t("粗體")}" aria-pressed="${textBold(s)}" title="${PR.t("粗體")}">B</button><button data-action="edit-text" aria-label="${PR.t("編輯文字方塊")}" title="${PR.t("編輯文字方塊")}">${PR.icon("edit","sm")}</button>` : `<button data-action="link" aria-label="${PR.t("設定超連結")}" title="${PR.t("設定超連結")}">${PR.icon("link","sm")}</button>`}<button data-action="duplicate" aria-label="${labels.k15}" title="${labels.k15}">${PR.icon("copy","sm")}</button><button data-action="rotate" aria-label="${labels.k17} +90°" title="${labels.k17} +90°">${PR.icon("redo","sm")}</button><button data-action="lock" class="sticker-lock" aria-label="${s.locked?labels.k19:labels.k20}" title="${s.locked?labels.k19:labels.k20}">${s.locked?labels.k19:labels.k20}</button><button data-action="delete" class="sticker-delete" aria-label="${labels.k25}" title="${labels.k25}" ${s.locked?"disabled":""}>${PR.icon("trash","sm")}</button><details ${detailsOpen?"open":""}><summary aria-label="${labels.k33}" title="${labels.k33}">${PR.icon("more","sm")}</summary><div class="sticker-more">${s.href ? `<button data-action="unlink">${PR.t("移除超連結")}</button>` : ""}<button data-action="front">${labels.k21}</button><button data-action="forward">${labels.k22}</button><button data-action="backward">${labels.k23}</button><button data-action="back">${labels.k24}</button></div></details>`;
+    bar.innerHTML=`${lucide?`<label class="sticker-color" title="${labels.k31}"><input data-field="strokeColor" type="color" aria-label="${labels.k31}" value="${color}"></label><label class="sticker-stroke" title="${labels.k32}"><span aria-hidden="true">${PR.icon("marker","sm")}</span><input data-field="strokeWidth" type="range" aria-label="${labels.k32}" min="1" max="4" step="0.25" value="${strokeWidth}"></label>`:""}${asset?.source === "text" ? `<label class="sticker-color" title="${PR.t("文字颜色")}"><input data-field="textColor" type="color" aria-label="${PR.t("文字颜色")}" value="${textColor(s)}"></label><div class="sticker-font-size"><button type="button" data-action="text-size-down" aria-label="${PR.t("缩小文字")}" title="${PR.t("缩小文字")}">−</button><input data-field="textSize" type="number" inputmode="numeric" aria-label="${PR.t("文字大小")}" min="10" max="72" step="1" value="${textSize(s)}"><button type="button" data-action="text-size-up" aria-label="${PR.t("放大文字")}" title="${PR.t("放大文字")}">+</button></div><button class="sticker-bold" data-action="text-bold" aria-label="${PR.t("粗体")}" aria-pressed="${textBold(s)}" title="${PR.t("粗体")}">B</button><button data-action="edit-text" aria-label="${PR.t("编辑文字方块")}" title="${PR.t("编辑文字方块")}">${PR.icon("edit","sm")}</button>` : `<button data-action="link" aria-label="${PR.t("设定超连结")}" title="${PR.t("设定超连结")}">${PR.icon("link","sm")}</button>`}<button data-action="duplicate" aria-label="${labels.k15}" title="${labels.k15}">${PR.icon("copy","sm")}</button><button data-action="rotate" aria-label="${labels.k17} +90°" title="${labels.k17} +90°">${PR.icon("redo","sm")}</button><button data-action="lock" class="sticker-lock" aria-label="${s.locked?labels.k19:labels.k20}" title="${s.locked?labels.k19:labels.k20}">${s.locked?labels.k19:labels.k20}</button><button data-action="delete" class="sticker-delete" aria-label="${labels.k25}" title="${labels.k25}" ${s.locked?"disabled":""}>${PR.icon("trash","sm")}</button><details ${detailsOpen?"open":""}><summary aria-label="${labels.k33}" title="${labels.k33}">${PR.icon("more","sm")}</summary><div class="sticker-more">${s.href ? `<button data-action="unlink">${PR.t("移除超连结")}</button>` : ""}<button data-action="front">${labels.k21}</button><button data-action="forward">${labels.k22}</button><button data-action="backward">${labels.k23}</button><button data-action="back">${labels.k24}</button></div></details>`;
     if (s.locked) bar.querySelectorAll('input, button:not([data-action="lock"])').forEach(control => { control.disabled=true; });
     positionBar();
   }
@@ -466,10 +466,10 @@
     if (action==="backward") { const z=sorted.filter(v=>v<s.z).at(-1); if (z!==undefined) return update(s,{...s,z:z-0.001}); }
   }
   async function editLink(s) {
-    const value=await PR.promptText({title:PR.t("設定超連結"),body:PR.t("請輸入 http 或 https 網址"),value:s.href || "",max:2048,at:bar});
+    const value=await PR.promptText({title:PR.t("设定超连结"),body:PR.t("请输入 http 或 https 网址"),value:s.href || "",max:2048,at:bar});
     const fresh=live().find(item=>item.id===s.id); if (!fresh || fresh.locked) return;
     if (value === null) return;
-    const href=safeLink(value); if (!href) { PR.toast(PR.t("請輸入有效的 http 或 https 網址")); return; }
+    const href=safeLink(value); if (!href) { PR.toast(PR.t("请输入有效的 http 或 https 网址")); return; }
     if (href!==fresh.href) update(fresh,{...fresh,href});
   }
   bar.addEventListener("click",e=>{const b=e.target.closest("[data-action]"); if (b) act(b.dataset.action);});
@@ -493,7 +493,7 @@
   }
   function finishLasso(cancel) {
     if (!lasso) return;
-    const value=lasso; lasso=null;
+    const value=lasso; lasso=null; releasePointer(value.pointer);
     if (!cancel && value.screen.length > 2) {
       const choices=[...layer.querySelectorAll("[data-sticker]")].map(node=>({id:node.dataset.sticker,rect:node.getBoundingClientRect()}));
       const hit=PR.stickerLasso.hits(value.screen,choices).map(item=>item.id);
@@ -503,7 +503,7 @@
     PR.setLassoMode(false);
   }
   layer.addEventListener("pointerdown",e=>{
-    if (!PR.stickerMode || e.button!==0) return;
+    if (!PR.stickerMode || e.button!==0 || gesture || lasso || (PR.readerInput && !PR.readerInput.acceptsCanvas(e))) return;
     if (PR.lassoMode) { e.preventDefault(); e.stopPropagation(); const point=lassoPoint(e); lasso={pointer:e.pointerId,screen:[point.screen],svg:[point.svg]}; layer.setPointerCapture(e.pointerId); PR.renderInk(); return; }
     const group=e.target.closest("[data-sticker]"), path=!group && e.target.closest("path[data-stroke]");
     if (!group && !path) { clearSelection(); PR.renderInk(); return; }
@@ -523,12 +523,12 @@
     const inkMembers=handle==="move" ? selectedStrokes().map(strokeMember).filter(Boolean) : [];
     if (!members.length && !inkMembers.length) return;
     const primary=members[0];
-    gesture={members,inkMembers,handle,startX:e.clientX,startY:e.clientY,cx:primary&&s ? primary.r.left+(s.x+s.width/2)*primary.scale : 0,cy:primary&&s ? primary.r.top+(s.y+s.height/2)*primary.scale : 0};
+    gesture={pointer:e.pointerId,members,inkMembers,handle,startX:e.clientX,startY:e.clientY,cx:primary&&s ? primary.r.left+(s.x+s.width/2)*primary.scale : 0,cy:primary&&s ? primary.r.top+(s.y+s.height/2)*primary.scale : 0};
     layer.setPointerCapture(e.pointerId); PR.renderInk();
   });
   layer.addEventListener("pointermove",e=>{
     if (lasso && e.pointerId===lasso.pointer) { const point=lassoPoint(e), last=lasso.screen.at(-1); if (!last || Math.hypot(point.screen.x-last.x,point.screen.y-last.y)>=3) { lasso.screen.push(point.screen); lasso.svg.push(point.svg); PR.renderInk(); } return; }
-    if (!gesture) return; const g=gesture;
+    if (!gesture || gesture.pointer!==e.pointerId) return; const g=gesture;
     for (const member of g.members) {
       const dx=(e.clientX-g.startX)/member.scale,dy=(e.clientY-g.startY)/member.scale;
       if (g.handle==="move") member.draft=PR.stickerGeometry.move(member.before,dx,dy);
@@ -543,8 +543,16 @@
     }
     PR.renderInk();
   });
-  function finishGesture(cancel) { if (!gesture) return; const g=gesture; gesture=null; for (const member of g.members) PR.state.reader.stickers[member.before.id]=member.before; for (const member of g.inkMembers) PR.state.reader.ink[member.before.id]=member.before; if (!cancel && g.inkMembers.length) updateSelection(g.members.map(member=>({before:member.before,after:member.draft})),g.inkMembers.map(member=>({before:member.before,after:member.draft}))); else if (!cancel) updateMany(g.members.map(member=>({before:member.before,after:member.draft}))); else PR.renderInk(); }
-  layer.addEventListener("pointerup",e=>{finishLasso(false);finishGesture(false);}); layer.addEventListener("pointercancel",()=>{finishLasso(true);finishGesture(true);});
+  function releasePointer(id) { if (layer.hasPointerCapture?.(id)) layer.releasePointerCapture(id); }
+  function finishGesture(cancel) { if (!gesture) return; const g=gesture; gesture=null; releasePointer(g.pointer); for (const member of g.members) PR.state.reader.stickers[member.before.id]=member.before; for (const member of g.inkMembers) PR.state.reader.ink[member.before.id]=member.before; if (!cancel && g.inkMembers.length) updateSelection(g.members.map(member=>({before:member.before,after:member.draft})),g.inkMembers.map(member=>({before:member.before,after:member.draft}))); else if (!cancel) updateMany(g.members.map(member=>({before:member.before,after:member.draft}))); else PR.renderInk(); }
+  function cancelGesture() {
+    if (lasso) { const id=lasso.pointer; lasso=null; releasePointer(id); }
+    finishGesture(true);
+  }
+  PR.cancelStickerGesture = cancelGesture;
+  layer.addEventListener("pointerup",e=>{ if (lasso?.pointer===e.pointerId) finishLasso(false); if (gesture?.pointer===e.pointerId) finishGesture(false); });
+  for (const type of ["pointercancel", "lostpointercapture"])
+    layer.addEventListener(type,e=>{ if (lasso?.pointer===e.pointerId) finishLasso(true); if (gesture?.pointer===e.pointerId) finishGesture(true); });
   layer.addEventListener("click",e=>{ if (PR.stickerMode && e.target.closest?.("a[data-sticker-link]")) e.preventDefault(); });
   layer.addEventListener("dblclick",e=>{ const group=e.target.closest?.("[data-sticker]"); const s=group && live().find(item=>item.id===group.dataset.sticker); if (PR.stickerMode && !PR.lassoMode && s?.assetId==="paperread-text-box" && !s.locked) { e.preventDefault(); selectItem(s); editText(s); } });
   layer.addEventListener("contextmenu",e=>{
@@ -554,7 +562,7 @@
     document.getElementById("stickerContext")?.remove();
     const menu=document.createElement("div"), button=document.createElement("button");
     menu.id="stickerContext"; menu.setAttribute("role","menu"); button.type="button"; button.setAttribute("role","menuitem");
-    button.textContent=PR.t("刪除"); button.disabled=!!current()?.locked; button.addEventListener("click",()=>{act("delete");menu.remove();});
+    button.textContent=PR.t("删除"); button.disabled=!!current()?.locked; button.addEventListener("click",()=>{act("delete");menu.remove();});
     menu.append(button); document.body.append(menu);
     menu.style.left=Math.max(0,Math.min(e.clientX,innerWidth-menu.offsetWidth)) + "px";
     menu.style.top=Math.max(0,Math.min(e.clientY,innerHeight-menu.offsetHeight)) + "px";
@@ -577,11 +585,12 @@
     }
     if ((e.key==="Delete"||e.key==="Backspace") && selectionCount()) {e.preventDefault();act("delete");}
   });
-  window.addEventListener("resize",()=>{ finishGesture(true); if (innerWidth<768) bar.hidden=true; PR.renderInk(); });
+  window.addEventListener("resize",()=>{ cancelGesture(); if (innerWidth<768) bar.hidden=true; PR.renderInk(); });
   window.addEventListener("scroll",positionBar,{passive:true});
-  window.addEventListener("blur",()=>finishGesture(true));
+  window.addEventListener("blur",()=>{ cancelGesture(); PR.renderInk(); });
+  document.addEventListener("visibilitychange",()=>{ if (document.hidden) { cancelGesture(); PR.renderInk(); } });
   new MutationObserver(() => PR.renderInk()).observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
   PR.on("reader", op=>{if(op?.op==="sticker"||op?.op==="sticker_del") PR.renderInk();});
-  PR.on("remote", changed=>{ if (gesture && (changed.includes("reader") || changed.includes("paper"))) { gesture=null; PR.renderInk(); PR.toast(PR.t("貼紙已在其他地方修改，無法復原")); } });
-  loadCatalog().catch(()=>{panel.textContent=PR.t("貼紙素材庫載入失敗");});
+  PR.on("remote", changed=>{ if (gesture && (changed.includes("reader") || changed.includes("paper"))) { gesture=null; PR.renderInk(); PR.toast(PR.t("贴纸已在其他地方修改，无法复原")); } });
+  loadCatalog().catch(()=>{panel.textContent=PR.t("贴纸素材库载入失败");});
 })(window.PR);

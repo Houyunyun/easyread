@@ -30,11 +30,11 @@ test('one eraser gesture removes intersected strokes as one undoable action',()=
  const stage={clientWidth:100,scrollHeight:100,scrollTop:0,getBoundingClientRect(){return {left:0,top:0}}};
  const document={body:{append(){}},getElementById(id){return id==='inkLayer'?layer:id==='inkTools'?tools:id==='inkToggle'?toggle:stage},createElement(){return {style:{}}},createElementNS(){return {dataset:{},setAttribute(){}}},addEventListener(){}};
  const ink={a:{id:'a'},b:{id:'b'}};
- const PR={state:{reader:{ink,stickers:{}}},inkEraser:{hitPath(path,a,b,r){return path.x>=Math.min(a.x,b.x)-r && path.x<=Math.max(a.x,b.x)+r}}, $$:()=>[],debounce:f=>f,on(){},t:s=>s,commit(op){if(op.op==='ink_del')ink[op.id]={...ink[op.id],deleted:true};if(op.op==='ink')ink[op.stroke.id]={...op.stroke,deleted:false}}};
+ const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType!=="pen"},state:{reader:{ink,stickers:{}}},inkEraser:{hitPath(path,a,b,r){return path.x>=Math.min(a.x,b.x)-r && path.x<=Math.max(a.x,b.x)+r}}, $$:()=>[],debounce:f=>f,on(){},t:s=>s,commit(op){if(op.op==='ink_del')ink[op.id]={...ink[op.id],deleted:true};if(op.op==='ink')ink[op.stroke.id]={...op.stroke,deleted:false}}};
  vm.runInNewContext(fs.readFileSync('easyread/web/js/reader/ink.js','utf8'),{window:{PR,addEventListener(){}},document,ResizeObserver:class{observe(){}},Date,Math,Number});
  toggleEvents.click(); toolEvents.click({target:{closest:()=>({dataset:{},hasAttribute:n=>n==='data-ink-erase',setAttribute(){}})}});
  events.pointerdown({button:0,clientX:10,clientY:0,pointerId:1,preventDefault(){}});
- events.pointermove({buttons:1,clientX:30,clientY:0}); events.pointerup({});
+ events.pointermove({pointerId:1,buttons:1,clientX:30,clientY:0}); events.pointerup({pointerId:1});
  assert.equal(ink.a.deleted,true); assert.equal(ink.b.deleted,true);
  assert.equal(PR.inkHistory(false),true); assert.equal(ink.a.deleted,false); assert.equal(ink.b.deleted,false); assert.equal(PR.inkHistory(false),false);
 });
@@ -47,7 +47,7 @@ test('eraser button opens the size control and selecting a pen exits eraser mode
  const toggle={addEventListener(k,f){toggleEvents[k]=f},setAttribute(){}};
  const stage={clientWidth:100,scrollHeight:100,getBoundingClientRect(){return {left:0,top:0}}};
  const document={getElementById(id){return id==='inkLayer'?layer:id==='inkTools'?tools:id==='inkToggle'?toggle:stage},addEventListener(k,f){documentEvents[k]=f}};
- const PR={state:{reader:{ink:{},stickers:{}}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,commit(){},setStickerMode(){}};
+ const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType!=="pen"},state:{reader:{ink:{},stickers:{}}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,commit(){},setStickerMode(){}};
  vm.runInNewContext(fs.readFileSync('easyread/web/js/reader/ink.js','utf8'),{window:{PR,addEventListener(){}},document,ResizeObserver:class{observe(){}},Date,Math,Number});
  toggleEvents.click();
  const eraser={dataset:{},hasAttribute:n=>n==='data-ink-erase',setAttribute(){}};
@@ -68,7 +68,7 @@ test('one grouped sticker operation undoes and redoes every member together',()=
  const document={getElementById(id){return id==='inkLayer'?layer:id==='inkTools'?tools:id==='inkToggle'?toggle:stage},addEventListener(){}};
  const beforeA={id:'a',x:0}, beforeB={id:'b',x:20}, afterA={id:'a',x:8}, afterB={id:'b',x:28};
  const stickers={a:afterA,b:afterB};
- const PR={state:{reader:{ink:{},stickers}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,toast(){},commit(op){if(op.op==='sticker')stickers[op.sticker.id]={...op.sticker,deleted:false};if(op.op==='sticker_del')stickers[op.id]={...stickers[op.id],deleted:true};}};
+ const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType!=="pen"},state:{reader:{ink:{},stickers}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,toast(){},commit(op){if(op.op==='sticker')stickers[op.sticker.id]={...op.sticker,deleted:false};if(op.op==='sticker_del')stickers[op.id]={...stickers[op.id],deleted:true};}};
  vm.runInNewContext(fs.readFileSync('easyread/web/js/reader/ink.js','utf8'),{window:{PR,addEventListener(){}},document,ResizeObserver:class{observe(){}},Date,Math,Number});
  PR.recordStickerBatchHistory([{id:'a',before:beforeA,after:afterA},{id:'b',before:beforeB,after:afterB}]);
  assert.equal(PR.inkHistory(false),true); assert.equal(stickers.a.x,0); assert.equal(stickers.b.x,20);
@@ -84,7 +84,7 @@ test('one mixed sticker and ink selection operation undoes and redoes together',
  const document={getElementById(id){return id==='inkLayer'?layer:id==='inkTools'?tools:id==='inkToggle'?toggle:stage},addEventListener(){}};
  const beforeSticker={id:'s',x:0}, afterSticker={id:'s',x:8}, beforeInk={id:'i',points:[[1,1]]}, afterInk={id:'i',points:[[9,1]]};
  const stickers={s:afterSticker}, ink={i:afterInk};
- const PR={state:{reader:{ink,stickers}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,toast(){},commit(op){if(op.op==='sticker')stickers[op.sticker.id]={...op.sticker,deleted:false};if(op.op==='sticker_del')stickers[op.id]={...stickers[op.id],deleted:true};if(op.op==='ink')ink[op.stroke.id]={...op.stroke,deleted:false};if(op.op==='ink_del')ink[op.id]={...ink[op.id],deleted:true};}};
+ const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType!=="pen"},state:{reader:{ink,stickers}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,toast(){},commit(op){if(op.op==='sticker')stickers[op.sticker.id]={...op.sticker,deleted:false};if(op.op==='sticker_del')stickers[op.id]={...stickers[op.id],deleted:true};if(op.op==='ink')ink[op.stroke.id]={...op.stroke,deleted:false};if(op.op==='ink_del')ink[op.id]={...ink[op.id],deleted:true};}};
  vm.runInNewContext(fs.readFileSync('easyread/web/js/reader/ink.js','utf8'),{window:{PR,addEventListener(){}},document,ResizeObserver:class{observe(){}},Date,Math,Number});
  PR.recordSelectionHistory([{id:'s',before:beforeSticker,after:afterSticker}],[{id:'i',before:beforeInk,after:afterInk}]);
  assert.equal(PR.inkHistory(false),true); assert.equal(stickers.s.x,0); assert.deepEqual(ink.i.points,[[1,1]]);

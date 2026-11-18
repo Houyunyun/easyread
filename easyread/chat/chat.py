@@ -190,6 +190,7 @@ def prompt(ws: Workspace, messages: list[dict], anchor: str | None, quote: str, 
     want, colors = wants_marks(ask)
     marks = _marks(ws, colors) if want else _marks_summary(ws)
     meta = ws.load("paper").get("meta")
+    from ..research.language import output_rule
     style = {answer_styles.STE100: answer_styles.ste100_instructions(meta),
              answer_styles.XRAY: "用" + langs.reply_lang(meta) + "回答。\n" + answer_styles.XRAY_INSTRUCTIONS}.get(answer_style) or (  # i18n-ok: model instructions
              "用" + langs.reply_lang(ws.load("paper").get("meta")) + "，直接、具体，能举例就举例。\n")  # i18n-ok
@@ -197,7 +198,7 @@ def prompt(ws: Workspace, messages: list[dict], anchor: str | None, quote: str, 
         raise ValueError("Invalid paper context scope")
     focused = context_scope == "selection" and (anchor or refs)
     whole = "本轮参考引用段落及相邻内容。其余正文未附入。只依据已提供或已核对的材料回答。" if focused else _paper_context(ws)  # i18n-ok
-    return ("你在陪读者读一篇学术论文，回答他边读边冒出来的问题。\n" + style  # i18n-ok
+    return ("你在陪读者读一篇学术论文，回答他边读边冒出来的问题。\n" + output_rule(langs.reply_code(meta)) + style  # i18n-ok
             + "区分“论文里写了什么”和“你的补充解释”，论文里没有的内容不要说成是论文说的。"  # i18n-ok
             "当前段落和选中文字只是提问的重点，不限制可参考的论文范围；跨章节问题应结合已提供的正文，依据不足时明确说明。"  # i18n-ok
             "行内公式只用 $TeX$，行间公式只用 $$TeX$$。"  # i18n-ok
