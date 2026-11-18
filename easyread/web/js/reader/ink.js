@@ -161,7 +161,7 @@
   function cursor(e) {
     if (!eraseCursor) { eraseCursor = document.createElement("div"); eraseCursor.className = "ink-eraser-cursor"; document.body.append(eraseCursor); }
     eraseCursor.style.width = eraseCursor.style.height = eraserWidth + "px";
-    eraseCursor.style.left = e.clientX + "px"; eraseCursor.style.top = e.clientY + "px"; eraseCursor.hidden = !active || !erasing;
+    eraseCursor.style.left = e.clientX + "px"; eraseCursor.style.top = e.clientY + "px"; eraseCursor.hidden = !active || (!erasing && !erasingStrokes);
   }
   function finishErase() {
     if (!erasingStrokes) return;
@@ -186,7 +186,11 @@
     if (eraseCursor) eraseCursor.hidden = true;
     if (id !== null && layer.hasPointerCapture?.(id)) layer.releasePointerCapture(id);
   }
-  PR.finishInkGesture = endGesture;
+  PR.finishInkGesture = id => { if (id === undefined || id === pointerId) endGesture(); };
+  function capturePointer(id) {
+    try { layer.setPointerCapture(id); }
+    catch (_) { /* Some SVG/browser targets cannot capture; the input router still finishes this contact. */ }
+  }
   function syncInputMode() {
     PR.readerInput?.configure(active, inputMode);
     layer.classList.toggle("pen-only", active && inputMode === "pen");
@@ -207,7 +211,8 @@
   syncInputMode();
 
   layer.addEventListener("pointerdown", e => {
-    if (!active || e.button !== 0 || PR.stickerMode || pointerId !== null || !PR.readerInput.acceptsCanvas(e)) return;
+    const penEraser = e.pointerType === "pen" && (e.button === 5 || !!(e.buttons & 32));
+    if (!active || (e.button !== 0 && !penEraser) || PR.stickerMode || pointerId !== null || !PR.readerInput.acceptsCanvas(e)) return;
     e.preventDefault();
     if (textMode) {
       textMode = false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false");
@@ -217,18 +222,18 @@
       return;
     }
     pointerId = e.pointerId;
-    if (erasing) { erasingStrokes = []; layer.setPointerCapture(e.pointerId); eraseAt(e, erasingStrokes); return; }
+    if (erasing || penEraser) { erasingStrokes = []; capturePointer(e.pointerId); eraseAt(e, erasingStrokes); return; }
     const block = nearestBlock(e.clientY);
     if (!block) { pointerId = null; return; }
     const r = block.getBoundingClientRect(), p = point(e, r);
     const group = last && last.anchor === block.dataset.id && last.color === color && last.width === width && now() - last.time < 8000 &&
       Math.hypot(p[0] - last.point[0], p[1] - last.point[1]) < 90 ? last.group : PR.uid("ink");
     drawing = { id: PR.uid("ink"), group, anchor: block.dataset.id, ref: [r.width, r.height], textHash: PR.hashText(block.innerText || ""), points: [p], color, width, created: PR.nowIso() };
-    layer.setPointerCapture(e.pointerId);
+    capturePointer(e.pointerId);
   });
   layer.addEventListener("pointermove", e => {
     if (!PR.readerInput.acceptsCanvas(e) || (pointerId !== null && pointerId !== e.pointerId)) return;
-    if (active && erasing) cursor(e);
+    if (active && (erasing || erasingStrokes)) cursor(e);
     if (drawing) {
       const block = document.getElementById("b-" + drawing.anchor), r = block.getBoundingClientRect(), p = point(e, r);
       const prev = drawing.points[drawing.points.length - 1];
@@ -236,7 +241,7 @@
         if (drawing.points.length < 2000) drawing.points.push(p); else drawing.points[1999] = p;
         renderPreview();
       }
-    } else if (active && erasing && erasingStrokes && (e.buttons & 1)) eraseAt(e, erasingStrokes);
+    } else if (active && erasingStrokes && (e.buttons & 33)) eraseAt(e, erasingStrokes);
   });
   layer.addEventListener("pointerleave", () => { if (eraseCursor && !erasingStrokes) eraseCursor.hidden = true; });
   layer.addEventListener("pointerup", e => {
@@ -259,13 +264,14 @@
   }
 
   PR.setInkActive = on => {
+    if (on && PR.prepareInkSurface && !PR.prepareInkSurface()) return;
     endGesture(); PR.cancelStickerGesture?.();
     active = !!on; tools.hidden = !active; layer.classList.toggle("active", active);
     document.getElementById("inkToggle").setAttribute("aria-pressed", String(active));
     PR.setStickerMode?.(false); PR.closeStickerPanel?.();
     setEraser(false); textMode = false;
     tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false");
-    syncInputMode();
+    syncInputMode(); render();
   };
   document.getElementById("inkToggle")?.addEventListener("click", () => PR.setInkActive(!active));
   PR.toggleInk = () => PR.setInkActive(!active);

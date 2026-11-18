@@ -90,3 +90,23 @@ test('one mixed sticker and ink selection operation undoes and redoes together',
  assert.equal(PR.inkHistory(false),true); assert.equal(stickers.s.x,0); assert.deepEqual(ink.i.points,[[1,1]]);
  assert.equal(PR.inkHistory(true),true); assert.equal(stickers.s.x,8); assert.deepEqual(ink.i.points,[[9,1]]);
 });
+
+test('pen eraser-end survives failed SVG capture and handwriting requires a visible surface',()=>{
+ const fs=require('node:fs'), vm=require('node:vm'), events={};
+ let surfaceReady=false, surfaceChecks=0;
+ const ink={a:{id:'a'},b:{id:'b'}}, paths=[{dataset:{stroke:'a'},x:10},{dataset:{stroke:'b'},x:30}];
+ const layer={style:{},classList:{toggle(){},remove(){}},setAttribute(){},replaceChildren(){},append(){},addEventListener(k,f){events[k]=f},setPointerCapture(){throw Error('SVG capture unavailable');},querySelectorAll(){return paths.filter(p=>!ink[p.dataset.stroke].deleted)}};
+ const tools={hidden:true,addEventListener(){},querySelector(){return null}};
+ const toggle={addEventListener(){},setAttribute(){}};
+ const stage={clientWidth:100,scrollHeight:100,scrollTop:0,getBoundingClientRect(){return {left:0,top:0}}};
+ const document={body:{append(){}},getElementById(id){return id==='inkLayer'?layer:id==='inkTools'?tools:id==='inkToggle'?toggle:stage},createElement(){return {style:{}}},createElementNS(){return {dataset:{},setAttribute(){}}},addEventListener(){}};
+ const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType==='pen'},prepareInkSurface(){surfaceChecks++;return surfaceReady;},state:{reader:{ink,stickers:{}}},inkEraser:{hitPath(path,a,b){return path.x>=Math.min(a.x,b.x)-12 && path.x<=Math.max(a.x,b.x)+12}},$$:()=>[],debounce:f=>f,on(){},t:s=>s,commit(op){if(op.op==='ink_del')ink[op.id]={...ink[op.id],deleted:true};if(op.op==='ink')ink[op.stroke.id]={...op.stroke,deleted:false};}};
+ vm.runInNewContext(fs.readFileSync('easyread/web/js/reader/ink.js','utf8'),{window:{PR,addEventListener(){}},document,ResizeObserver:class{observe(){}},Date,Math,Number});
+ PR.setInkActive(true);assert.equal(PR.inkActive(),false);
+ surfaceReady=true;PR.setInkActive(true);PR.setInkInputMode('pen');assert.equal(PR.inkActive(),true);assert.equal(surfaceChecks,2);
+ events.pointerdown({pointerType:'pen',button:5,buttons:32,pointerId:7,clientX:10,clientY:0,preventDefault(){}});
+ events.pointermove({pointerType:'pen',buttons:32,pointerId:7,clientX:30,clientY:0});
+ PR.finishInkGesture(9);assert.equal(PR.inkHistory(false),false,'foreign release must not finish this gesture');
+ PR.finishInkGesture(7);assert.equal(ink.a.deleted,true);assert.equal(ink.b.deleted,true);
+ assert.equal(PR.inkHistory(false),true);assert.equal(ink.a.deleted,false);assert.equal(ink.b.deleted,false);
+});

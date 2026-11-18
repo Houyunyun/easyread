@@ -5,6 +5,7 @@ const { createReaderInput } = require('../../easyread/web/js/reader/reader-input
 function setup() {
   const listeners = {}, layerListeners = {}, classes = new Set();
   let cleared = 0, hidden = 0;
+  const ended = [];
   const layer = { addEventListener(type, fn) { layerListeners[type] = fn; } };
   const doc = {
     documentElement: { classList: { toggle(c, on) { on ? classes.add(c) : classes.delete(c); } } },
@@ -12,7 +13,7 @@ function setup() {
     addEventListener(type, fn) { listeners[type] = fn; }
   };
   const host = { document: doc, getSelection: () => ({ removeAllRanges() { cleared++; } }), addEventListener(type, fn) { listeners[type] = fn; } };
-  const input = createReaderInput(host, { hideBlockbar() { hidden++; } });
+  const input = createReaderInput(host, { hideBlockbar() { hidden++; }, finishInkGesture(id) { ended.push(id); } });
   function event(type, pointerType = '', canvas = false, pointerId = 1, extra = {}) {
     const e = { type, pointerType, pointerId, detail: 1, cancelable: true,
       target: { closest: () => canvas ? layer : null },
@@ -21,7 +22,7 @@ function setup() {
     if (canvas && !e.stopped) layerListeners[type]?.(e);
     return e;
   }
-  return { input, event, classes, doc, selectionCleared: () => cleared > 0 && hidden > 0 };
+  return { input, event, classes, doc, ended, selectionCleared: () => cleared > 0 && hidden > 0 };
 }
 
 test('reader-input gates canvas by explicit mode, never pressure/isPrimary or unknown pointer types', () => {
@@ -38,6 +39,35 @@ test('reader-input gates canvas by explicit mode, never pressure/isPrimary or un
   assert.ok(!event('pointerdown', 'mouse', false, 3).stopped, 'mouse toolbar remains usable');
   input.configure(false, 'pen');
   assert.ok(!event('pointerdown', 'touch', true, 4).stopped, 'remembered mode must not disable standalone stickers');
+});
+
+test('pen-only mode keeps wheel and trackpad scrolling except during actual pen contact', () => {
+  const {input,event} = setup(); input.configure(true,'pen');
+  assert.ok(!event('wheel','',true).stopped);
+  assert.ok(!event('wheel','',false).stopped);
+  event('pointerdown','pen',true);
+  assert.ok(event('wheel','',true).stopped);
+  event('pointerup','pen',true);
+  assert.ok(!event('wheel','',true).stopped, 'pen-up tail must not swallow navigation');
+  assert.ok(event('click','pen',true).stopped, 'pen compatibility clicks remain suppressed');
+});
+
+test('explicit pen hover ends a missing release without mistaking low pressure for pen-up', () => {
+  const {input,event,ended,classes} = setup(); input.configure(true,'pen');
+  event('pointerdown','pen',true,7,{button:0,buttons:1,pressure:.5});
+  event('pointermove','pen',true,7,{buttons:1,pressure:0});
+  assert.ok(classes.has('ink-pen-contact'));
+  event('pointermove','pen',true,7,{buttons:0,pressure:0});
+  assert.deepEqual(ended,[7]); assert.ok(!classes.has('ink-pen-contact'));
+  assert.ok(!event('wheel','',true).stopped);
+  assert.equal(input.lastPointer().type,'pen');
+});
+
+test('pen release outside an uncaptured canvas still closes the owned gesture', () => {
+  const {input,event,ended} = setup(); input.configure(true,'pen');
+  event('pointerdown','pen',true,7);
+  assert.ok(event('pointerup','pen',false,7).stopped);
+  assert.deepEqual(ended,[7]);
 });
 
 test('reader-input pen contact suppresses palm, compatibility, selection and paragraph events, not keyboard', () => {

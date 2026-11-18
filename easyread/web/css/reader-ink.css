@@ -1,5 +1,5 @@
 #inkLayer { position: absolute; inset: 0; z-index: 5; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-#inkLayer.active { pointer-events: auto; cursor: crosshair; touch-action: none; }
+#inkLayer.active { pointer-events: all; cursor: crosshair; touch-action: none; }
 #inkLayer:not(.active):not(.sticker-mode) path { pointer-events: none; }
 #inkLayer.pen-only, .ink-pen-contact body { user-select: none; -webkit-user-select: none; }
 #inkLayer.erase { cursor: none; }

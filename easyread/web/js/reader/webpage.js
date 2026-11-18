@@ -332,6 +332,7 @@
       (doc()?.querySelector("[data-easyread-editor] textarea") || PR.$("#paper textarea.editor"))?.focus();
       return;
     }
+    if (next) PR.setInkActive?.(false);
     PR.finishPanelNote?.();
     if (PR.editingNote) PR.closeNoteEditor();
     const position = PR.progressOp();
@@ -349,6 +350,12 @@
     PR.saveProgress();
     window.dispatchEvent(new Event("resize"));
   }
+
+  // Ink is anchored to the existing EasyRead paragraphs, not the native-page iframe.
+  PR.prepareInkSurface = function () {
+    if (isWeb() && nativeMode) setLayout("reader");
+    return !isWeb() || !nativeMode;
+  };
 
   function setup() {
     if (!isWeb()) return;
