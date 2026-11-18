@@ -5,13 +5,16 @@
   const L = PR.lib;
   const btn = PR.$("#stopAllBtn");
 
-  // 正在或等着用模型的论文；只渲染原页的（type 为 prepare）不算
-  L.modelBusy = (i) => !!(i.job && ["queued", "running", "confirm"].includes(i.job.state) && i.job.type !== "prepare");
+  // Include pending automatic handoffs so Stop also prevents future model work.
+  L.modelBusy = (i) => !!(i.job && ["queued", "running", "confirm"].includes(i.job.state) && (i.job.type !== "prepare" || i.job.auto_translate_pending));
+
+  L.modelStoppable = i => L.modelBusy(i) || !!(i.job && ["queued", "running"].includes(i.job.state) &&
+    i.job.type === "prepare" && i.job.allow_auto_translate === true && !i.job.read && !i.job.public_import);
 
   PR.stopJobs = async function (items, at) {
-    const its = items.filter(L.modelBusy);
+    const its = items.filter(L.modelStoppable);
     if (!its.length) return PR.toast(PR.t("选中的论文没有在翻译"));
-    if (!(await PR.confirm({ title: PR.t("停止 {n} 篇的翻译？", { n: its.length }), body: PR.t("已译的部分保留，之后可以接着译；还没渲染的原页照常渲染。"), ok: PR.t("停止"), danger: true, at }))) return;
+    if (!(await PR.confirm({ title: PR.t("停止 {n} 篇的翻译？", { n: its.length }), body: PR.t("已译的部分保留，之后可以接着译；还没渲染的原页照常渲染。") + PR.t("同时撤销选中文献的自动翻译预约。"), ok: PR.t("停止"), danger: true, at }))) return;
     try {
       const r = await PR.api("/api/jobs/stop", { method: "POST", body: { ids: its.map((i) => i.id) } });
       PR.toast(PR.t("已停止 {n} 篇", { n: r.stopped }));

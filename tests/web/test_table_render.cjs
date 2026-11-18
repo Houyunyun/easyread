@@ -47,6 +47,13 @@ function render(blocks, options = {}) {
   if (options.pages) PR.state.paper.meta.pages = options.pages;
   if (options.job) PR.state.job = options.job;
   if (options.mode) PR.store.mode = options.mode;
+  if (options.queue) {
+    const shared = {t: PR.t};
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../easyread/web/js/common/util.js"), "utf8"),
+      {window: {PR: shared, addEventListener() {}}, document: {addEventListener() {}}});
+    for (const key of ['jobPreparing', 'canReserveTranslation', 'formatJobMessage']) PR[key] = shared[key];
+    PR.canAsk = () => true;
+  }
   if (options.target) PR.state.paper.meta.target = options.target;
   if (options.edited) PR.state.reader.edits = {'f1#image': {zh: 'edited'}};
   PR.state.figure_images_enabled = options.figureImages === true;
@@ -179,6 +186,26 @@ test("offline unprepared documents do not offer an unavailable retry API", () =>
   const html = render([], { pages: [], job: { state: "error", error: "MemoryError" } });
   assert.match(html, /MemoryError/);
   assert.doesNotMatch(html, /retry-prepare|class="spin"/);
+});
+
+test("reader offers preparation reservations before and after page metadata arrives", () => {
+  for (const pages of [[], [{n: 2, img: 'pages/page-002.webp'}]]) {
+    for (const state of ['queued', 'running']) {
+      const job = {state, type: 'prepare', phase: 'prepare', translate: false};
+      const html = render([], {pages, mode: 'server', job, queue: true});
+      assert.match(html, /预约翻译/);
+      assert.match(html, /data-t="translate-rest"/);
+      assert.doesNotMatch(html, /译好的页会自动出现在这里|还在排队翻译/);
+      const reserved = render([], {pages, mode: 'server', job: {...job, type: 'translate', translate: true}, queue: true});
+      assert.match(reserved, /已预约模型任务/);
+      assert.doesNotMatch(reserved, /data-t="translate-rest"/);
+    }
+  }
+});
+
+test("offline readers never offer a translation reservation", () => {
+  const html = render([], {pages: [], queue: true, job: {state: 'queued', type: 'prepare', phase: 'prepare'}});
+  assert.doesNotMatch(html, /data-t="translate-rest"/);
 });
 
 

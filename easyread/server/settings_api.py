@@ -28,6 +28,8 @@ def save_config(patch: dict) -> dict:
         patch["translation_prompt"] = prompt_style.validate(patch["translation_prompt"])
     if "translate_figure_text" in patch and type(patch["translate_figure_text"]) is not bool:
         raise ValueError("translate_figure_text must be a boolean")
+    if "auto_translate_after_prepare" in patch and type(patch["auto_translate_after_prepare"]) is not bool:
+        raise ValueError("auto_translate_after_prepare must be a boolean")
     if "translation_instructions" in patch:
         patch["translation_instructions"] = instructions.validate(patch["translation_instructions"])
     patch.pop("library_dir", None)

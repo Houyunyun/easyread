@@ -1,6 +1,7 @@
 """Claude Code / Codex CLI 能选哪些模型，给设置页的下拉框用。
 
-- Codex：读 ~/.codex/models_cache.json（Codex 自己从服务端拉的名单），只要 /model 里列出来的那些，按它的顺序；
+- Codex：优先读 config.toml 的 model_catalog_json，未配置时读 models_cache.json；
+  只展示 visibility=list 的模型，沿用目录中的排序和推理强度；
   默认模型是 ~/.codex/config.toml 里的 model。
 - Claude：opus / sonnet / haiku 是 Claude Code 的别名，会用它支持的最新版；
   实际是哪个版本记在 .models-seen.json（见 chat_models.remember）：每次回答时记一次；
@@ -19,6 +20,7 @@ from ..chat import chat_models
 from ..engines import engines
 from .i18n import tr
 from .log import log
+from . import native_cli_settings
 from ..engines.presets import PRESETS
 
 _probing = threading.Lock()
@@ -30,17 +32,26 @@ def _alias_desc(alias: str) -> str:
 
 
 def codex() -> dict:
-    """{"default": slug, "models": [{"id", "name", "desc"}]}；Codex 没装或没登录过就是空名单。"""
+    """本机 Codex 目录；显式目录不可用时不混入旧缓存，也不调用模型或修改 CLI 配置。"""
     out: list[dict] = []
     try:
-        home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
-        data = json.loads((home / "models_cache.json").read_text(encoding="utf-8"))
-        ms = [m for m in data.get("models") or [] if m.get("visibility") == "list" and m.get("slug")]
-        ms.sort(key=lambda m: m.get("priority", 99))
+        home = native_cli_settings.path("codex").parent.resolve()
+        catalog = native_cli_settings.read("codex").get("model_catalog_json", "")
+        if not isinstance(catalog, str):
+            raise ValueError("Invalid Codex model_catalog_json path")
+        source = Path(catalog).expanduser() if catalog else home / "models_cache.json"
+        if not source.is_absolute():
+            source = home / source
+        data = json.loads(source.read_text(encoding="utf-8-sig"))
+        models = data.get("models") if isinstance(data, dict) else None
+        ms = [m for m in models if isinstance(m, dict) and m.get("visibility") == "list"
+              and isinstance(m.get("slug"), str) and m["slug"]] if isinstance(models, list) else []
+        ms.sort(key=lambda m: m["priority"] if isinstance(m.get("priority"), int) else 99)
         out = [{"id": m["slug"], "name": m.get("display_name") or m["slug"], "desc": m.get("description") or "",
-                "reasoning_levels": [r["effort"] for r in m.get("supported_reasoning_levels", []) if isinstance(r, dict) and r.get("effort")],
+                "reasoning_levels": [r["effort"] for r in (m.get("supported_reasoning_levels") if isinstance(m.get("supported_reasoning_levels"), list) else [])
+                                     if isinstance(r, dict) and isinstance(r.get("effort"), str) and r["effort"]],
                 "default_reasoning": m.get("default_reasoning_level") or ""} for m in ms]
-    except (OSError, ValueError, AttributeError):
+    except (OSError, ValueError, TypeError, AttributeError):
         pass
     return {"default": chat_models.codex_default_model(), "models": out,
             "configured_reasoning": chat_models.codex_config_value("model_reasoning_effort"),

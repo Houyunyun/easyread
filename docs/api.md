@@ -30,6 +30,8 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 ## 问答 CLI 设置（内部接口）
 
+`GET /api/engines` 的 `models.codex` 为翻译和问答提供模型名单：优先使用用户 Codex 配置中的 `model_catalog_json`，仅在未配置时读取 `models_cache.json`；模型仍按 `visibility=list` 过滤、按 `priority` 排序，并保留 `reasoning_levels` 和 `default_reasoning`。`?fresh=1` 重新检测时会重读目录，不调用模型。响应不包含原生配置全文或凭证。
+
 `GET /api/chat/cli/{claude|codex}` 返回问答能力配置、Skill 元数据和原生配置路径；`POST` 保存该 CLI 的独立问答配置。`POST /api/chat/cli/{engine}/skills/import` 接受 `filename` 与 `content_b64`，仅导入问答专用目录。写操作需要正常访问授权、`X-Token` 和同源 `Origin`。不会返回 CLI 原生配置内容或凭证。详见 [问答 CLI 设置](qa-cli.md)。
 
 ## 论文怎么标识
@@ -57,6 +59,14 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 ### 浏览器静态资源缓存
 
 `/web/*` 的静态文件返回弱 `ETag` 和 `Cache-Control: private, no-cache`：浏览器可以保存文件，但再次使用前须用 `If-None-Match` 核对，未变时返回无正文的 `304`。未带内容指纹的 vendor 文件同样需要核对，避免升级后混用新旧脚本。`HEAD` 返回对应响应头而不读取或发送文件正文。此策略不改变 API、论文文件、动态注入语言的页面（如 `/`、`/read/*`、`/web/tabs.html`）或流式响应；这些入口沿用原缓存策略。静态响应暂不压缩。
+
+### 预处理与翻译预约（内部接口）
+
+`POST /api/p/{id}/translate` 沿用原请求体和 `{"ok": true}` 返回。在纯预处理排队或运行时也可提交：保存翻译／原文整理的参数，优先准备这篇，准备完成后进入独立模型队列。已有翻译、原文整理或译图任务（含预约）时仍拒绝重复提交。准备失败不调用模型，修复原因后可重试。
+
+`GET /api/library` 的 `items[].job` 新增 `phase=prepare|model` 和 `translate`。状态仍用 `queued/running`，结合 `phase` 区分等待预处理、正在预处理、等待模型、执行模型；`type` 保留请求类型。预处理默认单 worker，模型沿用 `paper_concurrency`。`POST /api/p/{id}/cancel` 取消该篇全部任务与预约；`POST /api/jobs/stop` 只撤销模型工作（含准备中的预约），预处理继续。取消不删除已生成的数据。
+
+`POST /api/config` 接受布尔值 `auto_translate_after_prepare`（默认 false）：仅允许带有 `allow_auto_translate=true` 的准备任务在成功预处理后自动排队翻译；不扫描已完成历史任务，不覆盖明确 `translate=false` 的普通/公开导入。`items[].job.auto_translate_pending` 按当前配置计算，供“停止翻译”包含等待自动接续的任务；阅读页 `/state` 与 `/part/job` 同样返回该字段，`/versions` 提供实时值以刷新配置变化；同一摘要还提供 `allow_auto_translate/public_import`。停止模型任务会持久保存 `allow_auto_translate=false`，即使预处理继续、重启或重新开启设置也不会自动重启该请求。运行中的取消通过 `cancel_requested` 先持久化，恢复队列时不再执行该任务。`POST /api/p/{id}/prepare` 是明确的仅预处理重试，不继承自动翻译许可；旧任务缺少许可字段时也不自动翻译。
 
 ## 桌面版打开链接
 

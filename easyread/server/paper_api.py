@@ -51,7 +51,10 @@ def post(app, ws, parts: list[str], body: dict):
     if action == "figure-images":
         return app.jobs.enqueue_figures(ws, body)
     if action == "prepare":
-        app.jobs.enqueue(ws, translate_after=False)
+        # This explicit retry promises preparation only, never a billable handoff.
+        previous = ws.load("job") or {}
+        app.jobs.enqueue(ws, translate_after=False, allow_auto_translate=False,
+                         public_import=previous.get("public_import") is True)
         return {"ok": True}
     if action == "reveal":  # 在资源管理器 / 访达里打开这篇的文件夹
         reveal(ws.root)

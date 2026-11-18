@@ -25,6 +25,8 @@ class JobsTest(unittest.TestCase):
             self.jobs = Jobs(self.lib)
 
     def drain(self, small=False):
+        if not small:
+            self.drain_prepare()
         queue = self.jobs.small if small else self.jobs.bulk
         get = queue.get
 
@@ -34,6 +36,17 @@ class JobsTest(unittest.TestCase):
             return get()
         with patch.object(queue, "get", side_effect=next_job), self.assertRaises(StopWorker):
             (self.jobs._small_loop if small else self.jobs._bulk_loop)()
+
+    def drain_prepare(self):
+        queue = self.jobs.prepare
+        get = queue.get
+
+        def next_job():
+            if queue.empty():
+                raise StopWorker()
+            return get()
+        with patch.object(queue, "get", side_effect=next_job), self.assertRaises(StopWorker):
+            self.jobs._prepare_loop()
 
     def test_duplicate_enqueue_preserves_queued_and_running_task(self):
         self.jobs.enqueue(self.ws, pages=[1])
@@ -72,11 +85,11 @@ class JobsTest(unittest.TestCase):
     def test_cancelled_queue_entry_is_skipped_and_can_be_retried(self):
         self.jobs.enqueue(self.ws, translate_after=False)
         self.jobs.cancel(self.ws.id)
-        with patch.object(self.jobs, "_run_bulk") as run:
+        with patch.object(self.jobs, "_run_prepare") as run:
             self.drain()
         run.assert_not_called()
         self.jobs.enqueue(self.ws, translate_after=False)
-        with patch.object(self.jobs, "_run_bulk", side_effect=lambda ws, job, ev: self.jobs._write(ws, state="done")) as run:
+        with patch.object(self.jobs, "_run_prepare") as run:
             self.drain()
         run.assert_called_once()
 
@@ -86,8 +99,8 @@ class JobsTest(unittest.TestCase):
         with patch("easyread.server.jobs.config.load", return_value={"paper_concurrency": 2}), \
                 patch("easyread.server.jobs.threading.Thread.start", side_effect=lambda: states.append(self.ws.load("job")["state"])):
             resumed = Jobs(self.lib)
-        self.assertEqual(states, ["queued"] * 3)
-        self.assertEqual(resumed.bulk.qsize(), 1)
+        self.assertEqual(states, ["queued"] * 4)
+        self.assertEqual(resumed.prepare.qsize(), 1)
 
     def test_restart_of_legacy_job_only_schedules_untranslated_pages(self):
         pages = list(range(1, 97))

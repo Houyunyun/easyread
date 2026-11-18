@@ -272,6 +272,10 @@
   const failedOf = () => ((S.job || {}).state === "partial" && S.job.failed) || {};
   const jobRunning = () => ["queued", "running"].includes((S.job || {}).state);
   const reading = () => !!((S.job || {}).read || ((S.paper.translation || {}).en_pages || []).length);  // 这篇是只读原文
+  const jobMessage = (job) => PR.formatJobMessage ? PR.formatJobMessage(job) : job.message || PR.t("处理中");
+  const reserveHtml = (job) => PR.store.mode === "server" && PR.canAsk() && PR.canReserveTranslation?.(job)
+    ? '<p class="hint">' + PR.t("可提前预约；这篇会优先预处理，完成后自动排队翻译。") +
+      '</p><button class="btn sm accent" data-t="translate-rest">' + PR.t("预约翻译") + '</button>' : "";
 
   /* 中间漏掉的页（多半是译失败了）：就地放原页，给重试 */
   function gapHtml(pages) {
@@ -280,6 +284,7 @@
     const running = ["queued", "running"].includes((S.job || {}).state);
     const label = pages.length > 1 ? PR.t("第 {a}–{b} 页", { a: pages[0].n, b: pages[pages.length - 1].n }) : PR.t("第 {n} 页", { n: pages[0].n });
     const head = bad.length ? (reading() ? PR.t("{label}没整理成功：", { label }) : PR.t("{label}没译成功：", { label })) + PR.esc(failed[bad[0].n]) + (PR.canAsk() && !running ? '<button class="btn sm line" data-t="retry-failed">' + PR.t("重试") + "</button>" : "")
+      : running && PR.jobPreparing?.(S.job) ? PR.esc(jobMessage(S.job))
       : running ? (reading() ? PR.t("{label}还在排队整理，先放原页。", { label }) : PR.t("{label}还在排队翻译，先放原页。", { label }))
       : reading() ? PR.t("{label}还没整理，先放原页。", { label }) : PR.t("{label}还没有译文，先放原页。", { label });
     return '<div class="pending-pages gap"><div class="pending' + (bad.length ? " bad" : "") + '">' + head + "</div>" + pages.map(origFig).join("") + "</div>";
@@ -292,7 +297,7 @@
     if (!(m.pages || []).length) {
       const job = S.job || {};
       const running = ["queued", "running"].includes(job.state);
-      const message = running ? '<span class="spin"></span> ' + PR.esc(job.message || PR.t("正在渲染原页、抽取文字…"))
+      const message = running ? '<span class="spin"></span> ' + PR.esc(jobMessage(job)) + reserveHtml(job)
         : PR.t("原页尚未准备完成") + (job.state === "error" ? '<div class="err">' + PR.esc(job.error || job.message || PR.t("出错了")) + '</div>' : "") +
           (PR.store.mode === "server" ? '<p class="hint">' + PR.t("请确认 PDF 在本机可读取、文献库目录可写，并关闭占用大量内存的程序后重试。重试仅准备原页，不调用翻译模型。") +
             '</p><button class="btn sm accent" data-t="retry-prepare">' + PR.t("重试") + '</button>' : "");
@@ -303,7 +308,7 @@
     const job = S.job || {};
     const running = ["queued", "running"].includes(job.state);
     const nFailed = miss.filter((p) => failedOf()[p.n]).length;
-    const head = job.state === "confirm" ? PR.t("等待确认期间，仍可阅读原页。") : running ? '<span class="spin"></span> ' + PR.esc(job.message || PR.t("翻译中")) + (job.total ? PR.t("（{done}/{total} 页）", { done: job.done, total: job.total }) : "") + '<span class="hint">' + PR.t("译好的页会自动出现在这里") + (PR.usageShort(job.usage) ? " · " + PR.esc(PR.usageShort(job.usage)) : "") + "</span>"
+    const head = job.state === "confirm" ? PR.t("等待确认期间，仍可阅读原页。") : running ? '<span class="spin"></span> ' + PR.esc(jobMessage(job)) + (job.total ? PR.t("（{done}/{total} 页）", { done: job.done, total: job.total }) : "") + reserveHtml(job) + (job.type === "prepare" ? "" : '<span class="hint">' + PR.t("译好的页会自动出现在这里") + (PR.usageShort(job.usage) ? " · " + PR.esc(PR.usageShort(job.usage)) : "") + "</span>")
       : reading() ? PR.t("下面 {n} 页还没整理，先放原页。", { n: miss.length }) + (nFailed ? PR.t("其中 {n} 页上次没整理成功。", { n: nFailed }) : "") +
         (PR.canAsk() && job.state !== "error" ? '<button class="btn sm line" data-t="read-rest">' + PR.t("整理剩下的页") + "</button>" : "")
       : PR.t("下面 {n} 页还没有译文，先放原页。", { n: miss.length }) + (nFailed ? PR.t("其中 {n} 页上次没译成功。", { n: nFailed }) : "") +

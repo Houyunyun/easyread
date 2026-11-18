@@ -31,6 +31,7 @@ DEFAULTS = {
     "system_proxy": None,  # None inherits process environment; explicit settings can disable it.
     "engine": "claude",          # claude | codex | codebuddy | grok | agy | cursor（本机 CLI 无头）| openai（任意 OpenAI 兼容接口）| none
     "auto_translate": True,      # 导入后自动开始翻译
+    "auto_translate_after_prepare": False,  # 可选：允许自动翻译的批量预处理任务完成后排队翻译
     "target": os.environ.get("EASYREAD_TARGET") or "zh",  # 译文语言，见 langs.py；环境变量只改默认值，设置里选的仍然优先
     "translation_instructions": "",
     "translation_prompt": None,

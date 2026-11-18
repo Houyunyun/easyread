@@ -1,4 +1,14 @@
 {
+  "阅读原文": "Read original",
+  "等待预处理": "Waiting for PDF preparation",
+  "正在预处理 PDF": "Preparing PDF",
+  "等待预处理（已预约模型任务）": "Waiting for PDF preparation (model task scheduled)",
+  "正在预处理 PDF（已预约模型任务）": "Preparing PDF (model task scheduled)",
+  "等待翻译": "Waiting for translation",
+  "等待原文整理": "Waiting for original processing",
+  "预约翻译": "Schedule translation",
+  "可提前预约；这篇会优先预处理，完成后自动排队翻译。": "Schedule now to prioritize this PDF's preparation, then automatically queue its translation.",
+  "已预约翻译，预处理完成后自动排队": "Translation scheduled; it will join the queue after PDF preparation.",
   "全库问 AI": "Ask the library",
   "想从文献里找什么？": "What would you like to find in your library?",
   "使用问 AI 的默认模型，只发送检索到的段落": "Uses your default Ask AI model and sends only retrieved passages from the library.",
@@ -4512,5 +4522,12 @@
   "重新授权": "Sign in again",
   "重新连接": "Reconnect",
   "离线快照无法保存，待同步修改仍保留；请检查浏览器存储权限。": "Cannot save the offline snapshot. Pending changes are retained; check browser storage permissions.",
-  "待同步：请联网打开此文献": "Pending sync: open this document while online"
+  "待同步：请联网打开此文献": "Pending sync: open this document while online",
+  "预处理完成后自动排队翻译": "Automatically queue translation after preparation",
+  "仅包括允许自动翻译的 Zotero 和文件夹任务，会消耗模型额度；旧任务、明确只导入或已停止的任务不会自动翻译。": "Applies only to opted-in Zotero and folder tasks and uses model quota. Legacy, explicit import-only and stopped tasks do not start automatically.",
+  "正在预处理 PDF（完成后自动翻译）": "Preparing PDF (translation will be queued automatically)",
+  "等待预处理（完成后自动翻译）": "Waiting for preparation (translation will be queued automatically)",
+  "默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。迁移可以重复做，已经导入的只补分类，不会重复。": "Only prepares original pages by default. Enabling automatic translation after preparation queues translation and uses model quota. You can repeat migration; existing papers only receive category updates, without duplication.",
+  "默认只准备原页；开启“预处理完成后自动排队翻译”后会自动翻译并消耗模型额度。可以重复导入同一个文件夹，已经导入的只补分类，不会重复。": "Only prepares original pages by default. Enabling automatic translation after preparation queues translation and uses model quota. You can reimport the same folder; existing papers only receive category updates, without duplication.",
+  "同时撤销选中文献的自动翻译预约。": " Automatic translation reservations for the selected documents are also revoked."
 }

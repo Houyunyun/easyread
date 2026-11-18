@@ -222,8 +222,21 @@ window.PR = window.PR || {};
   PR.icon = (name, cls) => '<svg class="i' + (cls ? " " + cls : "") + '" viewBox="0 0 20 20" aria-hidden="true"><path d="' + (P[name] || "") + '"/></svg>';
   PR.icons = { menu: PR.icon("menu"), edit: PR.icon("edit", "sm"), note: PR.icon("note", "sm") };
 
+  PR.jobPreparing = (j) => !!j && (j.phase === "prepare" || j.type === "prepare");
+  PR.canReserveTranslation = (j) => !!j && ["queued", "running"].includes(j.state) && j.type === "prepare" && j.translate !== true;
   PR.formatJobMessage = function (jobOrMsg) {
     if (!jobOrMsg) return "";
+    if (typeof jobOrMsg === "object" && ["queued", "running"].includes(jobOrMsg.state)) {
+      const j = jobOrMsg;
+      if (PR.jobPreparing(j)) {
+        const preparing = j.state === "running";
+        if (j.auto_translate_pending) return preparing ? PR.t("正在预处理 PDF（完成后自动翻译）") : PR.t("等待预处理（完成后自动翻译）");
+        if (j.translate) return preparing ? PR.t("正在预处理 PDF（已预约模型任务）") : PR.t("等待预处理（已预约模型任务）");
+        return preparing ? PR.t("正在预处理 PDF") : PR.t("等待预处理");
+      }
+      if (j.phase === "model" && j.state === "queued" && j.type !== "figure-images")
+        return j.read ? PR.t("等待原文整理") : PR.t("等待翻译");
+    }
     const raw = typeof jobOrMsg === "string" ? jobOrMsg : (jobOrMsg.message || "");
     const read = typeof jobOrMsg === "object" && jobOrMsg ? !!jobOrMsg.read : false;
     const isEn = PR.lang === "en";

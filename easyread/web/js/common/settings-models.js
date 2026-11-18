@@ -1,5 +1,5 @@
 /* Claude Code / Codex 的模型下拉框，“翻译”和“问 AI”两页共用（API 的表单在 settings-api.js）。
-   名单来自 /api/engines 的 models（后端 cli_models.py）：Codex 就是它 /model 里列的那些；Claude 的别名带上实际版本。
+   名单来自 /api/engines 的 models（后端 cli_models.py）：Codex 优先使用自定义目录，未配置时读 CLI 缓存；Claude 的别名带上实际版本。
    Grok Build / Antigravity / Cursor / CodeBuddy CLI 没有现成的模型名单，模型名自己填，空着用 CLI 自己的默认。 */
 (function (PR) {
   "use strict";
