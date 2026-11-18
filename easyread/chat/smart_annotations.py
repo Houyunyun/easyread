@@ -1,4 +1,4 @@
-"""AI 智慧標註：產生可驗證的待確認候選，接受後才寫入既有 notes。"""
+"""AI 智慧标注：产生可验证的待确认候选，接受后才写入既有 notes。"""
 from __future__ import annotations
 
 import hashlib
@@ -8,6 +8,8 @@ import threading
 from collections import defaultdict
 
 from ..app.i18n import tr
+from ..translate import langs
+from ..research.language import output_rule
 from ..translate.prompts import _block_text
 from ..library.store import Workspace, now_iso, text_hash
 
@@ -16,40 +18,40 @@ ANNOTATION_TYPES = {"highlight", "underline"}
 COLORS = {"yellow", "green", "blue", "red", "pink"}
 
 HIGHLIGHT_SEMANTICS = {
-    "yellow": ("核心主張", "標記完整的重要句子、核心貢獻與主要論點（建議 15～90 字）"),  # i18n-ok: prompt
-    "green": ("方法與證據", "標記研究方法設計、技術流程與關鍵實驗結果（建議 15～90 字）"),  # i18n-ok: prompt
-    "blue": ("背景知識", "標記重要研究背景、問題定義與基本假設（建議 15～90 字）"),  # i18n-ok: prompt
-    "red": ("研究限制", "標記研究問題、方法瓶頸與適用限制（建議 15～90 字）"),  # i18n-ok: prompt
+    "yellow": ("核心主张", "标记完整的重要句子、核心贡献与主要论点（建议 15～90 字）"),  # i18n-ok: prompt
+    "green": ("方法与证据", "标记研究方法设计、技术流程与关键实验结果（建议 15～90 字）"),  # i18n-ok: prompt
+    "blue": ("背景知识", "标记重要研究背景、问题定义与基本假设（建议 15～90 字）"),  # i18n-ok: prompt
+    "red": ("研究限制", "标记研究问题、方法瓶颈与适用限制（建议 15～90 字）"),  # i18n-ok: prompt
 }
 
 UNDERLINE_SEMANTICS = {
-    "yellow": ("關鍵詞", "標記核心概念、模型名稱與專有名詞（建議 2～30 字，勿標普通單詞）"),  # i18n-ok: prompt
-    "green": ("數據指標", "標記具體數值、改善幅度與統計評估指標（建議 2～30 字）"),  # i18n-ok: prompt
-    "blue": ("引用來源", "標記重要作者、理論名稱、基準模型與文獻引用（建議 2～30 字）"),  # i18n-ok: prompt
-    "red": ("疑點與風險", "標記不確定性推論、異常現象或潛在矛盾語句（建議 4～35 字）"),  # i18n-ok: prompt
+    "yellow": ("关键词", "标记核心概念、模型名称与专有名词（建议 2～30 字，勿标普通单词）"),  # i18n-ok: prompt
+    "green": ("数据指标", "标记具体数值、改善幅度与统计评估指标（建议 2～30 字）"),  # i18n-ok: prompt
+    "blue": ("引用来源", "标记重要作者、理论名称、基准模型与文献引用（建议 2～30 字）"),  # i18n-ok: prompt
+    "red": ("疑点与风险", "标记不确定性推论、异常现象或潜在矛盾语句（建议 4～35 字）"),  # i18n-ok: prompt
 }
 
 INTENSITY_MODES = {
     "concise": {
-        "label": "精簡",  # i18n-ok: prompt
+        "label": "精简",  # i18n-ok: prompt
         "chars_per_item": 500,
         "min_items": 4,
         "max_items": 10,
-        "guide": "【精簡模式（快速閱讀）】每段只保留最有價值的核心資訊（每段約 0～2 處），優先標記最關鍵的核心主張螢光筆與最重要的關鍵詞／數據底線，寧精勿多。",  # i18n-ok: prompt
+        "guide": "【精简模式（快速阅读）】每段只保留最有价值的核心资讯（每段约 0～2 处），优先标记最关键的核心主张萤光笔与最重要的关键词／数据底线，宁精勿多。",  # i18n-ok: prompt
     },
     "standard": {
-        "label": "標準",  # i18n-ok: prompt
+        "label": "标准",  # i18n-ok: prompt
         "chars_per_item": 260,
         "min_items": 8,
         "max_items": 18,
-        "guide": "【標準模式（一般研究）】保留各類重要資訊（每段約 1～3 處），均衡運用螢光筆（標記核心主張、方法證據、重要背景、研究限制的完整句子）與底線筆（標記句中關鍵詞、數據指標、引用來源、疑點風險）。",  # i18n-ok: prompt
+        "guide": "【标准模式（一般研究）】保留各类重要资讯（每段约 1～3 处），均衡运用萤光笔（标记核心主张、方法证据、重要背景、研究限制的完整句子）与底线笔（标记句中关键词、数据指标、引用来源、疑点风险）。",  # i18n-ok: prompt
     },
     "detailed": {
-        "label": "詳細",  # i18n-ok: prompt
+        "label": "详细",  # i18n-ok: prompt
         "chars_per_item": 160,
         "min_items": 14,
         "max_items": 28,
-        "guide": "【詳細模式（深入研究）】全面保留主次要證據與技術細節（每段約 2～5 處），除完整論點與方法實驗句子用螢光筆外，積極使用底線筆標出文中所有重要專有名詞、實驗數據指標、基準方法／文獻引用與假設限制。",  # i18n-ok: prompt
+        "guide": "【详细模式（深入研究）】全面保留主次要证据与技术细节（每段约 2～5 处），除完整论点与方法实验句子用萤光笔外，积极使用底线笔标出文中所有重要专有名词、实验数据指标、基准方法／文献引用与假设限制。",  # i18n-ok: prompt
     },
 }
 
@@ -60,7 +62,7 @@ CHUNK_CHARS = 4500
 def _section_label(block: dict, current: dict | None) -> str:
     if current:
         return " ".join(filter(None, [str(current.get("num") or "").strip(), current.get("zh") or current.get("en") or ""]))
-    return tr("論文開頭")
+    return tr("论文开头")
 
 
 def _sources(paper: dict, reader: dict | None = None) -> list[dict]:
@@ -171,7 +173,7 @@ def _selected_sources(paper_or_sources: dict | list[dict], scope_or_sections: st
 
 
 def _prompt_source_text(source: dict) -> str:
-    """單一語言送入：已翻譯優先取譯文（zh），未翻譯退回原文（en）。"""
+    """单一语言送入：已翻译优先取译文（zh），未翻译退回原文（en）。"""
     return _clean_prompt_text(source.get("zh") or source.get("en") or "")
 
 
@@ -209,14 +211,14 @@ def _paper_overview(paper: dict, sources: list[dict]) -> str:
             sec_names.append(sec)
     lines = []
     if sec_names:
-        lines.append("章節脈絡：" + " / ".join(sec_names[:12]))  # i18n-ok: model prompt
+        lines.append("章节脉络：" + " / ".join(sec_names[:12]))  # i18n-ok: model prompt
     if abstract:
-        lines.append("論文核心摘要：" + abstract)  # i18n-ok: model prompt
+        lines.append("论文核心摘要：" + abstract)  # i18n-ok: model prompt
     return "\n".join(lines)
 
 
 def _manual_notes_by_anchor(reader: dict | None) -> dict[str, list[dict]]:
-    """整理已存在的手動標註（排除 AI 自動產生的標註），供 prompt 避開與後端重疊偵測。"""
+    """整理已存在的手动标注（排除 AI 自动产生的标注），供 prompt 避开与后端重叠侦测。"""
     by_anchor: dict[str, list[dict]] = defaultdict(list)
     notes = (reader or {}).get("notes") or {}
     for n in notes.values():
@@ -230,7 +232,7 @@ def _manual_notes_by_anchor(reader: dict | None) -> dict[str, list[dict]]:
 
 
 def _detect_manual_overlap(candidate: dict, source: dict, manual_notes: dict[str, list[dict]]) -> None:
-    """比對 AI 候選標註與該段手動標註是否有字元區間重疊。"""
+    """比对 AI 候选标注与该段手动标注是否有字元区间重叠。"""
     anchor = candidate.get("anchor")
     notes = manual_notes.get(anchor) or []
     if not notes or not candidate.get("locatable"):
@@ -245,7 +247,7 @@ def _detect_manual_overlap(candidate: dict, source: dict, manual_notes: dict[str
         m_norm = _norm(m_quote)
         if not m_norm:
             continue
-        # 1. 規範化字串互相包含
+        # 1. 规范化字串互相包含
         if c_norm in m_norm or m_norm in c_norm:
             candidate["manual_overlap"] = True
             candidate["overlap_quote"] = m_quote[:120]
@@ -256,7 +258,7 @@ def _detect_manual_overlap(candidate: dict, source: dict, manual_notes: dict[str
                 "quote": m_quote[:120],
             }
             return
-        # 2. 正文精確字元區間重疊計算
+        # 2. 正文精确字元区间重叠计算
         text = source.get(c_side) or ""
         if text and c_quote in text and m_quote in text:
             c_start = text.find(c_quote)
@@ -278,12 +280,11 @@ def _detect_manual_overlap(candidate: dict, source: dict, manual_notes: dict[str
 def _prompt(title: str, mode: str, purpose: str, chunk: list[dict], overview: str = "", meta: dict | None = None,
             prior_notes: list[str] | None = None, intensity: str = "standard",
             manual_notes_map: dict[str, list[dict]] | None = None) -> str:
-    from ..translate import langs
     mode_text = {
-        "auto": "找出最值得整體標記的句子與詞彙，充分發揮螢光筆與底線筆的搭配。",  # i18n-ok: model prompt
-        "suggest": "列出可逐筆審閱的候選句子與關鍵詞，結構嚴謹，寧精勿濫。",  # i18n-ok: model prompt
-        "purpose": "挑選與研究目的直接相關、具備研究價值的句子與關鍵詞句。",  # i18n-ok: model prompt
-    }.get(mode, "列出高價值候選句子與關鍵詞。")  # i18n-ok: model prompt
+        "auto": "找出最值得整体标记的句子与词汇，充分发挥萤光笔与底线笔的搭配。",  # i18n-ok: model prompt
+        "suggest": "列出可逐笔审阅的候选句子与关键词，结构严谨，宁精勿滥。",  # i18n-ok: model prompt
+        "purpose": "挑选与研究目的直接相关、具备研究价值的句子与关键词句。",  # i18n-ok: model prompt
+    }.get(mode, "列出高价值候选句子与关键词。")  # i18n-ok: model prompt
     from ..research.language import reply_rule
     lang_rule = reply_rule(meta)
     cfg_mode = INTENSITY_MODES.get(intensity, INTENSITY_MODES["standard"])
@@ -297,7 +298,7 @@ def _prompt(title: str, mode: str, purpose: str, chunk: list[dict], overview: st
         m_list = (manual_notes_map or {}).get(anchor) or []
         if m_list:
             m_quotes = [f'"{_clean_prompt_text(m.get("quote"))}" ({m.get("style", "marker")})' for m in m_list[:3]]
-            manual_block = "\n[此段使用者已手動標註，請勿完全重複標記相同文字：" + "；".join(m_quotes) + "]"  # i18n-ok: model prompt
+            manual_block = "\n[此段使用者已手动标注，请勿完全重复标记相同文字：" + "；".join(m_quotes) + "]"  # i18n-ok: model prompt
         records.append(
             f"[anchor={source['anchor']} key={source['key']} page={source.get('page') or ''} section={source['section']}]{manual_block}\n"
             f"TEXT: {text_clean}"
@@ -309,33 +310,33 @@ def _prompt(title: str, mode: str, purpose: str, chunk: list[dict], overview: st
     if prior_notes:
         recent = [str(n).strip() for n in prior_notes[-12:] if str(n).strip()]
         if recent:
-            prior_block = "前段已標註之論點摘要（避免重複標註相同觀點）：\n- " + "\n- ".join(recent) + "\n\n"  # i18n-ok: model prompt
+            prior_block = "前段已标注之论点摘要（避免重复标注相同观点）：\n- " + "\n- ".join(recent) + "\n\n"  # i18n-ok: model prompt
 
     hl_rules = "；".join(f"{c}（{info[0]}：{info[1]}）" for c, info in HIGHLIGHT_SEMANTICS.items())  # i18n-ok: model prompt
     ul_rules = "；".join(f"{c}（{info[0]}：{info[1]}）" for c, info in UNDERLINE_SEMANTICS.items())  # i18n-ok: model prompt
 
     return (
-        "你是 PaperRead 的論文閱讀標註助手。只能根據提供的文字工作，不可補造論文內容、數據或引用。\n"  # i18n-ok: model prompt
-        f"論文：{title}\n{overview_block}研究目的：{purpose or '未指定，依論文研究價值判斷'}\n{mode_text}\n"  # i18n-ok: model prompt
+        output_rule(langs.reply_code(meta)) + "你是 PaperRead 的论文阅读标注助手。只能根据提供的文字工作，不可补造论文内容、数据或引用。\n"  # i18n-ok: model prompt
+        f"论文：{title}\n{overview_block}研究目的：{purpose or '未指定，依论文研究价值判断'}\n{mode_text}\n"  # i18n-ok: model prompt
         f"{cfg_mode['guide']}\n\n"
         f"{prior_block}"
-        "【標註工具與 8 種語意顏色規則（必嚴格遵循）】：\n"  # i18n-ok: model prompt
-        "一、螢光筆（type: \"highlight\"）：標記一段【具有完整語意的連續句子】（建議 15～90 字，不可只標單詞）：\n"  # i18n-ok: model prompt
+        "【标注工具与 8 种语意颜色规则（必严格遵循）】：\n"  # i18n-ok: model prompt
+        "一、萤光笔（type: \"highlight\"）：标记一段【具有完整语意的连续句子】（建议 15～90 字，不可只标单词）：\n"  # i18n-ok: model prompt
         f"  - {hl_rules}。\n"  # i18n-ok: model prompt
-        "二、底線筆（type: \"underline\"）：標記句子中的【特定詞彙、數字或關鍵短語】（建議 2～30 字）：\n"  # i18n-ok: model prompt
+        "二、底线笔（type: \"underline\"）：标记句子中的【特定词汇、数字或关键短语】（建议 2～30 字）：\n"  # i18n-ok: model prompt
         f"  - {ul_rules}。\n"  # i18n-ok: model prompt
-        "三、雙工具組合：底線筆可標記在已經被螢光筆標記的句子內部之關鍵詞或數據上，形成層次豐富的閱讀焦點。\n\n"  # i18n-ok: model prompt
-        "【嚴格品質規範】：\n"  # i18n-ok: model prompt
-        "1. 禁止標註章節導覽、過渡句或空泛鋪陳（例如「本節將介紹…」、「結果如表 1 所示」、「總結而言」）。\n"  # i18n-ok: model prompt
-        f"2. 禁止在 note 中單純重述或換句話抄寫原文；note 必須{lang_rule}點出「這句話或詞彙的學術角色與價值」（例如：指出方法瓶頸、創新機制、領先幅度或疑點）。\n"  # i18n-ok: model prompt
-        "3. 若某段已標記使用者手動標註，嚴禁標出完全重疊的相同區間，請尋找該段其他價值點或不同層次的詞彙。\n"  # i18n-ok: model prompt
-        "4. 本批建議輸出約 6～" + str(max_items) + " 筆標註，請兼顧螢光筆與底線筆的合理比例。\n\n"  # i18n-ok: model prompt
-        "請只輸出 JSON，不要 Markdown 或任何說明文字，格式："  # i18n-ok: model prompt
-        '{"annotations":[{"anchor":"來源中的 anchor","key":"來源中的 key","quote":"完全照抄對應區塊 TEXT 的連續文字",'  # i18n-ok: model prompt
-        f'"type":"highlight 或 underline","color":"yellow/green/blue/red","note":"{lang_rule}說明研究角色與價值，一至三句，不要重複原文",'  # i18n-ok: model prompt
-        f'"reason":"{lang_rule}簡述為何值得標註","confidence":0.85'  # i18n-ok: model prompt
+        "三、双工具组合：底线笔可标记在已经被萤光笔标记的句子内部之关键词或数据上，形成层次丰富的阅读焦点。\n\n"  # i18n-ok: model prompt
+        "【严格品质规范】：\n"  # i18n-ok: model prompt
+        "1. 禁止标注章节导览、过渡句或空泛铺陈（例如「本节将介绍…」、「结果如表 1 所示」、「总结而言」）。\n"  # i18n-ok: model prompt
+        f"2. 禁止在 note 中单纯重述或换句话抄写原文；note 必须{lang_rule}点出「这句话或词汇的学术角色与价值」（例如：指出方法瓶颈、创新机制、领先幅度或疑点）。\n"  # i18n-ok: model prompt
+        "3. 若某段已标记使用者手动标注，严禁标出完全重叠的相同区间，请寻找该段其他价值点或不同层次的词汇。\n"  # i18n-ok: model prompt
+        "4. 本批建议输出约 6～" + str(max_items) + " 笔标注，请兼顾萤光笔与底线笔的合理比例。\n\n"  # i18n-ok: model prompt
+        "请只输出 JSON，不要 Markdown 或任何说明文字，格式："  # i18n-ok: model prompt
+        '{"annotations":[{"anchor":"来源中的 anchor","key":"来源中的 key","quote":"完全照抄对应区块 TEXT 的连续文字",'  # i18n-ok: model prompt
+        f'"type":"highlight 或 underline","color":"yellow/green/blue/red","note":"{lang_rule}说明研究角色与价值，一至三句，不要重复原文",'  # i18n-ok: model prompt
+        f'"reason":"{lang_rule}简述为何值得标注","confidence":0.85'  # i18n-ok: model prompt
         '}]}\n'  # i18n-ok: model prompt
-        f"quote 必須逐字從對應區塊的 TEXT 複製，不要翻譯、改寫、使用省略號（...）或自行補標點。note 與 reason 請{lang_rule}。anchor、key 只可使用來源標籤。最多輸出 {max_items} 筆。\n\n"  # i18n-ok: model prompt
+        f"quote 必须逐字从对应区块的 TEXT 复制，不要翻译、改写、使用省略号（...）或自行补标点。note 与 reason 请{lang_rule}。anchor、key 只可使用来源标签。最多输出 {max_items} 笔。\n\n"  # i18n-ok: model prompt
         + "\n\n".join(records)
     )
 
@@ -417,7 +418,7 @@ def _loose_match(text: str, quote: str) -> tuple[int, str] | None:
     raw_quote = str(quote or "").strip()
     if not raw_text or not raw_quote:
         return None
-    # 1. Handle ellipsis ("前半句...後半句" or "前半句…後半句") often produced by smaller models.
+    # 1. Handle ellipsis ("前半句...后半句" or "前半句…后半句") often produced by smaller models.
     ellipsis_parts = [p.strip() for p in re.split(r"\.{2,}|…+", raw_quote) if len(p.strip()) >= 4]
     if len(ellipsis_parts) >= 2:
         head_hit = _normalized_match(raw_text, ellipsis_parts[0]) or _loose_match(raw_text, ellipsis_parts[0])
@@ -757,17 +758,18 @@ def generate(ws: Workspace, *, scope="all", section_id="", mode="auto", purpose=
     all_sources = _sources(paper, reader)
     sources = _selected_sources(all_sources, scope, section_id)
     if not sources:
-        raise ValueError(tr("這篇論文目前沒有可供分析的文字。"))
+        raise ValueError(tr("这篇论文目前没有可供分析的文字。"))
     cfg, selected = chat_models.engine_cfg(config.load(), model_id or None)
     cfg = engines.for_translation(cfg)
     model_name = chat_models.label(selected)
     meter = usage.Meter(cfg.get("engine") or "")
-    meta = paper.get("meta") or {}
-    title = meta.get("title_zh") or meta.get("title_en") or tr("未命名論文")
+    meta = dict(paper.get("meta") or {})
+    meta["target"] = langs.reply_code(meta)
+    title = meta.get("title_zh") or meta.get("title_en") or tr("未命名论文")
     overview = _paper_overview(paper, all_sources)
     manual_notes = _manual_notes_by_anchor(reader)
-    # 先把舊版本候選重新對照目前 blocks；重新翻譯後再按智慧標註時，
-    # 使用者會看到哪些項目仍有效、哪些必須重新分析，而不是沿用舊譯文位置。
+    # 先把旧版本候选重新对照目前 blocks；重新翻译后再按智慧标注时，
+    # 使用者会看到哪些项目仍有效、哪些必须重新分析，而不是沿用旧译文位置。
     refresh_after_translation(ws)
     generated = []
     existing = (ws.load("reader") or {}).get("ai_annotations") or {}
@@ -790,6 +792,7 @@ def generate(ws: Workspace, *, scope="all", section_id="", mode="auto", purpose=
         for row in rows:
             cand = _candidate(ws.id, row, sources, model_name, purpose, now_iso())
             if cand:
+                cand["target"] = meta["target"]
                 src = next((s for s in sources if s.get("key") == cand.get("key") or s.get("anchor") == cand.get("anchor")), {})
                 _detect_manual_overlap(cand, src, manual_notes)
                 candidates.append(cand)
@@ -818,7 +821,7 @@ def generate(ws: Workspace, *, scope="all", section_id="", mode="auto", purpose=
             existing = (ws.load("reader") or {}).get("ai_annotations") or {}
         if on_progress:
             on_progress(chunk_idx, total_chunks, saved)
-    return {"count": saved, "total": len(generated), "usage": meter.snapshot(), "model": model_name}
+    return {"count": saved, "total": len(generated), "usage": meter.snapshot(), "model": model_name, "target": meta["target"]}
 
 
 def _valid_patch(annotation: dict, patch: dict, sources: list[dict] | None = None) -> dict:
@@ -987,7 +990,7 @@ def apply_action(ws: Workspace, body: dict) -> dict:
         elif action == "reject_overlaps":
             ids = [k for k, v in annotations.items() if v.get("status") in ("pending", "edited") and v.get("manual_overlap")]
         if action not in ("accept", "reject", "edit", "accept_all", "reject_all", "reject_overlaps"):
-            raise ValueError(tr("智慧標註操作不正確。"))
+            raise ValueError(tr("智慧标注操作不正确。"))
         ops = []
         for aid in ids:
             annotation = annotations.get(aid)
@@ -1002,7 +1005,7 @@ def apply_action(ws: Workspace, body: dict) -> dict:
                 ops.append({"op": "ai_annotation", "annotation": updated, "at": updated["updated_at"]})
             elif action in ("accept", "accept_all"):
                 if not annotation.get("locatable"):
-                    raise ValueError(tr("這筆標註尚未確認文字位置，請先修改原文。"))
+                    raise ValueError(tr("这笔标注尚未确认文字位置，请先修改原文。"))
                 updated = dict(annotation, status="accepted", updated_at=now_iso())
                 ops.append({"op": "ai_annotation", "annotation": updated, "at": updated["updated_at"]})
                 notes = reader.get("notes") or {}

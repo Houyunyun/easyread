@@ -1,11 +1,14 @@
 """筆記 AI 助手的語言與輸出規則。"""
 import shutil
 import unittest
+import os
+from unittest.mock import patch
 
 from easyread.chat import notehelp
 from tests.translate.test_translate import make_ws
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class NoteHelpPromptTest(unittest.TestCase):
     def setUp(self):
         self.ws = make_ws(1)
@@ -18,23 +21,22 @@ class NoteHelpPromptTest(unittest.TestCase):
         for mode in ("review", "revise", "draft"):
             with self.subTest(mode=mode):
                 prompt = notehelp.prompt(self.ws, mode, "我的筆記", "openai")
-                self.assertIn("繁體中文（臺灣用語）", prompt)
-                self.assertIn("不可使用簡體字", prompt)
-                self.assertNotIn("请点评", prompt)
-                self.assertNotIn("请帮读者", prompt)
+                self.assertIn("繁体中文（Traditional Chinese，仅用繁体字，台湾用语）", prompt)
+                self.assertIn("仅用繁体字", prompt)
+                self.assertIn("我的筆記", prompt)
 
     def test_draft_and_revise_forbid_blank_placeholders_and_include_reader_annotations(self):
         self.ws.update("reader", lambda r: r.setdefault("notes", {}).update({
             "n1": {"id": "n1", "quote": "rate-distortion Lagrangian", "body": "關鍵損失函數"}
         }))
         draft_prompt = notehelp.prompt(self.ws, "draft", "", "openai")
-        self.assertIn("不要留空白填空區或空列點", draft_prompt)
-        self.assertNotIn("留出他自己思考的空間", draft_prompt)
+        self.assertIn("不要留空白填空区或空列点", draft_prompt)
+        self.assertNotIn("留出他自己思考的空间", draft_prompt)
         self.assertIn("rate-distortion Lagrangian", draft_prompt)
         self.assertIn("關鍵損失函數", draft_prompt)
 
         revise_prompt = notehelp.prompt(self.ws, "revise", "> 我的理解：\n> - \n", "openai")
-        self.assertIn("若筆記中有未填寫的空白區塊、空引用塊或空列點，請直接根據論文內容補齊具體內容並移除空白項目", revise_prompt)
+        self.assertIn("若笔记中有未填写的空白区块、空引用块或空列点，请直接根据论文内容补齐具体内容并移除空白项目", revise_prompt)
 
     def test_table_headers_and_rows_are_included_in_paper_text(self):
         self.ws.update("paper", lambda p: p.setdefault("blocks", []).append({
@@ -90,7 +92,7 @@ class NoteHelpPromptTest(unittest.TestCase):
             ]
         }))
         prompt = notehelp.prompt(self.ws, "draft", "", "openai")
-        self.assertIn("已有術語表", prompt)
+        self.assertIn("已有术语表", prompt)
         self.assertIn("Multi-Head Attention = 多頭注意力機制", prompt)
         self.assertIn("Introduction", prompt)
         self.assertIn("Recurrent models generate sequences.", prompt)
@@ -100,7 +102,7 @@ class NoteHelpPromptTest(unittest.TestCase):
         self.ws.update("paper", lambda p: p.setdefault("meta", {}).update({"target": "ko"}))
         prompt = notehelp.prompt(self.ws, "draft", "", "openai")
         self.assertIn("用韩语（한국어）", prompt)
-        self.assertIn("所有章節標題與內文一律依照指定語言撰寫", prompt)
+        self.assertIn("所有章节标题与内文一律依照指定语言撰写", prompt)
 
 
 

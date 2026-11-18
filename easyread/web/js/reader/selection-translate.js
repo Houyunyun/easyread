@@ -59,7 +59,7 @@
       if (event.target.closest("[data-st-close]")) return PR.hidePopover();
       if (event.target.closest("[data-st-retry]")) return run();
       if (event.target.closest("[data-st-copy]")) {
-        try { await navigator.clipboard.writeText(translation); PR.toast(PR.t("已复制")); }
+        try { await PR.copyText(translation); PR.toast(PR.t("已复制")); }
         catch (_) { PR.toast(PR.t("复制失败，请手动选中")); }
       }
     });

@@ -35,8 +35,8 @@
     const interested = Boolean(item.starred ?? item.interested);
     return { ...item, starred: interested, interested, status: item.status === "paused" ? "unread" : item.status };
   });
-  const displayStatus = (status) => status.builtin ? PR.t(status.label) : status.label;
-  const statusLabel = (id) => { const status = S.statuses.find((s) => s.id === id) || S.statuses[0]; return status ? displayStatus(status) : PR.t("待閱讀"); };
+  const displayStatus = (status) => PR.researchStatusLabel(status);
+  const statusLabel = (id) => { const status = S.statuses.find((s) => s.id === id) || S.statuses[0]; return status ? displayStatus(status) : PR.t("待阅读"); };
   const workId = (work) => {
     const m = String(work.openalex_id || work.id || "").match(/W\d+/);
     return m ? m[0] : "";
@@ -57,12 +57,12 @@
   };
   const candidateFor = (work) => S.candidates.find((c) => samePaper(c.paper, work));
   const savedFor = (work) => S.saved.find((item) => samePaper(item.metadata || {}, work));
-  const dateText = (v) => v ? new Date(v + "T00:00:00").toLocaleDateString(PR.lang === "en" ? "en-US" : "zh-TW", { month: "numeric", day: "numeric" }) : "";
+  const dateText = (v) => v ? new Date(v + "T00:00:00").toLocaleDateString(PR.lang === "en" ? "en-US" : PR.lang === "zh-Hant" ? "zh-TW" : "zh-CN", { month: "numeric", day: "numeric" }) : "";
   const dayIso = (d) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
   const escAttr = (v) => esc(v).replace(/'/g, "&#39;");
   const btn = (label, action, cls = "line", attrs = "") => '<button class="btn sm ' + cls + '" data-action="' + action + '" ' + attrs + '>' + label + "</button>";
   const pathOrderButton = (key, direction, disabled) => {
-    const label = direction < 0 ? PR.t("提前") : PR.t("延後");
+    const label = direction < 0 ? PR.t("提前") : PR.t("延后");
     const arrow = direction < 0 ? "m4 10 4-4 4 4" : "m4 6 4 4 4-4";
     return '<button type="button" class="btn sm line icon rw-path-order-btn" data-action="path-move-paper" data-path-key="' + escAttr(key) + '" data-direction="' + direction + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' + (disabled ? " disabled" : "") + '><svg viewBox="0 0 16 16" aria-hidden="true"><path d="' + arrow + '"></path></svg><span class="rw-sr-only">' + label + '</span></button>';
   };
@@ -107,11 +107,11 @@
   function renderRelationHero() {
     if (!S.relation || !S.relationRequest) return "";
     const rel = S.relationRequest.relation || "related";
-    const title = S.relationRequest.title || PR.t("指定論文");
+    const title = S.relationRequest.title || PR.t("指定论文");
     const relLabels = [
-      { id: "related", label: PR.t("相關研究 (Related)") },
+      { id: "related", label: PR.t("相关研究 (Related)") },
       { id: "cited-by", label: PR.t("被引用 (Citations)") },
-      { id: "references", label: PR.t("參考文獻 (References)") },
+      { id: "references", label: PR.t("参考文献 (References)") },
     ];
     const tabs = relLabels.map((item) =>
       '<button type="button" class="btn sm ' + (rel === item.id ? "accent" : "line") + '" data-action="change-relation" data-relation="' + item.id + '"' + (rel === item.id ? ' aria-current="page"' : '') + '>' + item.label + '</button>'
@@ -125,35 +125,35 @@
     if (topicList.length || kwList.length || aiKwList.length) {
       const kwItems = [];
       if (aiKwList.length) {
-        kwItems.push('<span class="rw-relation-kw-label">' + PR.t("AI 提煉：") + '</span>');
+        kwItems.push('<span class="rw-relation-kw-label">' + PR.t("AI 提炼：") + '</span>');
         for (const kw of aiKwList) {
-          kwItems.push('<button type="button" class="rw-keyword-pill ai" data-action="apply-single-kw" data-kw="' + escAttr(kw) + '" title="' + PR.t("以「{kw}」搜尋相關論文", { kw: esc(kw) }) + '">✨ ' + esc(kw) + '</button>');
+          kwItems.push('<button type="button" class="rw-keyword-pill ai" data-action="apply-single-kw" data-kw="' + escAttr(kw) + '" title="' + PR.t("以「{kw}」搜寻相关论文", { kw: esc(kw) }) + '">✨ ' + esc(kw) + '</button>');
         }
       }
       if (topicList.length || kwList.length) {
-        kwItems.push('<span class="rw-relation-kw-label">' + PR.t("推薦主題：") + '</span>');
+        kwItems.push('<span class="rw-relation-kw-label">' + PR.t("推荐主题：") + '</span>');
         const standardList = [...topicList.slice(0, 3), ...kwList.slice(0, 5)];
         for (const kw of standardList) {
-          kwItems.push('<button type="button" class="rw-keyword-pill" data-action="apply-single-kw" data-kw="' + escAttr(kw) + '" title="' + PR.t("以「{kw}」搜尋相關論文", { kw: esc(kw) }) + '">' + esc(kw) + '</button>');
+          kwItems.push('<button type="button" class="rw-keyword-pill" data-action="apply-single-kw" data-kw="' + escAttr(kw) + '" title="' + PR.t("以「{kw}」搜寻相关论文", { kw: esc(kw) }) + '">' + esc(kw) + '</button>');
         }
       }
       pillsHtml = '<div class="rw-relation-keywords">' + kwItems.join(" ") + '</div>';
     }
 
     const aiBtnLabel = S.aiDistillBusy
-      ? '<i class="spin"></i> ' + PR.t("正在提煉…")
-      : PR.t("AI 提煉主題關鍵字");
+      ? '<i class="spin"></i> ' + PR.t("正在提炼…")
+      : PR.t("AI 提炼主题关键字");
     const aiBtn = '<button type="button" class="btn sm line" data-action="ai-distill-keywords"' + (S.aiDistillBusy ? ' disabled aria-busy="true"' : '') + '>' + aiBtnLabel + '</button>';
 
-    return '<section class="rw-relation-hero"><div class="rw-relation-hero-main"><span class="rw-chip oa">' + PR.t("以文探索研究") + '</span><h3>' + titleHtml(title) + '</h3><div class="rw-relation-tabs">' + tabs + '</div>' + pillsHtml + '</div><div class="rw-relation-hero-actions">' + aiBtn + '<button type="button" class="btn sm line" data-action="switch-to-topic-search">' + PR.t("改用關鍵字搜尋") + '</button></div></section>';
+    return '<section class="rw-relation-hero"><div class="rw-relation-hero-main"><span class="rw-chip oa">' + PR.t("以文探索研究") + '</span><h3>' + titleHtml(title) + '</h3><div class="rw-relation-tabs">' + tabs + '</div>' + pillsHtml + '</div><div class="rw-relation-hero-actions">' + aiBtn + '<button type="button" class="btn sm line" data-action="switch-to-topic-search">' + PR.t("改用关键字搜寻") + '</button></div></section>';
   }
   function pathGoalOptions() {
     return [
-      { id: "foundations", label: PR.t("建立基礎概念"), description: PR.t("先補足背景、先備知識與入門論文。"), value: PR.t("建立基礎概念，先補足必要背景與先備知識。") },
-      { id: "methods", label: PR.t("理解主流方法"), description: PR.t("掌握代表性架構、技術設計與方法演進。"), value: PR.t("理解主流方法，掌握代表性架構、技術設計與方法演進。") },
-      { id: "paper", label: PR.t("深入目前論文"), description: PR.t("先補足這篇論文需要的背景，再延伸相關研究。"), value: PR.t("深入目前論文，先補足必要背景，再延伸閱讀相關研究。") },
-      { id: "compare", label: PR.t("比較研究方法"), description: PR.t("安排不同方法、資料集與評估方式可比較的論文。"), value: PR.t("比較研究方法，聚焦方法、資料集與評估條件的差異。") },
-      { id: "directions", label: PR.t("探索研究方向"), description: PR.t("關注最新研究、限制、研究缺口與延伸方向。"), value: PR.t("探索研究方向，關注最新成果、研究限制與可能的延伸方向。") }
+      { id: "foundations", label: PR.t("建立基础概念"), description: PR.t("先补足背景、先备知识与入门论文。"), value: PR.t("建立基础概念，先补足必要背景与先备知识。") },
+      { id: "methods", label: PR.t("理解主流方法"), description: PR.t("掌握代表性架构、技术设计与方法演进。"), value: PR.t("理解主流方法，掌握代表性架构、技术设计与方法演进。") },
+      { id: "paper", label: PR.t("深入目前论文"), description: PR.t("先补足这篇论文需要的背景，再延伸相关研究。"), value: PR.t("深入目前论文，先补足必要背景，再延伸阅读相关研究。") },
+      { id: "compare", label: PR.t("比较研究方法"), description: PR.t("安排不同方法、资料集与评估方式可比较的论文。"), value: PR.t("比较研究方法，聚焦方法、资料集与评估条件的差异。") },
+      { id: "directions", label: PR.t("探索研究方向"), description: PR.t("关注最新研究、限制、研究缺口与延伸方向。"), value: PR.t("探索研究方向，关注最新成果、研究限制与可能的延伸方向。") }
     ];
   }
 
@@ -197,9 +197,9 @@
       poll();
     } catch (e) {
       const alerts = $("#rw-alerts");
-      if (alerts) alerts.innerHTML = '<div class="rw-error" role="alert">' + PR.t("無法載入研究工作區：{message}", { message: PR.t(e.message) }) + ' <a class="linkish" href="/research">' + PR.t("重試") + '</a></div>';
+      if (alerts) alerts.innerHTML = '<div class="rw-error" role="alert">' + PR.t("无法载入研究工作区：{message}", { message: PR.t(e.message) }) + ' <a class="linkish" href="/research">' + PR.t("重试") + '</a></div>';
       const board = $("[data-view='board']");
-      if (board) board.innerHTML = '<div class="rw-empty">' + PR.t("研究工作區暫時無法載入。") + '</div>';
+      if (board) board.innerHTML = '<div class="rw-empty">' + PR.t("研究工作区暂时无法载入。") + '</div>';
     }
   }
   function poll() {
@@ -262,12 +262,12 @@
   }
   function keywordScanHtml() {
     const scan = S.keywordScan || {}, task = scan.task;
-    const retry = ' <button class="btn sm line" data-action="keyword-scan">' + PR.t("重試") + "</button>";
+    const retry = ' <button class="btn sm line" data-action="keyword-scan">' + PR.t("重试") + "</button>";
     if (scan.error) return esc(scan.error) + retry;
     if (!task) return "";
-    if (KW_BUSY.includes(task.state)) return PR.t("原文比對中… {done}/{total}", { done: task.done || 0, total: task.total || 0 }) + ' <button class="btn sm line" data-action="keyword-scan-cancel">' + PR.t("取消") + "</button>";
-    if (task.state === "completed") return PR.t("原文比對完成");
-    return esc(task.state === "cancelled" ? PR.t("原文比對已取消") : (task.message ? PR.t(task.message) : PR.t("原文比對失敗"))) + retry;
+    if (KW_BUSY.includes(task.state)) return PR.t("原文比对中… {done}/{total}", { done: task.done || 0, total: task.total || 0 }) + ' <button class="btn sm line" data-action="keyword-scan-cancel">' + PR.t("取消") + "</button>";
+    if (task.state === "completed") return PR.t("原文比对完成");
+    return esc(task.state === "cancelled" ? PR.t("原文比对已取消") : (task.message ? PR.t(task.message) : PR.t("原文比对失败"))) + retry;
   }
   function updateKeywordScanStatus() { const el = $("[data-kw-scan-status]"); if (el) el.innerHTML = keywordScanHtml(); }
   async function startKeywordScan(keywordId = "") {
@@ -339,23 +339,23 @@
           PR.icon("more", "sm") +
         "</button>" +
       "</div>";
-    }).join("") || '<div class="rw-kw-sidebar-empty"><p>' + PR.t("尚未收集關鍵字。可在此處直接新增，或在閱讀器中反白文字加入。") + "</p></div>";
+    }).join("") || '<div class="rw-kw-sidebar-empty"><p>' + PR.t("尚未收集关键字。可在此处直接新增，或在阅读器中反白文字加入。") + "</p></div>";
 
     const batchBar = selected.size > 0
       ? '<div class="rw-kw-batch-bar">' +
-          '<span class="rw-kw-batch-count">' + PR.t("已選取 {n} 項", { n: selected.size }) + "</span>" +
+          '<span class="rw-kw-batch-count">' + PR.t("已选取 {n} 项", { n: selected.size }) + "</span>" +
           '<div class="rw-kw-batch-btns">' +
             (S.keywordArchived
-              ? '<button class="btn sm line" data-action="keyword-batch-restore">' + PR.t("批次恢復") + "</button>"
+              ? '<button class="btn sm line" data-action="keyword-batch-restore">' + PR.t("批次恢复") + "</button>"
               : '<button class="btn sm line" data-action="keyword-batch-archive">' + PR.t("批次封存") + "</button>") +
             '<button class="btn sm line danger" data-action="keyword-batch-delete">' + PR.t("批次移除") + "</button>" +
-            '<button class="btn sm line" data-action="keyword-select-none">' + PR.t("取消全選") + "</button>" +
+            '<button class="btn sm line" data-action="keyword-select-none">' + PR.t("取消全选") + "</button>" +
           "</div>" +
         "</div>"
       : (S.keywords.length > 0
           ? '<div class="rw-kw-batch-bar empty">' +
-              '<span class="rw-kw-batch-count">' + PR.t("共 {n} 個關鍵字", { n: S.keywords.length }) + "</span>" +
-              '<button class="btn sm line" data-action="keyword-select-all">' + PR.t("全選") + "</button>" +
+              '<span class="rw-kw-batch-count">' + PR.t("共 {n} 个关键字", { n: S.keywords.length }) + "</span>" +
+              '<button class="btn sm line" data-action="keyword-select-all">' + PR.t("全选") + "</button>" +
             "</div>"
           : "");
 
@@ -365,17 +365,17 @@
       const kwCounts = {};
       links.forEach((l) => { kwCounts[l.name] = (kwCounts[l.name] || 0) + (l.occurrences || 1); });
       const pills = Object.entries(kwCounts).map(([kname, count]) =>
-        '<span class="rw-kw-pill"><b>' + titleHtml(kname) + "</b><small>" + PR.t("{n} 處", { n: count }) + "</small></span>"
+        '<span class="rw-kw-pill"><b>' + titleHtml(kname) + "</b><small>" + PR.t("{n} 处", { n: count }) + "</small></span>"
       ).join("");
 
       const renderExcerpt = (l) => {
         const isAuto = l.source === "auto";
         const anchor = l.anchor ? "b-" + escAttr(l.anchor) : "";
-        const pageInfo = l.page ? '<span class="rw-kw-page">' + PR.t("第 {page} 頁", { page: l.page }) + "</span>" : "";
+        const pageInfo = l.page ? '<span class="rw-kw-page">' + PR.t("第 {page} 页", { page: l.page }) + "</span>" : "";
         return '<a class="rw-kw-excerpt-card" href="/read/' + pid + (anchor ? "#" + anchor : "") + '">' +
           '<div class="rw-kw-excerpt-meta">' +
             '<span class="rw-kw-tag">' + titleHtml(l.name) + "</span>" +
-            '<span class="rw-kw-source-type ' + escAttr(l.source) + '">' + (isAuto ? PR.t("自動比對") : PR.t("手動收錄")) + "</span>" +
+            '<span class="rw-kw-source-type ' + escAttr(l.source) + '">' + (isAuto ? PR.t("自动比对") : PR.t("手动收录")) + "</span>" +
             pageInfo +
             '<span class="rw-kw-jump-hint">' + PR.t("定位到此段") + " ↗</span>" +
           "</div>" +
@@ -394,7 +394,7 @@
         const extraExcerpts = remainingLinks.map(renderExcerpt).join("");
         extraHtml = '<div class="rw-kw-excerpts-extra" id="extra-' + pid + '"' + (isExpanded ? "" : " hidden") + ">" + extraExcerpts + "</div>";
         toggleBtn = '<button type="button" class="btn sm line rw-kw-toggle-excerpts" data-action="toggle-paper-excerpts" data-pid="' + pid + '" data-count="' + remainingLinks.length + '">' +
-          "<span>" + (isExpanded ? PR.t("收合額外段落 ▴") : PR.t("展開另外 {n} 個段落 ▾", { n: remainingLinks.length })) + "</span>" +
+          "<span>" + (isExpanded ? PR.t("收合额外段落 ▴") : PR.t("展开另外 {n} 个段落 ▾", { n: remainingLinks.length })) + "</span>" +
         "</button>";
       }
 
@@ -402,7 +402,7 @@
         '<div class="rw-kw-paper-head">' +
           '<h3><a href="/read/' + pid + '">' + titleHtml(m.title) + "</a></h3>" +
           '<div class="rw-kw-paper-stats">' +
-            '<span class="rw-kw-total-badge">' + PR.t("共 {n} 處命中", { n: m.occurrences || links.length }) + "</span>" +
+            '<span class="rw-kw-total-badge">' + PR.t("共 {n} 处命中", { n: m.occurrences || links.length }) + "</span>" +
           "</div>" +
         "</div>" +
         (pills ? '<div class="rw-kw-pills">' + pills + "</div>" : "") +
@@ -413,34 +413,35 @@
     host.innerHTML =
       '<div class="rw-section-head">' +
         "<div>" +
-          "<h2>" + PR.t("跨論文關鍵字搜尋") + "</h2>" +
-          '<p class="muted">' + PR.t("在全篇文獻庫中檢索關鍵字出現的段落，直接定位原文脈絡（僅限經 AI 翻譯整理內文後之論文方可比對檢索）。") + "</p>" +
+          "<h2>" + PR.t("跨论文关键字搜寻") + "</h2>" +
+          '<p class="muted">' + PR.t("在全篇文献库中检索关键字出现的段落，直接定位原文脉络（仅限经 AI 翻译整理内文后之论文方可比对检索）。") + "</p>" +
         "</div>" +
       "</div>" +
       '<div class="rw-kw-layout">' +
         '<aside class="rw-kw-sidebar">' +
           '<div class="rw-panel rw-kw-box">' +
             '<div class="rw-kw-box-title">' +
-              "<span>" + PR.t("關鍵字清單") + "</span>" +
+              "<span>" + PR.t("关键字清单") + "</span>" +
             "</div>" +
             '<form class="rw-kw-add-box" id="rw-kw-add-form">' +
               '<span class="rw-kw-add-icon">' + PR.icon("plus", "sm") + "</span>" +
-              '<input class="input rw-kw-add-input" id="rw-kw-add-name" placeholder="' + escAttr(PR.t("輸入關鍵字名稱後 Enter 新增…")) + '" maxlength="120" autocomplete="off">' +
-              '<button class="rw-kw-add-btn" type="submit" data-action="keyword-create" title="' + escAttr(PR.t("新增關鍵字")) + '">' + PR.icon("arrowUp", "sm") + "</button>" +
+              '<input class="input rw-kw-add-input" id="rw-kw-add-name" placeholder="' + escAttr(PR.t("输入关键字名称后 Enter 新增…")) + '" maxlength="120" autocomplete="off">' +
+              '<button class="rw-kw-add-btn" type="submit" data-action="keyword-create" title="' + escAttr(PR.t("新增关键字")) + '">' + PR.icon("arrowUp", "sm") + "</button>" +
             "</form>" +
             '<div class="rw-kw-segmented">' +
               '<button type="button" class="rw-kw-seg-btn ' + (S.keywordMode === "all" ? "on" : "") + '" data-action="keyword-mode" data-kw-mode="all">' + PR.t("符合全部") + "</button>" +
               '<button type="button" class="rw-kw-seg-btn ' + (S.keywordMode === "any" ? "on" : "") + '" data-action="keyword-mode" data-kw-mode="any">' + PR.t("符合任一") + "</button>" +
             "</div>" +
             '<div class="rw-kw-filter-row">' +
-              '<label class="rw-check"><input type="checkbox" data-keyword-manual' + (S.keywordManual ? " checked" : "") + "><span>" + PR.t("僅手動收錄") + "</span></label>" +
-              '<label class="rw-check"><input type="checkbox" data-keyword-archived' + (S.keywordArchived ? " checked" : "") + "><span>" + PR.t("顯示已封存") + "</span></label>" +
+              '<label class="rw-check"><input type="checkbox" data-keyword-manual' + (S.keywordManual ? " checked" : "") + "><span>" + PR.t("仅手动收录") + "</span></label>" +
+              '<label class="rw-check"><input type="checkbox" data-keyword-archived' + (S.keywordArchived ? " checked" : "") + "><span>" + PR.t("显示已封存") + "</span></label>" +
             "</div>" +
             '<div class="rw-kw-search-wrap">' +
               '<span class="rw-kw-search-icon">' + PR.icon("search", "sm") + "</span>" +
-              '<input class="input rw-kw-search" type="search" data-keyword-search placeholder="' + escAttr(PR.t("篩選關鍵字清單…")) + '" aria-label="' + escAttr(PR.t("搜尋關鍵字")) + '" value="' + escAttr(S.keywordQuery || "") + '">' +
+              '<input class="input rw-kw-search" type="search" data-keyword-search placeholder="' + escAttr(PR.t("筛选关键字清单…")) + '" aria-label="' + escAttr(PR.t("搜寻关键字")) + '" value="' + escAttr(S.keywordQuery || "") + '">' +
             "</div>" +
             '<div class="rw-kw-scan-wrap" data-kw-scan-status aria-live="polite">' + keywordScanHtml() + "</div>" +
+            '<button type="button" class="btn line" data-action="keyword-maps">' + PR.t("关键词图谱") + "</button>" +
             batchBar +
             '<div class="rw-kw-list">' + rows + "</div>" +
           "</div>" +
@@ -449,25 +450,25 @@
           (S.keywordArchived
             ? '<div class="rw-kw-empty-box">' +
                 '<div class="rw-kw-empty-icon">' + PR.icon("archive", "lg") + "</div>" +
-                '<h3 class="rw-kw-empty-title">' + PR.t("目前顯示已封存的關鍵字") + "</h3>" +
-                '<p class="rw-kw-empty-desc">' + PR.t("可勾選項目進行「批次恢復」或「批次移除」；取消勾選「顯示已封存」即可回到正常搜尋。") + "</p>" +
+                '<h3 class="rw-kw-empty-title">' + PR.t("目前显示已封存的关键字") + "</h3>" +
+                '<p class="rw-kw-empty-desc">' + PR.t("可勾选项目进行「批次恢复」或「批次移除」；取消勾选「显示已封存」即可回到正常搜寻。") + "</p>" +
               "</div>"
             : (selected.size
                 ? (matches
                     ? '<div class="rw-kw-results-banner">' +
-                        '<span>' + PR.t("共找到 {n} 篇論文符合搜尋條件", { n: S.keywordMatches.length }) + "</span>" +
+                        '<span>' + PR.t("共找到 {n} 篇论文符合搜寻条件", { n: S.keywordMatches.length }) + "</span>" +
                         '<span class="rw-kw-banner-filter">' + (S.keywordMode === "all" ? PR.t("模式：符合全部") : PR.t("模式：符合任一")) + "</span>" +
                       '</div>' +
                       '<div class="rw-kw-results">' + matches + "</div>"
                     : '<div class="rw-kw-empty-box">' +
                         '<div class="rw-kw-empty-icon">' + PR.icon("search", "lg") + "</div>" +
-                        '<h3 class="rw-kw-empty-title">' + PR.t("找不到符合目前條件的論文") + "</h3>" +
-                        '<p class="rw-kw-empty-desc">' + PR.t("找不到符合目前條件的論文。可切換為「符合任一」或取消「僅使用者收錄」。") + "</p>" +
+                        '<h3 class="rw-kw-empty-title">' + PR.t("找不到符合目前条件的论文") + "</h3>" +
+                        '<p class="rw-kw-empty-desc">' + PR.t("找不到符合目前条件的论文。可切换为「符合任一」或取消「仅使用者收录」。") + "</p>" +
                       "</div>")
                 : '<div class="rw-kw-empty-box">' +
                     '<div class="rw-kw-empty-icon">' + PR.icon("search", "lg") + "</div>" +
-                    '<h3 class="rw-kw-empty-title">' + PR.t("選擇或新增關鍵字以展開跨論文探索") + "</h3>" +
-                    '<p class="rw-kw-empty-desc">' + PR.t("從左側勾選 1 個或多個關鍵字，系統將自動比對庫中所有已標註的論文段落。") + "</p>" +
+                    '<h3 class="rw-kw-empty-title">' + PR.t("选择或新增关键字以展开跨论文探索") + "</h3>" +
+                    '<p class="rw-kw-empty-desc">' + PR.t("从左侧勾选 1 个或多个关键字，系统将自动比对库中所有已标注的论文段落。") + "</p>" +
                   "</div>")) +
         "</main>" +
       "</div>";
@@ -519,27 +520,27 @@
   function renderExplore() {
     const host = $("[data-view='explore']");
     const relationHero = renderRelationHero();
-    const modeButtons = [["topic", PR.t("主題探索")], ["conference", PR.t("會議／期刊")]]
+    const modeButtons = [["topic", PR.t("主题探索")], ["conference", PR.t("会议／期刊")]]
       .map(([id, label]) => '<button type="button" data-mode="' + id + '" class="' + (S.mode === id ? "on" : "") + '">' + label + "</button>").join("");
     let extra = "";
-    if (S.mode === "conference") extra = '<span class="rw-source">' + PR.t("可輸入一個或多個來源，例如 ICCV、ECCV、CVPR。") + '</span>';
+    if (S.mode === "conference") extra = '<span class="rw-source">' + PR.t("可输入一个或多个来源，例如 ICCV、ECCV、CVPR。") + '</span>';
     let html = relationHero + '<div class="rw-panel"><form class="rw-toolbar" id="rw-search"><div class="rw-mode">' + modeButtons + '</div>' +
-      '<input class="rw-search" id="rw-query" placeholder="' + (S.mode === "conference" ? PR.t("研究主題或關鍵字（可留空）") : PR.t("輸入研究概念或問題")) + '" value="' + escAttr(S.query || "") + '">' +
-      '<input id="rw-year-from" type="number" min="1800" max="2100" aria-label="' + escAttr(PR.t("起始年份")) + '" placeholder="' + escAttr(PR.t("起始年")) + '" value="' + escAttr(S.yearFrom || "") + '" style="width:94px"><input id="rw-year-to" type="number" min="1800" max="2100" aria-label="' + escAttr(PR.t("結束年份")) + '" placeholder="' + escAttr(PR.t("結束年")) + '" value="' + escAttr(S.yearTo || "") + '" style="width:94px"><label class="rw-check"><input type="checkbox" id="rw-oa"' + (S.onlyOA ? " checked" : "") + '>' + PR.t("有公開 PDF") + '</label><select id="rw-sort"><option value="relevance_score:desc"' + (S.exploreSort === "relevance_score:desc" ? " selected" : "") + '>' + PR.t("相關性") + '</option><option value="publication_date:desc"' + (S.exploreSort === "publication_date:desc" ? " selected" : "") + '>' + PR.t("最新") + '</option><option value="cited_by_count:desc"' + (S.exploreSort === "cited_by_count:desc" ? " selected" : "") + '>' + PR.t("引用數") + '</option></select>' +
-       (S.mode === "topic" ? '<button class="btn line" type="button" data-action="ai-query">' + PR.t("AI 產生搜尋關鍵字") + '</button>' : '') + '<button class="btn accent" type="submit">' + PR.t("搜尋") + '</button></form>' + renderSourceFilter() + (S.mode === "conference" ? extra + '<div class="rw-source">' + PR.t("OpenAlex 書目資料可用於篩選出版來源；需核對正式出版狀態時，卡片會保留可查證的來源與 DOI 資訊。") + '</div>' : '<div class="rw-source">' + PR.t("主題搜尋以 OpenAlex 公開書目資料為基礎；引用關係的涵蓋範圍依資料來源而異。") + '</div>') + '</div>';
-    if (S.error) html += '<div class="rw-error">' + esc(PR.t(S.error)) + ' <button class="linkish" data-action="' + escAttr(S.errorAction || "retry-search") + '">' + PR.t("重試") + '</button></div>';
-    if (S.stale) html += '<div class="rw-stale"><span>' + PR.t("目前顯示上次成功取得的結果。") + '</span> ' + esc(PR.t(S.staleError || "")) + "</div>";
+      '<input class="rw-search" id="rw-query" placeholder="' + (S.mode === "conference" ? PR.t("研究主题或关键字（可留空）") : PR.t("输入研究概念或问题")) + '" value="' + escAttr(S.query || "") + '">' +
+      '<input id="rw-year-from" type="number" min="1800" max="2100" aria-label="' + escAttr(PR.t("起始年份")) + '" placeholder="' + escAttr(PR.t("起始年")) + '" value="' + escAttr(S.yearFrom || "") + '" style="width:94px"><input id="rw-year-to" type="number" min="1800" max="2100" aria-label="' + escAttr(PR.t("结束年份")) + '" placeholder="' + escAttr(PR.t("结束年")) + '" value="' + escAttr(S.yearTo || "") + '" style="width:94px"><label class="rw-check"><input type="checkbox" id="rw-oa"' + (S.onlyOA ? " checked" : "") + '>' + PR.t("有公开 PDF") + '</label><select id="rw-sort"><option value="relevance_score:desc"' + (S.exploreSort === "relevance_score:desc" ? " selected" : "") + '>' + PR.t("相关性") + '</option><option value="publication_date:desc"' + (S.exploreSort === "publication_date:desc" ? " selected" : "") + '>' + PR.t("最新") + '</option><option value="cited_by_count:desc"' + (S.exploreSort === "cited_by_count:desc" ? " selected" : "") + '>' + PR.t("引用数") + '</option></select>' +
+       (S.mode === "topic" ? '<button class="btn line" type="button" data-action="ai-query">' + PR.t("AI 生成英文检索词") + '</button>' : '') + '<button class="btn accent" type="submit">' + PR.t("搜寻") + '</button></form>' + renderSourceFilter() + (S.mode === "conference" ? extra + '<div class="rw-source">' + PR.t("OpenAlex 书目资料可用于筛选出版来源；需核对正式出版状态时，卡片会保留可查证的来源与 DOI 资讯。") + '</div>' : '<div class="rw-source">' + PR.t("主题搜寻以 OpenAlex 公开书目资料为基础；引用关系的涵盖范围依资料来源而异。") + '</div>') + '</div>';
+    if (S.error) html += '<div class="rw-error">' + esc(PR.t(S.error)) + ' <button class="linkish" data-action="' + escAttr(S.errorAction || "retry-search") + '">' + PR.t("重试") + '</button></div>';
+    if (S.stale) html += '<div class="rw-stale"><span>' + PR.t("目前显示上次成功取得的结果。") + '</span> ' + esc(PR.t(S.staleError || "")) + "</div>";
     if (S.warning) html += '<div class="rw-stale">' + esc(PR.t(S.warning)) + "</div>";
-    if (S.loadingSearch) html += '<div class="rw-results" aria-live="polite">' + Array.from({ length: 6 }, () => '<article class="rw-card rw-paper rw-skeleton"><i></i><i></i><i></i></article>').join("") + '</div><p class="rw-source">' + PR.t("正在查詢論文來源…") + '</p>';
-    if (S.results.length) html += '<div class="rw-toolbar"><span class="rw-source">' + PR.t("合併後 {n} 篇", { n: S.resultCount == null ? S.results.length : S.resultCount }) + ' · ' + esc(S.checkedAt || "") + '</span><span class="grow"></span>' + Object.entries(S.providerStatus || {}).map(([name, status]) => '<span class="rw-provider ' + escAttr(status) + '">' + esc(name) + ': ' + (status === "loading" ? PR.t("查詢中") : status === "failed" ? PR.t("未連線") : PR.t("完成")) + '</span>').join("") + '</div><div class="rw-results">' + S.results.map(workCard).join("") + "</div>" + (S.hasMore && S.page < 100 ? '<div class="rw-toolbar" style="justify-content:center;margin-top:16px">' + btn(PR.t("載入更多論文"), "next-page") + "</div>" : "");
-    else if (!S.error && !S.loadingSearch) html += '<div class="rw-empty">' + (S.searchReason === "not-found" ? PR.t("找不到此 DOI 或論文識別資料；請確認輸入內容，或改用標題關鍵字搜尋。") : PR.t("輸入研究概念開始探索論文。")) + "</div>";
+    if (S.loadingSearch) html += '<div class="rw-results" aria-live="polite">' + Array.from({ length: 6 }, () => '<article class="rw-card rw-paper rw-skeleton"><i></i><i></i><i></i></article>').join("") + '</div><p class="rw-source">' + PR.t("正在查询论文来源…") + '</p>';
+    if (S.results.length) html += '<div class="rw-toolbar"><span class="rw-source">' + PR.t("合并后 {n} 篇", { n: S.resultCount == null ? S.results.length : S.resultCount }) + ' · ' + esc(S.checkedAt || "") + '</span><span class="grow"></span>' + Object.entries(S.providerStatus || {}).map(([name, status]) => '<span class="rw-provider ' + escAttr(status) + '">' + esc(name) + ': ' + (status === "loading" ? PR.t("查询中") : status === "failed" ? PR.t("未连线") : PR.t("完成")) + '</span>').join("") + '</div><div class="rw-results">' + S.results.map(workCard).join("") + "</div>" + (S.hasMore && S.page < 100 ? '<div class="rw-toolbar" style="justify-content:center;margin-top:16px">' + btn(PR.t("载入更多论文"), "next-page") + "</div>" : "");
+    else if (!S.error && !S.loadingSearch) html += '<div class="rw-empty">' + (S.searchReason === "not-found" ? PR.t("找不到此 DOI 或论文识别资料；请确认输入内容，或改用标题关键字搜寻。") : PR.t("输入研究概念开始探索论文。")) + "</div>";
     host.innerHTML = html;
   }
   function renderSourceFilter() {
     const selected = new Set(S.venueSelected.map((s) => s.id));
-    const types = { conference: PR.t("會議"), journal: PR.t("期刊"), "book series": PR.t("書籍系列"), repository: PR.t("典藏庫"), "ebook platform": PR.t("電子書平台") };
-    const choices = S.venueOptions.map((s) => '<label class="rw-source-option"><input type="checkbox" data-source-choice="' + escAttr(s.id) + '"' + (selected.has(s.id) ? " checked" : "") + '><span>' + esc(s.name) + '<small>' + esc((s.matched_queries || []).join(" / ")) + ' · ' + esc((types[s.type] || s.type || PR.t("來源類型未提供"))) + ' · ' + esc(PR.t("OpenAlex 收錄 {n} 篇", { n: s.works_count == null ? PR.t("未提供") : s.works_count.toLocaleString() })) + '</small></span></label>').join("");
-    return '<div class="rw-source-filter"><label for="rw-venue-query">' + PR.t("出版來源") + '</label><input id="rw-venue-query" value="' + escAttr(S.venueQuery) + '" placeholder="' + escAttr(PR.t("ICCV、ECCV、CVPR")) + '"><button type="button" class="btn sm line" data-action="search-sources"' + (S.venueBusy ? " disabled" : "") + '>' + (S.venueBusy ? PR.t("正在查找…") : PR.t("加入出版來源")) + '</button><span class="rw-source">' + PR.t("已選 {n} 個來源", { n: S.venueSelected.length }) + '</span>' + (S.venueSelected.length ? btn(PR.t("清除選取"), "clear-source", "line") : "") + '</div>' + (choices ? '<div class="rw-source-options">' + choices + '</div>' : "") + (S.venueWarning ? '<div class="rw-stale">' + esc(PR.t(S.venueWarning)) + '</div>' : "");
+    const types = { conference: PR.t("会议"), journal: PR.t("期刊"), "book series": PR.t("书籍系列"), repository: PR.t("典藏库"), "ebook platform": PR.t("电子书平台") };
+    const choices = S.venueOptions.map((s) => '<label class="rw-source-option"><input type="checkbox" data-source-choice="' + escAttr(s.id) + '"' + (selected.has(s.id) ? " checked" : "") + '><span>' + esc(s.name) + '<small>' + esc((s.matched_queries || []).join(" / ")) + ' · ' + esc((types[s.type] || s.type || PR.t("来源类型未提供"))) + ' · ' + esc(PR.t("OpenAlex 收录 {n} 篇", { n: s.works_count == null ? PR.t("未提供") : s.works_count.toLocaleString() })) + '</small></span></label>').join("");
+    return '<div class="rw-source-filter"><label for="rw-venue-query">' + PR.t("出版来源") + '</label><input id="rw-venue-query" value="' + escAttr(S.venueQuery) + '" placeholder="' + escAttr(PR.t("ICCV、ECCV、CVPR")) + '"><button type="button" class="btn sm line" data-action="search-sources"' + (S.venueBusy ? " disabled" : "") + '>' + (S.venueBusy ? PR.t("正在查找…") : PR.t("加入出版来源")) + '</button><span class="rw-source">' + PR.t("已选 {n} 个来源", { n: S.venueSelected.length }) + '</span>' + (S.venueSelected.length ? btn(PR.t("清除选取"), "clear-source", "line") : "") + '</div>' + (choices ? '<div class="rw-source-options">' + choices + '</div>' : "") + (S.venueWarning ? '<div class="rw-stale">' + esc(PR.t(S.venueWarning)) + '</div>' : "");
   }
   function alreadyInLibrary(w) {
     const saved = savedFor(w || {});
@@ -571,78 +572,78 @@
   }
   function workCard(w) {
     const key = paperKey(w), inCandidate = Boolean(candidateFor(w));
-    const citations = w.cited_by_count == null ? PR.t("引用數未提供") : PR.t("引用 {n}", { n: Number(w.cited_by_count).toLocaleString() });
+    const citations = w.cited_by_count == null ? PR.t("引用数未提供") : PR.t("引用 {n}", { n: Number(w.cited_by_count).toLocaleString() });
     const metadata = [w.authors, w.year, w.venue, citations].filter(Boolean).map(esc).join(" · ");
     const targetId = relationTargetId(w);
-    const relationBtn = targetId ? btn(PR.t("關聯研究"), "explore-relation", "line", 'data-work="' + escAttr(targetId) + '" data-title="' + escAttr(w.title || "") + '" data-doi="' + escAttr(w.doi || "") + '"') : "";
-    return '<article class="rw-card rw-paper"><h3>' + titleHtml(w.title) + '</h3><div class="meta">' + metadata + '</div><div>' + (w.pdf_url ? '<span class="rw-chip oa">' + PR.t("有公開 PDF") + '</span>' : w.is_oa ? '<span class="rw-chip">' + PR.t("可公開取用，PDF 未確認") + '</span>' : '<span class="rw-chip">' + PR.t("公開 PDF 未確認") + '</span>') + (w.publication_type ? '<span class="rw-chip">' + PR.t("書目類型：") + esc(w.publication_type) + '</span>' : "") + (inCandidate ? '<span class="rw-chip">' + PR.t("候選論文") + '</span>' : "") + '</div><p class="abstract">' + esc(w.abstract || PR.t("來源未提供摘要。")) + '</p>' + (w.recommendation_reason ? '<div class="rw-source"><span>' + PR.t("推薦依據：") + '</span> ' + esc(w.recommendation_reason) + '</div>' : "") + '<div class="rw-source"><span>' + PR.t("資料來源：") + '</span> ' + esc((w.sources || [w.source || "OpenAlex"]).join(PR.lang === "en" ? ", " : PR.t("、"))) + ' · ' + esc(S.checkedAt || "") + '</div><div class="actions">' + btn(inCandidate ? PR.t("移出候選") : PR.t("加入候選"), "candidate", inCandidate ? "line" : "accent", 'data-key="' + escAttr(key) + '"') + relationBtn + (sourceUrl(w.url) ? '<a class="btn sm line" target="_blank" rel="noopener" href="' + escAttr(sourceUrl(w.url)) + '">' + PR.t("論文來源") + '</a>' : "") + "</div></article>";
+    const relationBtn = targetId ? btn(PR.t("关联研究"), "explore-relation", "line", 'data-work="' + escAttr(targetId) + '" data-title="' + escAttr(w.title || "") + '" data-doi="' + escAttr(w.doi || "") + '"') : "";
+    return '<article class="rw-card rw-paper"><h3>' + titleHtml(w.title) + '</h3><div class="meta">' + metadata + '</div><div>' + (w.pdf_url ? '<span class="rw-chip oa">' + PR.t("有公开 PDF") + '</span>' : w.is_oa ? '<span class="rw-chip">' + PR.t("可公开取用，PDF 未确认") + '</span>' : '<span class="rw-chip">' + PR.t("公开 PDF 未确认") + '</span>') + (w.publication_type ? '<span class="rw-chip">' + PR.t("书目类型：") + esc(w.publication_type) + '</span>' : "") + (inCandidate ? '<span class="rw-chip">' + PR.t("候选论文") + '</span>' : "") + '</div><p class="abstract">' + esc(w.abstract || PR.t("来源未提供摘要。")) + '</p>' + (w.recommendation_reason ? '<div class="rw-source"><span>' + PR.t("推荐依据：") + '</span> ' + esc(w.recommendation_reason) + '</div>' : "") + '<div class="rw-source"><span>' + PR.t("资料来源：") + '</span> ' + esc((w.sources || [w.source || "OpenAlex"]).join(PR.lang === "en" ? ", " : PR.t("、"))) + ' · ' + esc(S.checkedAt || "") + '</div><div class="actions">' + btn(inCandidate ? PR.t("移出候选") : PR.t("加入候选"), "candidate", inCandidate ? "line" : "accent", 'data-key="' + escAttr(key) + '"') + relationBtn + (sourceUrl(w.url) ? '<a class="btn sm line" target="_blank" rel="noopener" href="' + escAttr(sourceUrl(w.url)) + '">' + PR.t("论文来源") + '</a>' : "") + "</div></article>";
   }
   function renderCandidates() {
     const host = $("[data-view='candidates']"), records = S.candidates || [];
-    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("候選論文") + '</h2><p>' + PR.t("加入候選後會依來源摘要在背景整理摘要；全文比較需先加入閱讀看板並取得、整理 PDF。") + '</p></div><button class="btn line" data-tab="path">' + PR.t("規劃閱讀路徑") + '</button></div>' +
+    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("候选论文") + '</h2><p>' + PR.t("加入候选后会依来源摘要在背景整理摘要；全文比较需先加入阅读看板并取得、整理 PDF。") + '</p></div><button class="btn line" data-tab="path">' + PR.t("规划阅读路径") + '</button></div>' +
       (records.length ? '<div class="rw-results">' + records.map((record) => {
         const w = record.paper || {}, paper = alreadyInLibrary(w), saved = savedFor(w), id = paper?.id || "";
         const summaryControl = record.summary_markdown
           ? btn(PR.t("查看摘要"), "view-summary", "accent", 'data-key="' + escAttr(record.paper_key) + '"')
           : record.summary_status === "failed"
-            ? btn(PR.t("重試整理摘要"), "retry-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"')
+            ? btn(PR.t("重试整理摘要"), "retry-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"')
           : ["queued", "running"].includes(record.summary_status)
             ? "" : btn(PR.t("整理摘要"), "retry-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"');
         const summaryStatus = !record.summary_markdown && ["queued", "running", "failed"].includes(record.summary_status)
           ? '<div class="rw-state" role="status">' + (record.summary_status === "failed"
-            ? esc(PR.t("摘要整理失敗：{message}", { message: record.summary_error ? PR.t(record.summary_error) : PR.t("請重試。") }))
-            : '<i class="spin"></i> ' + (record.summary_status === "running" ? PR.t("AI 正在整理摘要…") : PR.t("已加入背景摘要佇列…"))) + '</div>' : "";
+            ? esc(PR.t("摘要整理失败：{message}", { message: record.summary_error ? PR.t(record.summary_error) : PR.t("请重试。") }))
+            : '<i class="spin"></i> ' + (record.summary_status === "running" ? PR.t("AI 正在整理摘要…") : PR.t("已加入背景摘要伫列…"))) + '</div>' : "";
         const moreActions = (record.summary_markdown
-          ? btn(PR.t("下載"), "download-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"')
-            + btn(PR.t("匯入 Obsidian"), "export-summary-vault", "line", 'data-key="' + escAttr(record.paper_key) + '"')
+          ? btn(PR.t("下载"), "download-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"')
+            + btn(PR.t("汇入 Obsidian"), "export-summary-vault", "line", 'data-key="' + escAttr(record.paper_key) + '"')
             + btn(PR.t("重新整理摘要"), "candidate-summary", "line", 'data-key="' + escAttr(record.paper_key) + '" data-force-summary="1"') + '<hr>' : "")
-          + btn(PR.t("移出候選"), "remove-candidate", "line", 'data-key="' + escAttr(record.paper_key) + '"');
+          + btn(PR.t("移出候选"), "remove-candidate", "line", 'data-key="' + escAttr(record.paper_key) + '"');
         const pdfState = saved?.pdf_state || "";
         const fullTextStatus = paper
-          ? PR.t("全文已匯入，正在整理中")
-          : pdfState === "running" ? PR.t("PDF 下載／匯入中")
-            : pdfState === "failed" ? PR.t("PDF 取得失敗")
+          ? PR.t("全文已汇入，正在整理中")
+          : pdfState === "running" ? PR.t("PDF 下载／汇入中")
+            : pdfState === "failed" ? PR.t("PDF 取得失败")
               : pdfState === "pending" ? PR.t("等待取得 PDF")
-                  : pdfState === "imported" ? PR.t("PDF 已匯入，但尚未連結到文獻項目")
-                    : !saved ? PR.t("尚未加入閱讀看板")
+                  : pdfState === "imported" ? PR.t("PDF 已汇入，但尚未连结到文献项目")
+                    : !saved ? PR.t("尚未加入阅读看板")
                       : PR.t("尚未取得全文");
         const fullTextHelp = paper
-          ? PR.t("論文 PDF 已匯入，但尚未完成全文整理。")
-          : pdfState === "running" ? PR.t("正在下載並匯入 PDF，完成後即可開啟閱讀或比較。")
-            : pdfState === "failed" ? PR.t("PDF 下載或匯入失敗；可到閱讀看板重試，或手動附加 PDF。") + (saved.pdf_error ? " " + PR.t(saved.pdf_error) : "")
-              : pdfState === "pending" ? PR.t("已加入閱讀看板，PDF 尚在等待處理。")
-                : pdfState === "imported" ? PR.t("PDF 已標記匯入，但找不到對應的文獻項目；請重新整理文獻庫確認。")
-                  : PR.t("候選論文只有書目資料或來源摘要；加入閱讀看板並取得、整理 PDF 後，才能進行全文比較。");
+          ? PR.t("论文 PDF 已汇入，但尚未完成全文整理。")
+          : pdfState === "running" ? PR.t("正在下载并汇入 PDF，完成后即可开启阅读或比较。")
+            : pdfState === "failed" ? PR.t("PDF 下载或汇入失败；可到阅读看板重试，或手动附加 PDF。") + (saved.pdf_error ? " " + PR.t(saved.pdf_error) : "")
+              : pdfState === "pending" ? PR.t("已加入阅读看板，PDF 尚在等待处理。")
+                : pdfState === "imported" ? PR.t("PDF 已标记汇入，但找不到对应的文献项目；请重新整理文献库确认。")
+                  : PR.t("候选论文只有书目资料或来源摘要；加入阅读看板并取得、整理 PDF 后，才能进行全文比较。");
         const fullTextBadge = '<span class="rw-chip rw-fulltext-state" title="' + escAttr(fullTextHelp) + '">' + esc(fullTextStatus) + '</span>';
-        return '<article class="rw-card rw-paper"><div class="rw-candidate-titleline"><h3>' + titleHtml(w.title || PR.t("未命名論文")) + '</h3>' + fullTextBadge + '</div><div class="meta">' + esc([w.authors, w.year, w.venue].filter(Boolean).join(" · ")) + '</div><p class="abstract">' + esc(w.abstract || PR.t("來源未提供摘要。")) + '</p>' + (record.summary_markdown ? '<span class="rw-chip" title="' + escAttr(PR.t("此摘要根據搜尋來源提供的書目摘要整理，並不代表已取得論文全文。")) + '">' + PR.t("已整理來源摘要") + '</span>' : '') + summaryStatus + '<div class="actions rw-candidate-actions">' + summaryControl + (id ? '<a class="btn sm line" href="/read/' + escAttr(id) + '">' + PR.t("開啟閱讀") + '</a>' : btn(PR.t("加入閱讀看板"), "queue", "line", 'title="' + escAttr(PR.t("加入閱讀看板並取得 PDF")) + '" data-key="' + escAttr(record.paper_key) + '"')) + '<details class="rw-candidate-more"><summary class="btn sm line">' + PR.t("更多") + '</summary><div class="menu-list">' + moreActions + '</div></details>' + '</div></article>';
-      }).join("") + '</div>' : '<div class="rw-empty">' + PR.t("候選清單目前是空的。先到研究探索搜尋，再按「加入候選」。") + '</div>');
+        return '<article class="rw-card rw-paper"><div class="rw-candidate-titleline"><h3>' + titleHtml(w.title || PR.t("未命名论文")) + '</h3>' + fullTextBadge + '</div><div class="meta">' + esc([w.authors, w.year, w.venue].filter(Boolean).join(" · ")) + '</div><p class="abstract">' + esc(w.abstract || PR.t("来源未提供摘要。")) + '</p>' + (record.summary_markdown ? '<span class="rw-chip" title="' + escAttr(PR.t("此摘要根据搜寻来源提供的书目摘要整理，并不代表已取得论文全文。")) + '">' + PR.t("已整理来源摘要") + '</span>' : '') + summaryStatus + '<div class="actions rw-candidate-actions">' + summaryControl + (id ? '<a class="btn sm line" href="/read/' + escAttr(id) + '">' + PR.t("开启阅读") + '</a>' : btn(PR.t("加入阅读看板"), "queue", "line", 'title="' + escAttr(PR.t("加入阅读看板并取得 PDF")) + '" data-key="' + escAttr(record.paper_key) + '"')) + '<details class="rw-candidate-more"><summary class="btn sm line">' + PR.t("更多") + '</summary><div class="menu-list">' + moreActions + '</div></details>' + '</div></article>';
+      }).join("") + '</div>' : '<div class="rw-empty">' + PR.t("候选清单目前是空的。先到研究探索搜寻，再按「加入候选」。") + '</div>');
   }
 
   function renderSummaries() {
     const host = $("[data-view='summaries']"), records = S.summaries || [];
-    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("已整理摘要") + '</h2><p>' + PR.t("整理結果會獨立保存；論文移出候選清單後，摘要仍會保留。") + '</p></div></div>' +
-      (records.length ? '<div class="rw-results">' + records.map((record) => '<article class="rw-card rw-paper"><h3>' + titleHtml(record.paper.title || PR.t("未命名論文")) + '</h3><div class="meta">' + esc([record.paper.authors, record.paper.year, record.paper.venue].filter(Boolean).join(" · ")) + '</div><span class="rw-chip">' + PR.t("已整理摘要") + '</span><div class="rw-source"><span>' + PR.t("整理模型：") + '</span>' + esc(record.summary_model || PR.t("未提供")) + (record.updated ? ' · ' + esc(record.updated) : '') + '</div><div class="actions rw-candidate-actions">' + btn(PR.t("查看摘要"), "view-summary", "accent", 'data-key="' + escAttr(record.paper_key) + '"') + '<details class="rw-candidate-more"><summary class="btn sm line">' + PR.t("更多") + '</summary><div class="menu-list">' + btn(PR.t("下載"), "download-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"') + btn(PR.t("匯入 Obsidian"), "export-summary-vault", "line", 'data-key="' + escAttr(record.paper_key) + '"') + btn(PR.t("移到回收站"), "trash-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"') + '</div></details></div></article>').join("") + '</div>' : '<div class="rw-empty">' + PR.t("目前還沒有摘要。加入候選論文後會在背景自動整理摘要。") + '</div>');
+    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("已整理摘要") + '</h2><p>' + PR.t("整理结果会独立保存；论文移出候选清单后，摘要仍会保留。") + '</p></div></div>' +
+      (records.length ? '<div class="rw-results">' + records.map((record) => '<article class="rw-card rw-paper"><h3>' + titleHtml(record.paper.title || PR.t("未命名论文")) + '</h3><div class="meta">' + esc([record.paper.authors, record.paper.year, record.paper.venue].filter(Boolean).join(" · ")) + '</div><span class="rw-chip">' + PR.t("已整理摘要") + '</span><div class="rw-source"><span>' + PR.t("整理模型：") + '</span>' + esc(record.summary_model || PR.t("未提供")) + (record.updated ? ' · ' + esc(record.updated) : '') + '</div><div class="actions rw-candidate-actions">' + btn(PR.t("查看摘要"), "view-summary", "accent", 'data-key="' + escAttr(record.paper_key) + '"') + '<details class="rw-candidate-more"><summary class="btn sm line">' + PR.t("更多") + '</summary><div class="menu-list">' + btn(PR.t("下载"), "download-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"') + btn(PR.t("汇入 Obsidian"), "export-summary-vault", "line", 'data-key="' + escAttr(record.paper_key) + '"') + btn(PR.t("移到回收站"), "trash-summary", "line", 'data-key="' + escAttr(record.paper_key) + '"') + '</div></details></div></article>').join("") + '</div>' : '<div class="rw-empty">' + PR.t("目前还没有摘要。加入候选论文后会在背景自动整理摘要。") + '</div>');
   }
   const compareDimensionOptions = ["研究問題", "核心方法", "資料集", "評估指標", "實驗條件", "成本", "限制"]; // i18n-ok: 比較維度是送給後端的固定識別值。
-  const compareDimensionLabels = () => [PR.t("研究問題"), PR.t("核心方法"), PR.t("資料集"), PR.t("評估指標"), PR.t("實驗條件"), PR.t("成本"), PR.t("限制")];
+  const compareDimensionLabels = () => [PR.t("研究问题"), PR.t("核心方法"), PR.t("资料集"), PR.t("评估指标"), PR.t("实验条件"), PR.t("成本"), PR.t("限制")];
   function renderComparisonSetup() {
     const selected = [...S.compareSelection].map((id) => S.items.find((item) => item.id === id)).filter(Boolean);
     const missing = selected.filter((item) => Number(item.parsed_blocks || 0) <= 0);
     const dimensions = compareDimensionOptions.concat([...S.compareDimensions].filter((value) => !compareDimensionOptions.includes(value)));
     const papers = selected.length
       ? '<ul class="rw-compare-papers">' + selected.map((item) => '<li><b>' + titleHtml(item.title_zh || item.title_en || item.short_zh || item.id) + '</b><small>' + esc([item.year, item.venue].filter(Boolean).join(" · ")) + '</small></li>').join("") + '</ul>'
-      : '<p class="rw-empty">' + PR.t("沒有找到選取的文獻，請返回文獻庫重新選擇。") + '</p>';
-    const warning = missing.length ? '<p class="rw-stale">' + PR.t("以下論文尚未完成全文整理，無法開始比較：") + ' ' + esc(missing.map((item) => item.title_zh || item.title_en || item.id).join(PR.t("、"))) + '</p>' : "";
+      : '<p class="rw-empty">' + PR.t("没有找到选取的文献，请返回文献库重新选择。") + '</p>';
+    const warning = missing.length ? '<p class="rw-stale">' + PR.t("以下论文尚未完成全文整理，无法开始比较：") + ' ' + esc(missing.map((item) => item.title_zh || item.title_en || item.id).join(PR.t("、"))) + '</p>' : "";
     const labels = compareDimensionLabels();
     const checks = dimensions.map((value) => '<label><input type="checkbox" data-compare-dimension="' + escAttr(value) + '"' + (S.compareDimensions.has(value) ? ' checked' : '') + '> ' + esc(labels[compareDimensionOptions.indexOf(value)] || value) + '</label>').join("");
     const compareBusy = S.compareTask && ["queued", "running", "cancelling"].includes(S.compareTask.state);
     const canStart = selected.length >= 2 && selected.length <= 5 && !missing.length && S.compareDimensions.size > 0 && !compareBusy;
-    return '<section class="rw-panel rw-compare-config"><div class="rw-section-head"><div><h3>' + PR.t("設定跨論文比較") + '</h3><p>' + PR.t("先選擇比較維度與分析焦點，確認後才會開始 AI 比較。") + '</p></div><button class="btn line" data-action="compare-cancel">' + PR.t("返回論文比較") + '</button></div>' +
-      '<div class="rw-compare-select"><h3>' + PR.t("本次比較論文（{n} 篇）", { n: selected.length }) + '</h3>' + papers + '</div>' + warning +
-      '<label class="rw-field"><span>' + PR.t("比較焦點（選填）") + '</span><input data-compare-focus value="' + escAttr(S.compareFocus) + '" placeholder="' + escAttr(PR.t("例如：各方法在資料效率上的差異")) + '"></label>' +
-      '<div><h3>' + PR.t("比較維度") + '</h3><div class="rw-compare-dimensions">' + checks + '</div></div>' +
-      '<div class="rw-compare-custom"><input data-compare-custom value="' + escAttr(S.compareCustomDimension) + '" placeholder="' + escAttr(PR.t("新增自訂維度")) + '"><button class="btn sm line" data-action="compare-add-dimension">' + PR.t("加入") + '</button></div>' +
-      '<div class="actions"><button class="btn accent" data-action="compare-start"' + (canStart ? "" : " disabled") + '>' + PR.t("開始比較") + '</button></div></section>';
+    return '<section class="rw-panel rw-compare-config"><div class="rw-section-head"><div><h3>' + PR.t("设定跨论文比较") + '</h3><p>' + PR.t("先选择比较维度与分析焦点，确认后才会开始 AI 比较。") + '</p></div><button class="btn line" data-action="compare-cancel">' + PR.t("返回论文比较") + '</button></div>' +
+      '<div class="rw-compare-select"><h3>' + PR.t("本次比较论文（{n} 篇）", { n: selected.length }) + '</h3>' + papers + '</div>' + warning +
+      '<label class="rw-field"><span>' + PR.t("比较焦点（选填）") + '</span><input data-compare-focus value="' + escAttr(S.compareFocus) + '" placeholder="' + escAttr(PR.t("例如：各方法在资料效率上的差异")) + '"></label>' +
+      '<div><h3>' + PR.t("比较维度") + '</h3><div class="rw-compare-dimensions">' + checks + '</div></div>' +
+      '<div class="rw-compare-custom"><input data-compare-custom value="' + escAttr(S.compareCustomDimension) + '" placeholder="' + escAttr(PR.t("新增自订维度")) + '"><button class="btn sm line" data-action="compare-add-dimension">' + PR.t("加入") + '</button></div>' +
+      '<div class="actions"><button class="btn accent" data-action="compare-start"' + (canStart ? "" : " disabled") + '>' + PR.t("开始比较") + '</button></div></section>';
   }
   function comparePickerInitialLimit() {
     const columns = Math.floor(((window.innerWidth || 960) - 64) / 270);
@@ -659,48 +660,47 @@
     const selected = S.compareSelection;
     const categories = [...new Set((S.categories || []).map((category) => String(category || "").trim()).filter(Boolean))];
     const uncategorizedCount = papers.filter((item) => !(item.tags || []).length).length;
-    const categoryEntries = categories.map((name) => ({ key: name, label: name })).concat(uncategorizedCount ? [{ key: "__uncategorized__", label: PR.t("未分類") }] : []);
+    const categoryEntries = categories.map((name) => ({ key: name, label: name })).concat(uncategorizedCount ? [{ key: "__uncategorized__", label: PR.t("未分类") }] : []);
     const category = S.comparePickerCategory;
     const papersInCategory = category ? (category === "__uncategorized__" ? papers.filter((item) => !(item.tags || []).length) : papers.filter((item) => inCat(item, category))) : papers;
-    const renderFolders = () => '<div class="rw-compare-picker-intro"><h3>' + PR.t("選擇論文分類") + '</h3><p>' + PR.t("先選擇分類，再從分類中的論文勾選要比較的項目。") + '</p></div><div class="rw-compare-folders">' + categoryEntries.map(({ key, label }) => {
+    const renderFolders = () => '<div class="rw-compare-picker-intro"><h3>' + PR.t("选择论文分类") + '</h3><p>' + PR.t("先选择分类，再从分类中的论文勾选要比较的项目。") + '</p></div><div class="rw-compare-folders">' + categoryEntries.map(({ key, label }) => {
       const count = key === "__uncategorized__" ? uncategorizedCount : papers.filter((item) => inCat(item, key)).length;
-      return '<button type="button" class="rw-compare-folder" data-action="compare-picker-category" data-category="' + escAttr(key) + '" aria-label="' + escAttr(label + " " + count) + '"><svg class="rw-folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l1.8 2h9.2v9.8a1.7 1.7 0 0 1-1.7 1.7H5.2a1.7 1.7 0 0 1-1.7-1.7V6.5Z"></path><path d="M3.5 9h17"></path></svg><span><b>' + esc(label) + '</b><small>' + PR.t("{n} 篇文獻", { n: count }) + '</small></span></button>';
+      return '<button type="button" class="rw-compare-folder" data-action="compare-picker-category" data-category="' + escAttr(key) + '" aria-label="' + escAttr(label + " " + count) + '"><svg class="rw-folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l1.8 2h9.2v9.8a1.7 1.7 0 0 1-1.7 1.7H5.2a1.7 1.7 0 0 1-1.7-1.7V6.5Z"></path><path d="M3.5 9h17"></path></svg><span><b>' + esc(label) + '</b><small>' + PR.t("{n} 篇文献", { n: count }) + '</small></span></button>';
     }).join('') + '</div>';
     const renderPapers = () => {
       const limit = !category && !categories.length && !S.comparePickerExpanded ? comparePickerInitialLimit() : papersInCategory.length;
       const visible = papersInCategory.slice(0, limit);
-      const choices = visible.length ? visible.map((item) => comparePaperChoice(item, selected)).join('') : '<p class="rw-empty">' + PR.t("文獻庫目前沒有可選的論文。") + '</p>';
-      const more = !category && !categories.length && !S.comparePickerExpanded && papersInCategory.length > limit ? '<div class="actions rw-compare-more"><button class="btn line" data-action="compare-picker-more">' + PR.t("顯示更多論文") + '</button></div>' : '';
-      const categoryLabel = category === "__uncategorized__" ? PR.t("未分類") : category;
-      return (category ? '<div class="rw-compare-breadcrumb"><button type="button" class="btn line" data-action="compare-picker-back">' + PR.t("返回分類") + '</button><span>' + esc(categoryLabel) + ' (' + papersInCategory.length + ')</span></div>' : '<div class="rw-compare-picker-intro"><h3>' + PR.t("選擇論文") + '</h3><p>' + PR.t("文獻庫尚未建立分類，先從最近的論文中選取；需要時可再顯示更多。") + '</p></div>') + '<div class="rw-compare-paper-list">' + choices + '</div>' + more;
+      const choices = visible.length ? visible.map((item) => comparePaperChoice(item, selected)).join('') : '<p class="rw-empty">' + PR.t("文献库目前没有可选的论文。") + '</p>';
+      const more = !category && !categories.length && !S.comparePickerExpanded && papersInCategory.length > limit ? '<div class="actions rw-compare-more"><button class="btn line" data-action="compare-picker-more">' + PR.t("显示更多论文") + '</button></div>' : '';
+      const categoryLabel = category === "__uncategorized__" ? PR.t("未分类") : category;
+      return (category ? '<div class="rw-compare-breadcrumb"><button type="button" class="btn line" data-action="compare-picker-back">' + PR.t("返回分类") + '</button><span>' + esc(categoryLabel) + ' (' + papersInCategory.length + ')</span></div>' : '<div class="rw-compare-picker-intro"><h3>' + PR.t("选择论文") + '</h3><p>' + PR.t("文献库尚未建立分类，先从最近的论文中选取；需要时可再显示更多。") + '</p></div>') + '<div class="rw-compare-paper-list">' + choices + '</div>' + more;
     };
     const content = categories.length && !category ? renderFolders() : renderPapers();
     const canContinue = selected.size >= 2 && selected.size <= 5;
-    return '<section class="rw-panel rw-compare-picker"><div class="rw-section-head"><div><h3>' + PR.t('選擇比較論文') + '</h3><p>' + PR.t('直接在這裡選擇 2 至 5 篇已完成全文整理的論文，再設定比較維度。') + '</p></div><span class="rw-chip">' + PR.t('已選 {n} 篇', { n: selected.size }) + '</span></div>' + content + '<div class="actions"><button class="btn accent" data-action="compare-open-setup"' + (canContinue ? '' : ' disabled') + '>' + PR.t('下一步：設定比較') + '</button></div></section>';
+    return '<section class="rw-panel rw-compare-picker"><div class="rw-section-head"><div><h3>' + PR.t('选择比较论文') + '</h3><p>' + PR.t('直接在这里选择 2 至 5 篇已完成全文整理的论文，再设定比较维度。') + '</p></div><span class="rw-chip">' + PR.t('已选 {n} 篇', { n: selected.size }) + '</span></div>' + content + '<div class="actions"><button class="btn accent" data-action="compare-open-setup"' + (canContinue ? '' : ' disabled') + '>' + PR.t('下一步：设定比较') + '</button></div></section>';
   }
   function renderComparisons() {
     const host = $("[data-view='comparisons']"), records = S.comparisons || [];
     if (!host) return;
-    if (S.comparisonsLoading) { host.innerHTML = '<div class="rw-empty"><i class="spin"></i> ' + PR.t("正在載入比較結果…") + '</div>'; return; }
-    const error = S.comparisonError ? '<div class="rw-error" role="alert">' + esc(S.comparisonError) + ' <button class="btn sm line" data-action="comparisons-refresh">' + PR.t("重試") + '</button></div>' : '';
+    if (S.comparisonsLoading) { host.innerHTML = '<div class="rw-empty"><i class="spin"></i> ' + PR.t("正在载入比较结果…") + '</div>'; return; }
+    const error = S.comparisonError ? '<div class="rw-error" role="alert">' + esc(S.comparisonError) + ' <button class="btn sm line" data-action="comparisons-refresh">' + PR.t("重试") + '</button></div>' : '';
     const cards = records.map((record) => {
-      const dateLabel = record.created ? new Date(record.created * 1000).toLocaleDateString(PR.lang === "en" ? "en-US" : "zh-TW") : PR.t("日期未提供");
-      return '<article class="rw-card rw-paper"><div class="rw-section-head"><div><h3>' + titleHtml(record.title || PR.t("跨論文比較")) + '</h3><p class="meta">' + esc(dateLabel) + ' · ' + PR.t("{n} 篇論文", { n: record.paper_count || 0 }) + '</p></div></div><p>' + esc(record.status === "pending" ? PR.t("比較草稿尚待核對原文證據與評估條件。") : PR.t("可開啟這份比較結果檢視內容與證據。")) + '</p><div class="actions">' + btn(PR.t("查看比較結果"), "view-comparison", "accent", 'data-id="' + escAttr(record.id) + '"') + btn(PR.t("編輯名稱"), "edit-comparison-title", "line", 'data-id="' + escAttr(record.id) + '"') + (record.status === "accepted" ? btn(PR.t("下載"), "export-comparison-record", "line", 'data-id="' + escAttr(record.id) + '"') : '') + '</div></article>';
+      const dateLabel = record.created ? new Date(record.created * 1000).toLocaleDateString(PR.lang === "en" ? "en-US" : PR.lang === "zh-Hant" ? "zh-TW" : "zh-CN") : PR.t("日期未提供");
+      return '<article class="rw-card rw-paper"><div class="rw-section-head"><div><h3>' + titleHtml(record.title || PR.t("跨论文比较")) + '</h3><p class="meta">' + esc(dateLabel) + ' · ' + PR.t("{n} 篇论文", { n: record.paper_count || 0 }) + '</p></div></div><p>' + esc(record.status === "pending" ? PR.t("比较草稿尚待核对原文证据与评估条件。") : PR.t("可开启这份比较结果检视内容与证据。")) + '</p><div class="actions">' + btn(PR.t("查看比较结果"), "view-comparison", "accent", 'data-id="' + escAttr(record.id) + '"') + btn(PR.t("编辑名称"), "edit-comparison-title", "line", 'data-id="' + escAttr(record.id) + '"') + (record.status === "accepted" ? btn(PR.t("下载"), "export-comparison-record", "line", 'data-id="' + escAttr(record.id) + '"') : '') + '</div></article>';
     }).join("");
     const task = S.compareTask;
     const active = task && ["queued", "running", "cancelling"].includes(task.state);
-    const taskMarkup = active ? '<div class="rw-task-state" role="status"><i class="spin"></i><div><b>' + PR.t("正在整理跨論文比較…") + '</b><p>' + esc(task.message ? PR.t(task.message) : PR.t("正在讀取已整理的全文，請稍候。")) + '</p>' + (task.total ? '<progress max="' + task.total + '" value="' + (task.done || 0) + '"></progress>' : '') + '</div></div>' : task?.state === "failed" ? '<div class="rw-error" role="alert">' + esc(task.message ? PR.t(task.message) : PR.t("比較工作未完成。")) + ' <button class="btn sm line" data-action="comparisons-refresh">' + PR.t("重試") + '</button></div>' : '';
-    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("論文比較") + '</h2><p>' + PR.t("比較只從文獻庫已完成全文整理的論文開始；先設定比較維度，再產生可審閱的結果。") + '</p></div><div class="actions"><button class="btn line" data-action="compare-open-picker">' + PR.t("選擇比較論文") + '</button><button class="btn line" data-action="comparisons-refresh">' + PR.t("重新整理") + '</button></div></div>' + (S.compareSetupOpen ? renderComparisonSetup() : (S.comparePickerOpen ? renderComparisonPicker() : '')) + error + taskMarkup + (cards ? '<div class="rw-results">' + cards + '</div>' : (!active && !S.compareSetupOpen && !S.comparePickerOpen ? '<div class="rw-empty">' + PR.t("目前還沒有比較結果。請按「選擇比較論文」開始。") + '</div>' : ''));
+    const taskMarkup = active ? '<div class="rw-task-state" role="status"><i class="spin"></i><div><b>' + PR.t("正在整理跨论文比较…") + '</b><p>' + esc(task.message ? PR.t(task.message) : PR.t("正在读取已整理的全文，请稍候。")) + '</p>' + (task.total ? '<progress max="' + task.total + '" value="' + (task.done || 0) + '"></progress>' : '') + '</div></div>' : task?.state === "failed" ? '<div class="rw-error" role="alert">' + esc(task.message ? PR.t(task.message) : PR.t("比较工作未完成。")) + ' <button class="btn sm line" data-action="comparisons-refresh">' + PR.t("重试") + '</button></div>' : '';
+    host.innerHTML = '<div class="rw-section-head"><div><h2>' + PR.t("论文比较") + '</h2><p>' + PR.t("比较只从文献库已完成全文整理的论文开始；先设定比较维度，再产生可审阅的结果。") + '</p></div><div class="actions"><button class="btn line" data-action="compare-open-picker">' + PR.t("选择比较论文") + '</button><button class="btn line" data-action="comparisons-refresh">' + PR.t("重新整理") + '</button></div></div>' + (S.compareSetupOpen ? renderComparisonSetup() : (S.comparePickerOpen ? renderComparisonPicker() : '')) + error + taskMarkup + (cards ? '<div class="rw-results">' + cards + '</div>' : (!active && !S.compareSetupOpen && !S.comparePickerOpen ? '<div class="rw-empty">' + PR.t("目前还没有比较结果。请按「选择比较论文」开始。") + '</div>' : ''));
   }
   async function startComparison(button) {
     const selected = [...S.compareSelection];
     const missing = selected.filter((id) => !S.items.find((item) => item.id === id && Number(item.parsed_blocks || 0) > 0));
-    if (selected.length < 2 || selected.length > 5) return PR.toast(PR.t("跨論文比較需要選擇 2 至 5 篇論文。"));
-    if (missing.length) return PR.toast(PR.t("所選論文都必須先完成 PDF 與全文整理，才能比較。"));
-    if (!S.compareDimensions.size) return PR.toast(PR.t("請至少選擇一個比較維度。"));
+    if (selected.length < 2 || selected.length > 5) return PR.toast(PR.t("跨论文比较需要选择 2 至 5 篇论文。"));
+    if (missing.length) return PR.toast(PR.t("所选论文都必须先完成 PDF 与全文整理，才能比较。"));
+    if (!S.compareDimensions.size) return PR.toast(PR.t("请至少选择一个比较维度。"));
     if (S.compareTask && ["queued", "running", "cancelling"].includes(S.compareTask.state)) return;
-    if (!(await ensureVault())) return;
-    if (button) { button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在開始…"); }
+    if (button) { button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在开始…"); }
     try {
       S.comparisonError = "";
       S.compareTask = await PR.api(RESEARCH_API + "/comparison", { method: "POST", body: {
@@ -715,7 +715,7 @@
       S.comparisonError = error.message || String(error);
       renderComparisons();
       PR.toast(PR.t(S.comparisonError));
-    } finally { if (button?.isConnected) { button.disabled = false; button.textContent = PR.t("開始比較"); } }
+    } finally { if (button?.isConnected) { button.disabled = false; button.textContent = PR.t("开始比较"); } }
   }
   async function refreshComparisons() {
     S.comparisonsLoading = true; S.comparisonError = ""; renderComparisons();
@@ -737,6 +737,7 @@
     S.pathId = snapshot.path_id || "";
     S.pathRevision = Number(snapshot.revision || 0);
     S.pathModel = snapshot.model || "";
+    S.pathTarget = snapshot.target || "";
     S.pathGeneratedAt = snapshot.updated_at || snapshot.created_at || "";
     S.pathRelations = Array.isArray(snapshot.relations) ? snapshot.relations : [];
     S.pathRelationError = snapshot.relations_error || "";
@@ -761,26 +762,26 @@
         }
       }
     }
-    catch (_) { S.pathSaveError = PR.t("無法讀取上次儲存的閱讀路徑。"); }
+    catch (_) { S.pathSaveError = PR.t("无法读取上次储存的阅读路径。"); }
   }
   function pathConfig(startTitle, topic, goal, isFromPaper) {
     const goals = pathGoalOptions();
     const selectedPreset = goals.find((item) => item.value === goal)?.id || (S.pathGoalPreset === "custom" ? "" : S.pathGoalPreset);
     const goalCards = goals.map((item) => '<button type="button" role="radio" class="rw-path-goal' + (selectedPreset === item.id ? ' is-selected' : '') + '" data-action="select-path-goal" data-goal="' + escAttr(item.id) + '" aria-checked="' + (selectedPreset === item.id) + '"><strong>' + esc(displayStatus(item)) + '</strong><small>' + esc(item.description) + '</small></button>').join("");
-    const placeholder = isFromPaper ? PR.t("例如：Long Video Understanding（選填，直接以起點論文規劃可留空）") : PR.t("例如：Long Video Understanding");
-    return '<section class="rw-panel rw-path-config"><h2>' + PR.t("規劃論文閱讀路徑") + '</h2><p class="rw-source">' + PR.t("以研究主題或目前論文為起點，AI 只會排序已取得的論文，並說明每篇的閱讀用途。") + '</p><div class="rw-form-grid"><label class="rw-field wide"><span>' + PR.t("研究主題") + '</span><input id="rw-path-topic" value="' + escAttr(topic) + '" placeholder="' + escAttr(placeholder) + '"></label>' + (startTitle ? '<div class="rw-field wide"><span>' + PR.t("起點論文") + '</span><strong>' + titleHtml(startTitle) + '</strong></div>' : '') + '<div class="rw-field wide"><span>' + PR.t("研究目標") + '</span><div class="rw-path-goal-grid" role="radiogroup" aria-label="' + escAttr(PR.t("選擇研究目標")) + '">' + goalCards + '</div><p class="rw-source">' + PR.t("選擇一個主要目標，AI 會依此安排閱讀順序。") + '</p></div><label class="rw-field wide"><span>' + PR.t("研究目標（可修改）") + '</span><textarea id="rw-path-goal" rows="2" placeholder="' + escAttr(PR.t("也可以直接輸入自訂研究目標")) + '">' + esc(goal) + '</textarea></label></div><button class="btn accent" data-action="generate-path"' + (S.pathLoading ? ' disabled' : '') + '>' + (S.pathLoading ? '<i class="spin"></i> ' + PR.t("AI 正在整理閱讀順序…") : PR.t("產生閱讀路徑")) + '</button></section>';
+    const placeholder = isFromPaper ? PR.t("例如：Long Video Understanding（选填，直接以起点论文规划可留空）") : PR.t("例如：Long Video Understanding");
+    return '<section class="rw-panel rw-path-config"><h2>' + PR.t("规划论文阅读路径") + '</h2><p class="rw-source">' + PR.t("以研究主题或目前论文为起点，AI 只会排序已取得的论文，并说明每篇的阅读用途。") + '</p><div class="rw-form-grid"><label class="rw-field wide"><span>' + PR.t("研究主题") + '</span><input id="rw-path-topic" value="' + escAttr(topic) + '" placeholder="' + escAttr(placeholder) + '"></label>' + (startTitle ? '<div class="rw-field wide"><span>' + PR.t("起点论文") + '</span><strong>' + titleHtml(startTitle) + '</strong></div>' : '') + '<div class="rw-field wide"><span>' + PR.t("研究目标") + '</span><div class="rw-path-goal-grid" role="radiogroup" aria-label="' + escAttr(PR.t("选择研究目标")) + '">' + goalCards + '</div><p class="rw-source">' + PR.t("选择一个主要目标，AI 会依此安排阅读顺序。") + '</p></div><label class="rw-field wide"><span>' + PR.t("研究目标（可修改）") + '</span><textarea id="rw-path-goal" rows="2" placeholder="' + escAttr(PR.t("也可以直接输入自订研究目标")) + '">' + esc(goal) + '</textarea></label></div><button class="btn accent" data-action="generate-path"' + (S.pathLoading ? ' disabled' : '') + '>' + (S.pathLoading ? '<i class="spin"></i> ' + PR.t("AI 正在整理阅读顺序…") : PR.t("产生阅读路径")) + '</button></section>';
   }
   function pathDetail(step, index) {
-    if (!step) return '<aside class="rw-path-detail rw-empty">' + PR.t("選取一篇論文以檢視完整資訊。") + '</aside>';
+    if (!step) return '<aside class="rw-path-detail rw-empty">' + PR.t("选取一篇论文以检视完整资讯。") + '</aside>';
     const paper = step.paper || {}, key = step.paper_key || paperKey(paper), candidate = candidateFor(paper), library = alreadyInLibrary(paper);
     const role = step.role ? PR.t(step.role) : PR.t("延伸探索");
-    return '<aside class="rw-path-detail"><div class="rw-path-detail-kicker">' + PR.t("閱讀順序 {n}", { n: index + 1 }) + '</div><span class="rw-chip">' + esc(role) + '</span><h3>' + titleHtml(paper.title || PR.t("未命名論文")) + '</h3><p class="meta">' + esc([paper.authors, paper.year, paper.venue].filter(Boolean).join(" · ")) + '</p><h4>' + PR.t("推薦理由") + '</h4><p>' + esc(step.reason || PR.t("未提供推薦理由。")) + '</p><h4>' + PR.t("來源摘要") + '</h4><p class="rw-path-abstract">' + esc(paper.abstract || PR.t("來源未提供摘要。")) + '</p><p class="rw-source">' + PR.t("論文來源：{source}", { source: esc(paper.source || "OpenAlex") }) + '</p><div class="rw-path-detail-actions">' + btn(candidate ? PR.t("移出候選") : PR.t("加入候選"), "candidate", candidate ? "line" : "accent", 'data-key="' + escAttr(key) + '" data-paper-index="' + index + '"') + (library ? '<a class="btn sm line" href="/read/' + escAttr(library.id) + '">' + PR.t("開啟閱讀") + '</a>' : btn(PR.t("加入閱讀看板"), "queue", "line", 'data-key="' + escAttr(key) + '"')) + (sourceUrl(paper.url) ? '<a class="btn sm line" target="_blank" rel="noopener" href="' + escAttr(sourceUrl(paper.url)) + '">' + PR.t("論文來源") + '</a>' : '') + '</div><div class="rw-path-reorder"><span>' + PR.t("調整閱讀順序") + '</span><div class="rw-path-order-controls">' + pathOrderButton(key, -1, index === 0) + pathOrderButton(key, 1, index === S.pathResults.length - 1) + '</div></div></aside>';
+    return '<aside class="rw-path-detail"><div class="rw-path-detail-kicker">' + PR.t("阅读顺序 {n}", { n: index + 1 }) + '</div><span class="rw-chip">' + esc(role) + '</span><h3>' + titleHtml(paper.title || PR.t("未命名论文")) + '</h3><p class="meta">' + esc([paper.authors, paper.year, paper.venue].filter(Boolean).join(" · ")) + '</p><h4>' + PR.t("推荐理由") + '</h4><p>' + esc(step.reason || PR.t("未提供推荐理由。")) + '</p><h4>' + PR.t("来源摘要") + '</h4><p class="rw-path-abstract">' + esc(paper.abstract || PR.t("来源未提供摘要。")) + '</p><p class="rw-source">' + PR.t("论文来源：{source}", { source: esc(paper.source || "OpenAlex") }) + '</p><div class="rw-path-detail-actions">' + btn(candidate ? PR.t("移出候选") : PR.t("加入候选"), "candidate", candidate ? "line" : "accent", 'data-key="' + escAttr(key) + '" data-paper-index="' + index + '"') + (library ? '<a class="btn sm line" href="/read/' + escAttr(library.id) + '">' + PR.t("开启阅读") + '</a>' : btn(PR.t("加入阅读看板"), "queue", "line", 'data-key="' + escAttr(key) + '"')) + (sourceUrl(paper.url) ? '<a class="btn sm line" target="_blank" rel="noopener" href="' + escAttr(sourceUrl(paper.url)) + '">' + PR.t("论文来源") + '</a>' : '') + '</div><div class="rw-path-reorder"><span>' + PR.t("调整阅读顺序") + '</span><div class="rw-path-order-controls">' + pathOrderButton(key, -1, index === 0) + pathOrderButton(key, 1, index === S.pathResults.length - 1) + '</div></div></aside>';
   }
   function pathList() {
     return '<div class="rw-path-list">' + S.pathResults.map((step, index) => {
       const paper = step.paper || {}, key = step.paper_key || paperKey(paper);
       const role = step.role ? PR.t(step.role) : PR.t("延伸探索");
-      return '<article class="rw-card rw-path-card' + (key === S.pathSelectedKey ? ' is-selected' : '') + '"><button type="button" class="rw-path-index" data-action="path-select-paper" data-path-key="' + escAttr(key) + '">' + (index + 1) + '</button><div class="rw-path-card-content"><span class="rw-chip">' + esc(role) + '</span><h3>' + titleHtml(paper.title || PR.t("未命名論文")) + '</h3><p class="meta">' + esc([paper.year, paper.venue, paper.authors].filter(Boolean).join(" · ")) + '</p><p>' + esc(step.reason || PR.t("未提供推薦理由。")) + '</p><div class="rw-path-card-actions"><div class="actions">' + btn(PR.t("檢視詳情"), "path-select-paper", "line", 'data-path-key="' + escAttr(key) + '"') + '</div><div class="rw-path-order-controls">' + pathOrderButton(key, -1, index === 0) + pathOrderButton(key, 1, index === S.pathResults.length - 1) + '</div></div></div></article>';
+      return '<article class="rw-card rw-path-card' + (key === S.pathSelectedKey ? ' is-selected' : '') + '"><button type="button" class="rw-path-index" data-action="path-select-paper" data-path-key="' + escAttr(key) + '">' + (index + 1) + '</button><div class="rw-path-card-content"><span class="rw-chip">' + esc(role) + '</span><h3>' + titleHtml(paper.title || PR.t("未命名论文")) + '</h3><p class="meta">' + esc([paper.year, paper.venue, paper.authors].filter(Boolean).join(" · ")) + '</p><p>' + esc(step.reason || PR.t("未提供推荐理由。")) + '</p><div class="rw-path-card-actions"><div class="actions">' + btn(PR.t("检视详情"), "path-select-paper", "line", 'data-path-key="' + escAttr(key) + '"') + '</div><div class="rw-path-order-controls">' + pathOrderButton(key, -1, index === 0) + pathOrderButton(key, 1, index === S.pathResults.length - 1) + '</div></div></div></article>';
     }).join("") + '</div>';
   }
   function renderPath() {
@@ -795,15 +796,16 @@
     const fallback = pathGoalOptions().find((item) => item.id === S.pathGoalPreset) || pathGoalOptions()[0];
     const goal = S.pathGoal ?? fallback.value;
     const config = pathConfig(incomingTitle, topic, goal, isFromPaper);
-    if (!S.pathResults.length) { host.innerHTML = config + (S.pathError ? '<div class="rw-error">' + esc(PR.t(S.pathError)) + ' ' + btn(PR.t("重試"), "generate-path") + '</div>' : ""); return; }
+    if (!S.pathResults.length) { host.innerHTML = config + (S.pathError ? '<div class="rw-error">' + esc(PR.t(S.pathError)) + ' ' + btn(PR.t("重试"), "generate-path") + '</div>' : ""); return; }
     const selectedIndex = Math.max(0, S.pathResults.findIndex((step) => step.paper_key === S.pathSelectedKey));
     const selected = S.pathResults[selectedIndex] || S.pathResults[0];
-    const toolbar = '<div class="rw-path-toolbar"><div class="rw-path-view-switch" role="group" aria-label="' + escAttr(PR.t("閱讀路徑顯示方式")) + '"><button type="button" class="btn sm ' + (S.pathView === "map" ? "accent" : "line") + '" data-action="path-view" data-path-view="map" aria-pressed="' + (S.pathView === "map") + '">' + PR.t("地圖") + '</button><button type="button" class="btn sm ' + (S.pathView === "list" ? "accent" : "line") + '" data-action="path-view" data-path-view="list" aria-pressed="' + (S.pathView === "list") + '">' + PR.t("清單") + '</button></div><div class="rw-path-toggle-group"><button type="button" class="btn sm line" data-action="path-toggle-sequence" aria-pressed="' + S.pathShowSequence + '">' + PR.t("閱讀順序") + '</button><button type="button" class="btn sm line" data-action="path-toggle-relations" aria-pressed="' + S.pathShowRelations + '"' + (S.pathRelationsLoading ? " disabled" : "") + '>' + (S.pathRelationsLoading ? PR.t("正在更新引用…") : PR.t("引用關係")) + '</button>' + (S.pathShowRelations ? btn(PR.t("更新引用資料"), "path-refresh-relations", "line") : "") + '</div><div class="rw-path-zoom"><button type="button" class="btn sm line" data-action="path-zoom" data-zoom="out" aria-label="' + escAttr(PR.t("縮小")) + '">−</button><button type="button" class="btn sm line" data-action="path-zoom" data-zoom="in" aria-label="' + escAttr(PR.t("放大")) + '">' + '+' + '</button><button type="button" class="btn sm line" data-action="path-fit">' + PR.t("符合視窗") + '</button></div></div>';
-    const meta = '<section class="rw-path-summary"><div><span>' + PR.t("研究主題") + '</span><strong>' + (topic ? titleHtml(topic) : (S.pathStartPaper?.title ? titleHtml(S.pathStartPaper.title) : (incomingTitle ? titleHtml(incomingTitle) : esc(PR.t("未命名主題"))))) + '</strong></div><div><span>' + PR.t("研究目標") + '</span><strong>' + esc(goal) + '</strong></div><button type="button" class="btn sm line" data-action="path-toggle-settings" aria-expanded="' + S.pathConfigOpen + '">' + PR.t("修改設定") + '</button></section>';
-    const map = globalThis.PRPathMap?.render({ steps: S.pathResults, selectedKey: selected.paper_key, showSequence: S.pathShowSequence, showRelations: S.pathShowRelations, relations: S.pathRelations, view: S.pathMapView, esc, titleHtml, translate: (s) => PR.t(s), libraryFor: (paper) => { const item = alreadyInLibrary(paper); return item ? statusLabel(item.status || "unread") : ""; }, labels: { start: PR.t("起點論文"), paper: PR.t("論文"), mapLabel: PR.t("閱讀路徑地圖"), mapHelp: PR.t("拖曳空白處平移地圖；可使用工具列縮放與符合視窗。") } }) || "";
-    const relationNotice = S.pathShowRelations && S.pathRelationError ? '<div class="rw-path-notice">' + esc(PR.t(S.pathRelationError)) + ' ' + btn(PR.t("重試"), "path-refresh-relations", "line") + '</div>' : (S.pathShowRelations && !S.pathRelationsLoading && !S.pathRelations.length ? '<div class="rw-path-notice">' + PR.t("目前資料未找到圖內引用關係。") + '</div>' : "");
-    const savedPathNotice = S.pathIncomingStart ? '<div class="rw-path-notice">' + PR.t("正在顯示上次儲存的閱讀路徑；請依目前起點論文修改設定後重新產生。") + '</div>' : "";
-    host.innerHTML = (S.pathConfigOpen ? config : meta) + savedPathNotice + (S.pathSaveError ? '<div class="rw-error">' + esc(PR.t(S.pathSaveError)) + '</div>' : "") + (S.pathError ? '<div class="rw-error">' + esc(PR.t(S.pathError)) + ' ' + btn(PR.t("重試"), "generate-path") + '</div>' : "") + toolbar + '<div class="rw-path-legend"><span><i class="rw-path-legend-sequence"></i>' + PR.t("虛線：建議閱讀順序") + '</span><span><i class="rw-path-legend-citation"></i>' + PR.t("實線：引用者指向被引用論文") + '</span></div>' + relationNotice + (S.pathView === "map" ? '<div class="rw-path-layout">' + map + pathDetail(selected, selectedIndex) + '</div>' : '<div class="rw-path-list-layout">' + pathList() + pathDetail(selected, selectedIndex) + '</div>');
+    const toolbar = '<div class="rw-path-toolbar"><div class="rw-path-view-switch" role="group" aria-label="' + escAttr(PR.t("阅读路径显示方式")) + '"><button type="button" class="btn sm ' + (S.pathView === "map" ? "accent" : "line") + '" data-action="path-view" data-path-view="map" aria-pressed="' + (S.pathView === "map") + '">' + PR.t("地图") + '</button><button type="button" class="btn sm ' + (S.pathView === "list" ? "accent" : "line") + '" data-action="path-view" data-path-view="list" aria-pressed="' + (S.pathView === "list") + '">' + PR.t("清单") + '</button></div><div class="rw-path-toggle-group"><button type="button" class="btn sm line" data-action="path-toggle-sequence" aria-pressed="' + S.pathShowSequence + '">' + PR.t("阅读顺序") + '</button><button type="button" class="btn sm line" data-action="path-toggle-relations" aria-pressed="' + S.pathShowRelations + '"' + (S.pathRelationsLoading ? " disabled" : "") + '>' + (S.pathRelationsLoading ? PR.t("正在更新引用…") : PR.t("引用关系")) + '</button>' + (S.pathShowRelations ? btn(PR.t("更新引用资料"), "path-refresh-relations", "line") : "") + '</div><div class="rw-path-zoom"><button type="button" class="btn sm line" data-action="path-zoom" data-zoom="out" aria-label="' + escAttr(PR.t("缩小")) + '">−</button><button type="button" class="btn sm line" data-action="path-zoom" data-zoom="in" aria-label="' + escAttr(PR.t("放大")) + '">' + '+' + '</button><button type="button" class="btn sm line" data-action="path-fit">' + PR.t("符合视窗") + '</button></div></div>';
+    const meta = '<section class="rw-path-summary"><div><span>' + PR.t("研究主题") + '</span><strong>' + (topic ? titleHtml(topic) : (S.pathStartPaper?.title ? titleHtml(S.pathStartPaper.title) : (incomingTitle ? titleHtml(incomingTitle) : esc(PR.t("未命名主题"))))) + '</strong></div><div><span>' + PR.t("研究目标") + '</span><strong>' + esc(goal) + '</strong></div><button type="button" class="btn sm line" data-action="path-toggle-settings" aria-expanded="' + S.pathConfigOpen + '">' + PR.t("修改设定") + '</button></section>';
+    const map = globalThis.PRPathMap?.render({ steps: S.pathResults, selectedKey: selected.paper_key, showSequence: S.pathShowSequence, showRelations: S.pathShowRelations, relations: S.pathRelations, view: S.pathMapView, esc, titleHtml, translate: (s) => PR.t(s), libraryFor: (paper) => { const item = alreadyInLibrary(paper); return item ? statusLabel(item.status || "unread") : ""; }, labels: { start: PR.t("起点论文"), paper: PR.t("论文"), mapLabel: PR.t("阅读路径地图"), mapHelp: PR.t("拖曳空白处平移地图；可使用工具列缩放与符合视窗。") } }) || "";
+    const relationNotice = S.pathShowRelations && S.pathRelationError ? '<div class="rw-path-notice">' + esc(PR.t(S.pathRelationError)) + ' ' + btn(PR.t("重试"), "path-refresh-relations", "line") + '</div>' : (S.pathShowRelations && !S.pathRelationsLoading && !S.pathRelations.length ? '<div class="rw-path-notice">' + PR.t("目前资料未找到图内引用关系。") + '</div>' : "");
+    const savedPathNotice = S.pathIncomingStart ? '<div class="rw-path-notice">' + PR.t("正在显示上次储存的阅读路径；请依目前起点论文修改设定后重新产生。") + '</div>' : "";
+    const outputLanguage = PR.aiOutputLanguage(S.pathTarget);
+    host.innerHTML = (S.pathConfigOpen ? config : meta) + (outputLanguage ? '<p class="rw-source">' + esc(outputLanguage) + "</p>" : "") + savedPathNotice + (S.pathSaveError ? '<div class="rw-error">' + esc(PR.t(S.pathSaveError)) + '</div>' : "") + (S.pathError ? '<div class="rw-error">' + esc(PR.t(S.pathError)) + ' ' + btn(PR.t("重试"), "generate-path") + '</div>' : "") + toolbar + '<div class="rw-path-legend"><span><i class="rw-path-legend-sequence"></i>' + PR.t("虚线：建议阅读顺序") + '</span><span><i class="rw-path-legend-citation"></i>' + PR.t("实线：引用者指向被引用论文") + '</span></div>' + relationNotice + (S.pathView === "map" ? '<div class="rw-path-layout">' + map + pathDetail(selected, selectedIndex) + '</div>' : '<div class="rw-path-list-layout">' + pathList() + pathDetail(selected, selectedIndex) + '</div>');
     if (S.pathView === "map" && globalThis.PRPathMap) globalThis.PRPathMap.bind(host, S.pathMapView, (view) => { S.pathMapView = view; });
   }
   function savedTask(s) { return { id: "saved:" + s.paper_key, saved_key: s.paper_key, paper_ref: s.paper_key, title: s.metadata.title, authors: s.metadata.authors, year: s.metadata.year, status: s.status, tags: s.categories || (s.category ? [s.category] : []), interested: s.interested, starred: s.interested, archived: Boolean(s.archived), pdf_state: s.pdf_state, pdf_error: s.pdf_error, progress: 0, manual_order: s.manual_order || 0, added: s.created || s.updated || "", saved: true, metadata: s.metadata }; }
@@ -822,27 +824,27 @@
       const columnItems = list.filter((x) => (x.status || "unread") === s.id);
       const expanded = S.boardExpanded.has(s.id);
       const visibleItems = expanded ? columnItems : columnItems.slice(0, 8);
-      const more = columnItems.length > 8 ? '<button type="button" class="rw-column-more" data-action="toggle-column" data-column="' + escAttr(s.id) + '" aria-expanded="' + expanded + '">' + (expanded ? PR.t("收起") : PR.t("顯示全部（{n} 篇）", { n: columnItems.length })) + '</button>' : '';
-      return '<section class="rw-column" data-column="' + escAttr(s.id) + '" style="--col:' + escAttr(s.color) + '"><div class="rw-column-head"><i class="dot"></i><span class="rw-column-label">' + esc(displayStatus(s)) + '</span><span class="n">' + columnItems.length + '</span><button class="linkish" data-action="add-column" title="' + escAttr(PR.t("新增狀態")) + '">+</button></div><div class="rw-column-list">' + (visibleItems.length ? visibleItems.map(taskCard).join("") : '<div class="rw-column-empty">' + PR.t("目前沒有論文") + '</div>') + '</div>' + more + '</section>';
+      const more = columnItems.length > 8 ? '<button type="button" class="rw-column-more" data-action="toggle-column" data-column="' + escAttr(s.id) + '" aria-expanded="' + expanded + '">' + (expanded ? PR.t("收起") : PR.t("显示全部（{n} 篇）", { n: columnItems.length })) + '</button>' : '';
+      return '<section class="rw-column" data-column="' + escAttr(s.id) + '" style="--col:' + escAttr(s.color) + '"><div class="rw-column-head"><i class="dot"></i><span class="rw-column-label">' + esc(displayStatus(s)) + '</span><span class="n">' + columnItems.length + '</span><button class="linkish" data-action="add-column" title="' + escAttr(PR.t("新增状态")) + '">+</button></div><div class="rw-column-list">' + (visibleItems.length ? visibleItems.map(taskCard).join("") : '<div class="rw-column-empty">' + PR.t("目前没有论文") + '</div>') + '</div>' + more + '</section>';
     }).join("");
     const activeFilter = Boolean(category || status || S.filters.interested || S.filters.pdf);
-    const activeLabels = [category && category, status && statusLabel(status), S.filters.pdf && (S.filters.pdf === "missing" ? PR.t("待補 PDF") : PR.t("已有 PDF")), S.filters.interested && PR.t("感興趣")].filter(Boolean);
-    host.innerHTML = '<div class="rw-board-tools"><details class="rw-filter-details"' + (S.filterExpanded ? " open" : "") + '><summary><span class="rw-filter-title">' + PR.t("篩選條件") + '</span>' + (activeLabels.length ? '<span class="rw-filter-count">' + PR.t("{n} 項已套用", { n: activeLabels.length }) + '</span><span class="rw-filter-active">' + activeLabels.map(esc).join(" · ") + '</span>' : '<span class="rw-filter-active">' + PR.t("依分類、狀態、PDF 或感興趣篩選") + '</span>') + '<span class="rw-filter-chevron" aria-hidden="true">⌄</span></summary><div class="rw-filter-content"><label class="rw-filter-field"><span>' + PR.t("分類") + '</span><select data-filter="category" aria-label="' + escAttr(PR.t("依分類篩選")) + '"><option value="">' + PR.t("所有分類") + '</option>' + S.categories.map((c) => '<option value="' + escAttr(c) + '"' + (category === c ? " selected" : "") + '>' + esc(c) + '</option>').join("") + '</select></label><label class="rw-filter-field"><span>' + PR.t("閱讀狀態") + '</span><select data-filter="status" aria-label="' + escAttr(PR.t("依閱讀狀態篩選")) + '"><option value="">' + PR.t("所有狀態") + '</option>' + S.statuses.map((s) => '<option value="' + escAttr(s.id) + '"' + (status === s.id ? " selected" : "") + '>' + esc(displayStatus(s)) + '</option>').join("") + '</select></label><label class="rw-filter-field"><span>PDF</span><select data-filter="pdf" aria-label="' + escAttr(PR.t("依 PDF 狀態篩選")) + '"><option value="">' + PR.t("PDF 狀態不限") + '</option><option value="missing"' + (S.filters.pdf === "missing" ? " selected" : "") + '>' + PR.t("待補 PDF") + '</option><option value="ready"' + (S.filters.pdf === "ready" ? " selected" : "") + '>' + PR.t("已有 PDF") + '</option></select></label><button type="button" class="rw-filter-chip' + (S.filters.interested ? ' on' : '') + '" data-action="toggle-interested-filter" aria-pressed="' + S.filters.interested + '"><span aria-hidden="true">★</span> ' + PR.t("感興趣") + '</button><label class="rw-filter-field rw-sort-field"><span>' + PR.t("排序") + '</span><select data-sort><option value="added"' + (S.sort === "added" ? " selected" : "") + '>' + PR.t("最新加入") + '</option><option value="recent"' + (S.sort === "recent" ? " selected" : "") + '>' + PR.t("最近閱讀") + '</option><option value="manual"' + (S.sort === "manual" ? " selected" : "") + '>' + PR.t("手動優先序") + '</option></select></label>' + (activeFilter ? btn(PR.t("清除篩選"), "clear-filters", "line") : "") + '</div></details>' + btn(PR.t("管理狀態"), "manage-status", "line") + '</div><div class="rw-board">' + (columns || "") + '</div>';
+    const activeLabels = [category && category, status && statusLabel(status), S.filters.pdf && (S.filters.pdf === "missing" ? PR.t("待补 PDF") : PR.t("已有 PDF")), S.filters.interested && PR.t("感兴趣")].filter(Boolean);
+    host.innerHTML = '<div class="rw-board-tools"><details class="rw-filter-details"' + (S.filterExpanded ? " open" : "") + '><summary><span class="rw-filter-title">' + PR.t("筛选条件") + '</span>' + (activeLabels.length ? '<span class="rw-filter-count">' + PR.t("{n} 项已套用", { n: activeLabels.length }) + '</span><span class="rw-filter-active">' + activeLabels.map(esc).join(" · ") + '</span>' : '<span class="rw-filter-active">' + PR.t("依分类、状态、PDF 或感兴趣筛选") + '</span>') + '<span class="rw-filter-chevron" aria-hidden="true">⌄</span></summary><div class="rw-filter-content"><label class="rw-filter-field"><span>' + PR.t("分类") + '</span><select data-filter="category" aria-label="' + escAttr(PR.t("依分类筛选")) + '"><option value="">' + PR.t("所有分类") + '</option>' + S.categories.map((c) => '<option value="' + escAttr(c) + '"' + (category === c ? " selected" : "") + '>' + esc(c) + '</option>').join("") + '</select></label><label class="rw-filter-field"><span>' + PR.t("阅读状态") + '</span><select data-filter="status" aria-label="' + escAttr(PR.t("依阅读状态筛选")) + '"><option value="">' + PR.t("所有状态") + '</option>' + S.statuses.map((s) => '<option value="' + escAttr(s.id) + '"' + (status === s.id ? " selected" : "") + '>' + esc(displayStatus(s)) + '</option>').join("") + '</select></label><label class="rw-filter-field"><span>PDF</span><select data-filter="pdf" aria-label="' + escAttr(PR.t("依 PDF 状态筛选")) + '"><option value="">' + PR.t("PDF 状态不限") + '</option><option value="missing"' + (S.filters.pdf === "missing" ? " selected" : "") + '>' + PR.t("待补 PDF") + '</option><option value="ready"' + (S.filters.pdf === "ready" ? " selected" : "") + '>' + PR.t("已有 PDF") + '</option></select></label><button type="button" class="rw-filter-chip' + (S.filters.interested ? ' on' : '') + '" data-action="toggle-interested-filter" aria-pressed="' + S.filters.interested + '"><span aria-hidden="true">★</span> ' + PR.t("感兴趣") + '</button><label class="rw-filter-field rw-sort-field"><span>' + PR.t("排序") + '</span><select data-sort><option value="added"' + (S.sort === "added" ? " selected" : "") + '>' + PR.t("最新加入") + '</option><option value="recent"' + (S.sort === "recent" ? " selected" : "") + '>' + PR.t("最近阅读") + '</option><option value="manual"' + (S.sort === "manual" ? " selected" : "") + '>' + PR.t("手动优先序") + '</option></select></label>' + (activeFilter ? btn(PR.t("清除筛选"), "clear-filters", "line") : "") + '</div></details>' + btn(PR.t("管理状态"), "manage-status", "line") + '</div><div class="rw-board">' + (columns || "") + '</div>';
     host.querySelector(".rw-filter-details").addEventListener("toggle", (event) => { S.filterExpanded = event.currentTarget.open; });
-    if (!list.length) host.innerHTML += '<div class="rw-empty">' + PR.t("看板目前沒有符合條件的論文。") + btn(PR.t("從論文探索加入"), "go-explore") + '</div>';
+    if (!list.length) host.innerHTML += '<div class="rw-empty">' + PR.t("看板目前没有符合条件的论文。") + btn(PR.t("从论文探索加入"), "go-explore") + '</div>';
     if (S.quickPeekTaskId && !all.some((item) => item.id === S.quickPeekTaskId)) closeQuickPeek(false);
     else if (S.quickPeekTaskId) renderQuickPeek();
   }
   function taskCard(i) {
     const percent = Math.round(Math.max(0, Math.min(1, Number(i.progress || 0))) * 100);
     const categories = (i.tags || []).join(PR.t("、"));
-    const title = i.saved ? i.title : (i.title_zh || i.title_en || PR.t("未命名論文"));
-    const accessibleLabel = PR.t("論文：{title}。閱讀狀態：{status}。可拖曳移動；也可按 Alt 加左右方向鍵變更狀態。", { title, status: statusLabel(i.status || "unread") }) + PR.t("按 Enter 開啟快速檢視。");
-    return '<article class="rw-task" draggable="true" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight" aria-expanded="' + (S.quickPeekTaskId === i.id) + '" aria-label="' + escAttr(accessibleLabel) + '" data-task="' + escAttr(i.id) + '" data-saved="' + (i.saved ? "1" : "0") + '"><h3>' + (i.saved ? titleHtml(i.title) : '<a href="/read/' + escAttr(i.id) + '">' + titleHtml(title) + '</a>') + '</h3><div class="muted rw-task-authors" title="' + escAttr(i.authors || PR.t("作者未提供")) + '">' + esc(i.authors || PR.t("作者未提供")) + (i.year ? " · " + esc(i.year) : "") + '</div>' + (categories ? '<div class="muted rw-task-category" title="' + escAttr(categories) + '"><span>' + PR.t("分類：") + '</span> ' + esc(categories) + '</div>' : "") + (i.saved ? '<div class="muted rw-task-pdf">' + (i.pdf_state === "failed" ? PR.t("待補 PDF") : i.pdf_state === "running" ? PR.t("正在下載 PDF") : PR.t("等待 PDF")) + '</div>' : '<div class="rw-progress" title="' + escAttr(PR.t("閱讀進度 {n}%", { n: percent })) + '"><i style="width:' + percent + '%"></i></div><div class="muted rw-task-progress">' + PR.t("閱讀進度 {n}%", { n: percent }) + '</div>') + '<div class="task-line">' + (i.saved ? '<button class="linkish" data-action="attach-pdf" data-key="' + escAttr(i.saved_key) + '">' + PR.t("附加 PDF") + '</button>' : '') + (i.saved && i.pdf_state === "failed" ? '<button class="linkish" data-action="retry-pdf" data-key="' + escAttr(i.saved_key) + '">' + PR.t("重試 PDF") + '</button>' : '') + '<button class="linkish interest-star' + (i.interested ? ' is-interested' : '') + '" aria-label="' + escAttr((i.interested ? PR.t("取消感興趣") : PR.t("標記感興趣"))) + '" title="' + escAttr((i.interested ? PR.t("取消感興趣") : PR.t("標記感興趣"))) + '" data-action="interested" data-task-id="' + escAttr(i.id) + '"' + (i.saved ? ' data-saved-key="' + escAttr(i.saved_key) + '"' : "") + '>' + (i.interested ? "★" : "☆") + '</button><button class="linkish archive-btn" aria-label="' + escAttr(PR.t("封存論文")) + '" title="' + escAttr(PR.t("封存論文")) + '" data-action="archive-task" data-task-id="' + escAttr(i.id) + '"' + (i.saved ? ' data-saved-key="' + escAttr(i.saved_key) + '"' : "") + '>' + PR.icon("archive", "sm") + '</button></div></article>';
+    const title = i.saved ? i.title : (i.title_zh || i.title_en || PR.t("未命名论文"));
+    const accessibleLabel = PR.t("论文：{title}。阅读状态：{status}。可拖曳移动；也可按 Alt 加左右方向键变更状态。", { title, status: statusLabel(i.status || "unread") }) + PR.t("按 Enter 开启快速检视。");
+    return '<article class="rw-task" draggable="true" tabindex="0" aria-keyshortcuts="Enter Alt+ArrowLeft Alt+ArrowRight" aria-expanded="' + (S.quickPeekTaskId === i.id) + '" aria-label="' + escAttr(accessibleLabel) + '" data-task="' + escAttr(i.id) + '" data-saved="' + (i.saved ? "1" : "0") + '"><h3>' + (i.saved ? titleHtml(i.title) : '<a href="/read/' + escAttr(i.id) + '">' + titleHtml(title) + '</a>') + '</h3><div class="muted rw-task-authors" title="' + escAttr(i.authors || PR.t("作者未提供")) + '">' + esc(i.authors || PR.t("作者未提供")) + (i.year ? " · " + esc(i.year) : "") + '</div>' + (categories ? '<div class="muted rw-task-category" title="' + escAttr(categories) + '"><span>' + PR.t("分类：") + '</span> ' + esc(categories) + '</div>' : "") + (i.saved ? '<div class="muted rw-task-pdf">' + (i.pdf_state === "failed" ? PR.t("待补 PDF") : i.pdf_state === "running" ? PR.t("正在下载 PDF") : PR.t("等待 PDF")) + '</div>' : '<div class="rw-progress" title="' + escAttr(PR.t("阅读进度 {n}%", { n: percent })) + '"><i style="width:' + percent + '%"></i></div><div class="muted rw-task-progress">' + PR.t("阅读进度 {n}%", { n: percent }) + '</div>') + '<div class="task-line">' + (i.saved ? '<button class="linkish" data-action="attach-pdf" data-key="' + escAttr(i.saved_key) + '">' + PR.t("附加 PDF") + '</button>' : '') + (i.saved && i.pdf_state === "failed" ? '<button class="linkish" data-action="retry-pdf" data-key="' + escAttr(i.saved_key) + '">' + PR.t("重试 PDF") + '</button>' : '') + '<button class="linkish interest-star' + (i.interested ? ' is-interested' : '') + '" aria-label="' + escAttr((i.interested ? PR.t("取消感兴趣") : PR.t("标记感兴趣"))) + '" title="' + escAttr((i.interested ? PR.t("取消感兴趣") : PR.t("标记感兴趣"))) + '" data-action="interested" data-task-id="' + escAttr(i.id) + '"' + (i.saved ? ' data-saved-key="' + escAttr(i.saved_key) + '"' : "") + '>' + (i.interested ? "★" : "☆") + '</button><button class="linkish archive-btn" aria-label="' + escAttr(PR.t("封存论文")) + '" title="' + escAttr(PR.t("封存论文")) + '" data-action="archive-task" data-task-id="' + escAttr(i.id) + '"' + (i.saved ? ' data-saved-key="' + escAttr(i.saved_key) + '"' : "") + '>' + PR.icon("archive", "sm") + '</button></div></article>';
   }
   function quickPeekPdfState(task) {
-    if (!task.saved) return PR.t("PDF 可供閱讀");
-    if (task.pdf_state === "failed") return PR.t("PDF 處理失敗");
+    if (!task.saved) return PR.t("PDF 可供阅读");
+    if (task.pdf_state === "failed") return PR.t("PDF 处理失败");
     if (task.pdf_state === "running") return PR.t("PDF 正在取得");
     return PR.t("PDF 尚待取得");
   }
@@ -856,16 +858,16 @@
   }
   function quickPeekRecordLink(task, record, text, label) {
     const href = quickPeekRecordHref(task, record.anchor);
-    const body = '<span class="rw-quick-peek-record-label">' + esc(label) + '</span><span>' + esc(text || PR.t("未提供內容")) + '</span>';
+    const body = '<span class="rw-quick-peek-record-label">' + esc(label) + '</span><span>' + esc(text || PR.t("未提供内容")) + '</span>';
     return href ? '<a class="rw-quick-peek-record" href="' + escAttr(href) + '">' + body + '</a>' : '<div class="rw-quick-peek-record">' + body + '</div>';
   }
   function quickPeekRecordsHtml(task) {
     const record = S.quickPeekRecords[task.id];
-    if (!record) return '<p class="rw-source">' + (task.saved ? PR.t("PDF 尚待取得") : PR.t("正在載入閱讀紀錄…")) + '</p>';
-    if (record.error) return '<p class="rw-source">' + esc(PR.t("無法載入閱讀紀錄。")) + '</p>';
+    if (!record) return '<p class="rw-source">' + (task.saved ? PR.t("PDF 尚待取得") : PR.t("正在载入阅读纪录…")) + '</p>';
+    if (record.error) return '<p class="rw-source">' + esc(PR.t("无法载入阅读纪录。")) + '</p>';
     const notes = record.notes || [], highlights = record.highlights || [], questions = record.questions || [];
     const list = (title, empty, values, getText, label) => '<div class="rw-quick-peek-record-group"><h4>' + title + '</h4>' + (values.length ? values.map((item) => quickPeekRecordLink(task, item, getText(item), label)).join("") : '<p class="rw-source">' + empty + '</p>') + '</div>';
-    return list(PR.t("最近筆記"), PR.t("沒有最近筆記。"), notes, (n) => n.body, PR.t("我的筆記")) + list(PR.t("最近劃線"), PR.t("沒有最近劃線。"), highlights, (n) => n.quote, PR.t("我的劃線")) + list(PR.t("最近問題"), PR.t("沒有最近問題。"), questions, (n) => n.body, PR.t("我的問題"));
+    return list(PR.t("最近笔记"), PR.t("没有最近笔记。"), notes, (n) => n.body, PR.t("我的笔记")) + list(PR.t("最近划线"), PR.t("没有最近划线。"), highlights, (n) => n.quote, PR.t("我的划线")) + list(PR.t("最近问题"), PR.t("没有最近问题。"), questions, (n) => n.body, PR.t("我的问题"));
   }
   async function loadQuickPeekRecords(task) {
     if (task.saved || S.quickPeekRecords[task.id]?.loading || S.quickPeekRecords[task.id]?.loaded) return;
@@ -888,8 +890,8 @@
   function quickPeekEditor(task) {
     const categories = S.categories.map((category) => '<button type="button" class="rw-quick-peek-toggle' + ((task.tags || []).includes(category) ? ' on' : '') + '" data-action="quick-peek-category" data-category="' + escAttr(category) + '" aria-pressed="' + ((task.tags || []).includes(category)) + '">' + esc(category) + '</button>').join("");
     const statuses = S.statuses.map((item) => '<button type="button" class="rw-quick-peek-toggle' + (item.id === task.status ? ' on' : '') + '" data-action="quick-peek-status" data-status="' + escAttr(item.id) + '" aria-pressed="' + (item.id === task.status) + '">' + esc(displayStatus(item)) + '</button>').join("");
-    const starLabel = task.interested ? PR.t("取消感興趣") : PR.t("標記感興趣");
-    return '<div class="rw-quick-peek-edit"><p class="rw-label">' + PR.t("閱讀狀態") + '</p><div class="rw-quick-peek-toggles">' + statuses + '</div><p class="rw-label">' + PR.t("分類") + '</p><div class="rw-quick-peek-toggles">' + (categories || '<span class="rw-source">' + PR.t("未附加分類") + '</span>') + '</div><button type="button" class="rw-quick-peek-star' + (task.interested ? ' on' : '') + '" data-action="quick-peek-star" aria-pressed="' + Boolean(task.interested) + '">' + (task.interested ? "★" : "☆") + ' ' + starLabel + '</button></div>';
+    const starLabel = task.interested ? PR.t("取消感兴趣") : PR.t("标记感兴趣");
+    return '<div class="rw-quick-peek-edit"><p class="rw-label">' + PR.t("阅读状态") + '</p><div class="rw-quick-peek-toggles">' + statuses + '</div><p class="rw-label">' + PR.t("分类") + '</p><div class="rw-quick-peek-toggles">' + (categories || '<span class="rw-source">' + PR.t("未附加分类") + '</span>') + '</div><button type="button" class="rw-quick-peek-star' + (task.interested ? ' on' : '') + '" data-action="quick-peek-star" aria-pressed="' + Boolean(task.interested) + '">' + (task.interested ? "★" : "☆") + ' ' + starLabel + '</button></div>';
   }
   function renderQuickPeek() {
     const drawer = $("#rw-quick-peek"), scrim = $("#rw-quick-peek-scrim");
@@ -900,22 +902,22 @@
       scrim.classList.remove("is-open");
       return;
     }
-    const title = task.saved ? task.title : (task.title_zh || task.title_en || PR.t("未命名論文"));
+    const title = task.saved ? task.title : (task.title_zh || task.title_en || PR.t("未命名论文"));
     const authors = task.authors || task.metadata?.authors || PR.t("作者未提供");
     const summaryRecord = quickPeekSummary(task);
     const summary = summaryRecord?.summary_markdown || task.summary_markdown || task.summary || "";
     const abstract = task.abstract_zh || task.abstract || task.metadata?.abstract_zh || task.metadata?.abstract || "";
-    const categories = (task.tags || []).join(PR.t("、")) || PR.t("未附加分類");
+    const categories = (task.tags || []).join(PR.t("、")) || PR.t("未附加分类");
     const state = statusLabel(task.status || "unread");
     const readAction = task.saved
-      ? btn(PR.t("附加 PDF"), "attach-pdf", "line", 'data-key="' + escAttr(task.saved_key) + '"') + (task.pdf_state === "failed" ? btn(PR.t("重試 PDF"), "retry-pdf", "line", 'data-key="' + escAttr(task.saved_key) + '"') : "")
-      : '<a class="btn sm accent" href="/read/' + escAttr(task.id) + '">' + PR.t("繼續閱讀") + '</a>';
-    const summaryBody = summary ? '<article class="rw-quick-peek-summary markdown">' + PR.mdBlocks(summary) + '</article><p class="rw-source">' + PR.t("根據來源摘要整理") + '</p>' : '<p class="rw-quick-peek-abstract">' + PR.md(abstract || PR.t("來源未提供摘要。")) + '</p><p class="rw-source">' + PR.t("來源摘要") + '</p>';
+      ? btn(PR.t("附加 PDF"), "attach-pdf", "line", 'data-key="' + escAttr(task.saved_key) + '"') + (task.pdf_state === "failed" ? btn(PR.t("重试 PDF"), "retry-pdf", "line", 'data-key="' + escAttr(task.saved_key) + '"') : "")
+      : '<a class="btn sm accent" href="/read/' + escAttr(task.id) + '">' + PR.t("继续阅读") + '</a>';
+    const summaryBody = summary ? '<article class="rw-quick-peek-summary markdown">' + PR.mdBlocks(summary) + '</article><p class="rw-source">' + PR.t("根据来源摘要整理") + '</p>' : '<p class="rw-quick-peek-abstract">' + PR.md(abstract || PR.t("来源未提供摘要。")) + '</p><p class="rw-source">' + PR.t("来源摘要") + '</p>';
     const list = S.boardVisible || allTasks();
     const index = list.findIndex((item) => item.id === task.id);
     const previous = index > 0 ? btn(PR.t("上一篇"), "quick-peek-previous", "line") : "";
     const next = index >= 0 && index < list.length - 1 ? btn(PR.t("下一篇"), "quick-peek-next", "line") : "";
-    drawer.innerHTML = '<div class="rw-quick-peek-head"><h2 id="rw-quick-peek-title">' + PR.t("快速檢視") + '</h2><button type="button" class="rw-quick-peek-close" data-action="quick-peek-close" aria-label="' + escAttr(PR.t("關閉快速檢視")) + '" title="' + escAttr(PR.t("關閉快速檢視")) + '">' + PR.icon("x", "sm") + '</button></div><div class="rw-quick-peek-body"><details class="rw-quick-section" open><summary>' + PR.t("概覽") + '</summary><div class="rw-quick-section-body"><span class="rw-chip">' + esc(state) + '</span><h3 class="rw-quick-peek-title">' + titleHtml(title) + '</h3><p class="rw-quick-peek-meta">' + esc([authors, task.year || task.metadata?.year, task.venue].filter(Boolean).join(" · ")) + '</p><dl class="rw-quick-peek-status"><dt>' + PR.t("分類") + '</dt><dd>' + esc(categories) + '</dd><dt>' + PR.t("閱讀狀態") + '</dt><dd>' + esc(state) + '</dd><dt>' + PR.t("閱讀進度") + '</dt><dd>' + (task.saved ? "—" : PR.t("閱讀進度 {n}%", { n: Math.round(Number(task.progress || 0) * 100) })) + '</dd><dt>PDF</dt><dd>' + esc(quickPeekPdfState(task)) + '</dd></dl>' + quickPeekEditor(task) + '</div></details><details class="rw-quick-section" open><summary>' + PR.t("摘要") + '</summary><div class="rw-quick-section-body">' + summaryBody + '</div></details><details class="rw-quick-section" open><summary>' + PR.t("閱讀紀錄") + '</summary><div class="rw-quick-section-body rw-quick-peek-records">' + quickPeekRecordsHtml(task) + '</div></details></div><div class="rw-quick-peek-footer"><div class="rw-quick-peek-nav">' + previous + next + '</div><div class="rw-quick-peek-actions">' + readAction + '</div></div>';
+    drawer.innerHTML = '<div class="rw-quick-peek-head"><h2 id="rw-quick-peek-title">' + PR.t("快速检视") + '</h2><button type="button" class="rw-quick-peek-close" data-action="quick-peek-close" aria-label="' + escAttr(PR.t("关闭快速检视")) + '" title="' + escAttr(PR.t("关闭快速检视")) + '">' + PR.icon("x", "sm") + '</button></div><div class="rw-quick-peek-body"><details class="rw-quick-section" open><summary>' + PR.t("概览") + '</summary><div class="rw-quick-section-body"><span class="rw-chip">' + esc(state) + '</span><h3 class="rw-quick-peek-title">' + titleHtml(title) + '</h3><p class="rw-quick-peek-meta">' + esc([authors, task.year || task.metadata?.year, task.venue].filter(Boolean).join(" · ")) + '</p><dl class="rw-quick-peek-status"><dt>' + PR.t("分类") + '</dt><dd>' + esc(categories) + '</dd><dt>' + PR.t("阅读状态") + '</dt><dd>' + esc(state) + '</dd><dt>' + PR.t("阅读进度") + '</dt><dd>' + (task.saved ? "—" : PR.t("阅读进度 {n}%", { n: Math.round(Number(task.progress || 0) * 100) })) + '</dd><dt>PDF</dt><dd>' + esc(quickPeekPdfState(task)) + '</dd></dl>' + quickPeekEditor(task) + '</div></details><details class="rw-quick-section" open><summary>' + PR.t("摘要") + '</summary><div class="rw-quick-section-body">' + summaryBody + '</div></details><details class="rw-quick-section" open><summary>' + PR.t("阅读纪录") + '</summary><div class="rw-quick-section-body rw-quick-peek-records">' + quickPeekRecordsHtml(task) + '</div></details></div><div class="rw-quick-peek-footer"><div class="rw-quick-peek-nav">' + previous + next + '</div><div class="rw-quick-peek-actions">' + readAction + '</div></div>';
     renderTitleNodes(drawer);
     drawer.classList.add("is-open"); drawer.setAttribute("aria-hidden", "false"); scrim.classList.add("is-open");
     loadQuickPeekRecords(task);
@@ -948,7 +950,7 @@
     const query = $("#rw-venue-query")?.value?.trim() || "";
     S.venueQuery = query;
     S.errorAction = "retry-source";
-    if (!query) { S.error = PR.t("請輸入期刊或會議名稱。"); return renderExplore(); }
+    if (!query) { S.error = PR.t("请输入期刊或会议名称。"); return renderExplore(); }
     S.venueBusy = true; renderExplore();
     try {
       const r = await PR.api(API + "/search?kind=sources&q=" + encodeURIComponent(query));
@@ -956,10 +958,10 @@
       const selected = new Map(S.venueSelected.filter((s) => S.venueOptions.some((candidate) => candidate.id === s.id)).map((s) => [s.id, s]));
       S.venueOptions.filter((s) => s.suggested).forEach((s) => selected.set(s.id, s));
       S.venueSelected = Array.from(selected.values());
-      if (r.stale) S.venueWarning = [S.venueWarning, r.error, PR.t("目前顯示上次成功取得的來源清單。")].filter(Boolean).join(" ");
-      S.error = S.venueOptions.length ? "" : PR.t("找不到相符的出版來源。");
+      if (r.stale) S.venueWarning = [S.venueWarning, r.error, PR.t("目前显示上次成功取得的来源清单。")].filter(Boolean).join(" ");
+      S.error = S.venueOptions.length ? "" : PR.t("找不到相符的出版来源。");
       S.errorAction = "retry-search";
-    } catch (e) { S.error = e.message; if (S.venueOptions.length) S.venueWarning = PR.t("出版來源查詢未完成，保留先前結果。"); }
+    } catch (e) { S.error = e.message; if (S.venueOptions.length) S.venueWarning = PR.t("出版来源查询未完成，保留先前结果。"); }
     finally { S.venueBusy = false; rememberExploreInputs(); }
     renderExplore();
   }
@@ -988,7 +990,7 @@
           providers.push({ name: "DBLP", url: API + "/search?" + new URLSearchParams({ kind: "dblp", ...venueParams }) });
           providers.push({ name: "Crossref", url: API + "/search?" + new URLSearchParams({ kind: "crossref", ...venueParams }) });
         }
-        if (!providers.length) throw new Error(PR.t("請先輸入研究主題，或選擇至少一個出版來源。"));
+        if (!providers.length) throw new Error(PR.t("请先输入研究主题，或选择至少一个出版来源。"));
         S.providerStatus = Object.fromEntries(providers.map((provider) => [provider.name, "loading"]));
         S.providerErrors = [];
         S.providerHasMore = {};
@@ -1014,11 +1016,11 @@
           }
         }));
         if (requestId !== S.searchRequestId) return;
-        if (!settled.some((x) => x.ok)) throw new Error(S.providerErrors.join("; ") || PR.t("所有論文來源目前都無法連線。"));
+        if (!settled.some((x) => x.ok)) throw new Error(S.providerErrors.join("; ") || PR.t("所有论文来源目前都无法连线。"));
         S.resultCount = S.results.length;
         S.hasMore = settled.some((x) => x.result?.has_more);
         S.page = 1;
-        if (S.providerErrors.length) S.warning = PR.t("部分來源未能回應，已先顯示成功取得的結果：{errors}", { errors: S.providerErrors.join("; ") });
+        if (S.providerErrors.length) S.warning = PR.t("部分来源未能回应，已先显示成功取得的结果：{errors}", { errors: S.providerErrors.join("; ") });
     } catch (e) {
       if (requestId !== S.searchRequestId) return;
       S.error = e.message;
@@ -1030,7 +1032,7 @@
       S.providerHasMore = previous.providerHasMore;
       if (S.results.length || S.authors.length) {
         S.stale = true;
-        S.staleError = previous.lastQuery && previous.lastQuery !== query ? PR.t("本次搜尋未完成，保留先前結果（先前查詢：「{query}」）。", { query: previous.lastQuery }) : PR.t("本次搜尋未完成，保留先前結果。");
+        S.staleError = previous.lastQuery && previous.lastQuery !== query ? PR.t("本次搜寻未完成，保留先前结果（先前查询：「{query}」）。", { query: previous.lastQuery }) : PR.t("本次搜寻未完成，保留先前结果。");
       } else { S.stale = previous.stale; S.staleError = previous.staleError; }
     }
     if (requestId === S.searchRequestId) { S.loadingSearch = false; renderExplore(); }
@@ -1093,7 +1095,7 @@
       S.error = e.message;
       if (S.results.length) {
         S.stale = true;
-        S.staleError = PR.t("本次論文關聯查詢未完成，保留先前結果。");
+        S.staleError = PR.t("本次论文关联查询未完成，保留先前结果。");
       }
     } finally {
       S.relationBusy = false;
@@ -1112,7 +1114,7 @@
   async function loadMore(button) {
     if (S.pageBusy) return;
     const requestId = S.searchRequestId, page = Number(S.page || 1) + 1;
-    S.pageBusy = true; button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在載入…");
+    S.pageBusy = true; button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在载入…");
     try {
       let providers;
       if (S.relationRequest) {
@@ -1153,18 +1155,18 @@
           errors.push(PR.t("{source}：{message}", { source: source.name, message: PR.t(result.reason.message) }));
         }
       });
-      if (!success) throw new Error(errors.join("; ") || PR.t("目前無法載入更多論文。"));
+      if (!success) throw new Error(errors.join("; ") || PR.t("目前无法载入更多论文。"));
       S.page = page;
       S.hasMore = Object.values(S.providerHasMore).some(Boolean);
-      S.warning = errors.length ? PR.t("部分來源的下一頁未能載入，已保留成功取得的結果：{errors}", { errors: errors.join("; ") }) : "";
+      S.warning = errors.length ? PR.t("部分来源的下一页未能载入，已保留成功取得的结果：{errors}", { errors: errors.join("; ") }) : "";
       S.resultCount = S.results.length; renderExplore();
     } catch (error) { PR.toast(PR.t(error.message)); }
-    finally { S.pageBusy = false; if (button.isConnected) { button.disabled = false; button.textContent = PR.t("載入更多論文"); } }
+    finally { S.pageBusy = false; if (button.isConnected) { button.disabled = false; button.textContent = PR.t("载入更多论文"); } }
   }
-  const CLOSE_ONLY = "關閉"; // i18n-ok: Legacy modal control sentinel, never a displayed label.
-  function openModal(title, bodyHtml, onSave, saveLabel = PR.t("儲存"), options = {}) {
+  const CLOSE_ONLY = Symbol("close-only");
+  function openModal(title, bodyHtml, onSave, saveLabel = PR.t("储存"), options = {}) {
     const modal = $("#rw-modal");
-    modal.innerHTML = '<div class="rw-dialog' + (options.headerClose ? ' has-header-close' : '') + '" role="dialog" aria-modal="true"><div class="rw-dialog-head"><h2>' + titleHtml(title) + '</h2>' + (options.headerClose ? '<button type="button" class="rw-dialog-close" data-modal-close aria-label="' + escAttr(PR.t("關閉")) + '" title="' + escAttr(PR.t("關閉")) + '">×</button>' : '') + '</div><div class="rw-dialog-body">' + bodyHtml + '</div><div class="rw-dialog-foot">' + (saveLabel === CLOSE_ONLY ? '<button class="btn line" data-modal-close>' + PR.t("關閉") + '</button>' : '<button class="btn line" data-modal-close>' + PR.t("關閉") + '</button><button class="btn accent" data-modal-save>' + esc(saveLabel) + '</button>') + '</div></div>';
+    modal.innerHTML = '<div class="rw-dialog' + (options.headerClose ? ' has-header-close' : '') + '" role="dialog" aria-modal="true"><div class="rw-dialog-head"><h2>' + titleHtml(title) + '</h2>' + (options.headerClose ? '<button type="button" class="rw-dialog-close" data-modal-close aria-label="' + escAttr(PR.t("关闭")) + '" title="' + escAttr(PR.t("关闭")) + '">×</button>' : '') + '</div><div class="rw-dialog-body">' + bodyHtml + '</div><div class="rw-dialog-foot">' + (saveLabel === CLOSE_ONLY ? '<button class="btn line" data-modal-close>' + PR.t("关闭") + '</button>' : '<button class="btn line" data-modal-close>' + PR.t("关闭") + '</button><button class="btn accent" data-modal-save>' + esc(saveLabel) + '</button>') + '</div></div>';
     modal.hidden = false;
     $$("[data-modal-close]", modal).forEach((close) => { close.onclick = () => { modal.hidden = true; }; });
     const save = $("[data-modal-save]", modal);
@@ -1174,15 +1176,15 @@
   }
   function queueModal(work) {
     const cats = S.categories.map((c) => '<label class="rw-category-option"><input type="checkbox" name="q-category" value="' + escAttr(c) + '"><span>' + esc(c) + '</span></label>').join("");
-    if (!work) return PR.toast(PR.t("找不到論文資料，請重新搜尋。"));
-    const categoryPicker = cats ? '<div id="q-categories" class="rw-category-picker" role="group" aria-label="' + escAttr(PR.t("分類（可複選）")) + '">' + cats + '</div>' : '<p class="rw-source rw-category-empty">' + PR.t("目前尚未建立分類，可直接加入閱讀看板。") + '</p>';
-    const body = '<div class="rw-form-grid"><div class="rw-field wide"><label>' + PR.t("分類（可複選）") + '</label>' + categoryPicker + '<small>' + PR.t("加入閱讀看板會開始尋找公開 PDF；這與候選清單分開管理。") + '</small></div><div class="rw-field wide"><label class="rw-check"><input id="q-interested" type="checkbox">' + PR.t("標記為感興趣") + '</label></div></div>';
-    openModal(PR.t("加入閱讀看板"), body, async (modal) => {
+    if (!work) return PR.toast(PR.t("找不到论文资料，请重新搜寻。"));
+    const categoryPicker = cats ? '<div id="q-categories" class="rw-category-picker" role="group" aria-label="' + escAttr(PR.t("分类（可复选）")) + '">' + cats + '</div>' : '<p class="rw-source rw-category-empty">' + PR.t("目前尚未建立分类，可直接加入阅读看板。") + '</p>';
+    const body = '<div class="rw-form-grid"><div class="rw-field wide"><label>' + PR.t("分类（可复选）") + '</label>' + categoryPicker + '<small>' + PR.t("加入阅读看板会开始寻找公开 PDF；这与候选清单分开管理。") + '</small></div><div class="rw-field wide"><label class="rw-check"><input id="q-interested" type="checkbox">' + PR.t("标记为感兴趣") + '</label></div></div>';
+    openModal(PR.t("加入阅读看板"), body, async (modal) => {
       const category = Array.from($$("input[name=\"q-category\"]:checked", modal)).map((input) => input.value);
       await PR.api(API + "/save-paper", { method: "POST", body: { paper: work, categories: category, interested: $("#q-interested", modal).checked } });
-      PR.toast(PR.t("已加入待閱讀看板並開始尋找可用 PDF；不會自動整理摘要。"));
+      PR.toast(PR.t("已加入待阅读看板并开始寻找可用 PDF；不会自动整理摘要。"));
       const data = await PR.api(API); S.saved = data.saved || S.saved; S.items = data.items || S.items; renderExplore();
-    }, PR.t("加入並尋找 PDF"));
+    }, PR.t("加入并寻找 PDF"));
   }
   async function patchTask(task, fields) {
     await saveTaskFields(task, fields);
@@ -1197,17 +1199,17 @@
     input.onchange = async () => {
       const file = input.files && input.files[0]; input.remove(); if (!file) return;
       try {
-        PR.toast(PR.t("正在加入 PDF 並連結閱讀計畫…"), null, 30000);
+        PR.toast(PR.t("正在加入 PDF 并连结阅读计划…"), null, 30000);
         const qs = new URLSearchParams({ paper_key: key, name: file.name });
         const result = await PR.api(API + "/attach-pdf?" + qs, { method: "POST", body: file });
-        const data = await PR.api(API); S.items = data.items || []; S.saved = data.saved || []; PR.toast(result.queued ? PR.t("PDF 已加入文獻庫，正在準備原頁與文字。") : PR.t("PDF 已加入文獻庫，閱讀計畫已保留。"), null, 6000); renderActive();
-      } catch (e) { PR.toast(PR.t("附加 PDF 失敗：{message}", { message: PR.t(e.message) })); }
+        const data = await PR.api(API); S.items = data.items || []; S.saved = data.saved || []; PR.toast(result.queued ? PR.t("PDF 已加入文献库，正在准备原页与文字。") : PR.t("PDF 已加入文献库，阅读计划已保留。"), null, 6000); renderActive();
+      } catch (e) { PR.toast(PR.t("附加 PDF 失败：{message}", { message: PR.t(e.message) })); }
     };
     input.click();
   }
   function statusManager() {
     let values = S.statuses.map((x) => ({ ...x }));
-    const draw = () => '<p class="rw-source">' + PR.t("拖曳左側把手調整順序。內建狀態可改名稱與顏色；刪除自訂狀態時，該欄論文會移至指定狀態。") + '</p><div class="rw-list">' + values.map((s) => '<div class="rw-follow rw-status-row" data-status-row="' + escAttr(s.id) + '"><span class="rw-status-grip" draggable="true" data-status-drag="' + escAttr(s.id) + '" title="' + escAttr(PR.t("拖曳調整順序")) + '" aria-label="' + escAttr(PR.t("拖曳調整狀態順序")) + '">⠿</span><span class="rw-chip" style="border-color:' + escAttr(s.color) + '">●</span><input data-status-label="' + escAttr(s.id) + '" value="' + escAttr(s.label) + '" maxlength="32"><input type="color" data-status-color="' + escAttr(s.id) + '" value="' + (/^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8b8b8b") + '">' + (!s.builtin ? '<select data-status-move="' + escAttr(s.id) + '">' + values.filter((x) => x.id !== s.id).map((x) => '<option value="' + escAttr(x.id) + '">' + PR.t("刪除後移至 {status}", { status: esc(x.label) }) + '</option>').join("") + '</select><button class="btn sm" data-status-remove="' + escAttr(s.id) + '">' + PR.t("刪除") + '</button>' : '<span class="rw-source">' + PR.t("內建") + '</span>') + '</div>').join("") + '</div><button class="btn sm line" data-status-add>' + PR.t("＋ 新增自訂狀態") + '</button>';
+    const draw = () => '<p class="rw-source">' + PR.t("拖曳左侧把手调整顺序。内建状态可改名称与颜色；删除自订状态时，该栏论文会移至指定状态。") + '</p><div class="rw-list">' + values.map((s) => '<div class="rw-follow rw-status-row" data-status-row="' + escAttr(s.id) + '"><span class="rw-status-grip" draggable="true" data-status-drag="' + escAttr(s.id) + '" title="' + escAttr(PR.t("拖曳调整顺序")) + '" aria-label="' + escAttr(PR.t("拖曳调整状态顺序")) + '">⠿</span><span class="rw-chip" style="border-color:' + escAttr(s.color) + '">●</span><input data-status-label="' + escAttr(s.id) + '" value="' + escAttr(s.label) + '" maxlength="32"><input type="color" data-status-color="' + escAttr(s.id) + '" value="' + (/^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8b8b8b") + '">' + (!s.builtin ? '<select data-status-move="' + escAttr(s.id) + '">' + values.filter((x) => x.id !== s.id).map((x) => '<option value="' + escAttr(x.id) + '">' + PR.t("删除后移至 {status}", { status: esc(displayStatus(x)) }) + '</option>').join("") + '</select><button class="btn sm" data-status-remove="' + escAttr(s.id) + '">' + PR.t("删除") + '</button>' : '<span class="rw-source">' + PR.t("内建") + '</span>') + '</div>').join("") + '</div><button class="btn sm line" data-status-add>' + PR.t("＋ 新增自订状态") + '</button>';
     const moves = {};
     let draggedId = null;
     const modal = $("#rw-modal");
@@ -1218,7 +1220,7 @@
         color: $('[data-status-color="' + CSS.escape(s.id) + '"]', modal)?.value ?? s.color,
       }));
     };
-    openModal(PR.t("管理閱讀狀態"), draw(), async (dialog) => {
+    openModal(PR.t("管理阅读状态"), draw(), async (dialog) => {
       captureDraft();
       values = values.map((s, position) => ({ ...s, label: s.label.trim(), position }));
       const r = await PR.api(API + "/statuses", { method: "POST", body: { statuses: values, moves } }); S.statuses = r.statuses; paint();
@@ -1226,7 +1228,7 @@
     modal.onclick = (e) => {
       if (e.target === modal) { modal.hidden = true; return; }
       const remove = e.target.closest("[data-status-remove]"), add = e.target.closest("[data-status-add]");
-      if (add) { captureDraft(); values.push({ id: "custom-" + Math.random().toString(36).slice(2, 10), label: PR.t("新狀態"), color: "#8b8b8b", builtin: false }); $(".rw-dialog-body", modal).innerHTML = draw(); return; }
+      if (add) { captureDraft(); values.push({ id: "custom-" + Math.random().toString(36).slice(2, 10), label: PR.t("新状态"), color: "#8b8b8b", builtin: false }); $(".rw-dialog-body", modal).innerHTML = draw(); return; }
       if (remove) {
         const id = remove.dataset.statusRemove, move = $('[data-status-move="' + CSS.escape(id) + '"]', modal)?.value;
         captureDraft(); moves[id] = move; values = values.filter((x) => x.id !== id); $(".rw-dialog-body", modal).innerHTML = draw();
@@ -1273,7 +1275,7 @@
   async function aiSummary() {
     const record = S.candidates.find((c) => c.paper_key === S.summaryKey);
     const chosen = record ? [record.paper] : [];
-    if (!chosen.length) return PR.toast(PR.t("請先從候選清單選擇一篇論文。"));
+    if (!chosen.length) return PR.toast(PR.t("请先从候选清单选择一篇论文。"));
     const button = $("[data-action='candidate-summary'][data-key='" + CSS.escape(S.summaryKey) + "']");
     if (S.summaryBusy) return;
     if (record.summary_markdown && !S.forceSummary) return showSummary(record);
@@ -1283,16 +1285,27 @@
     try {
       const r = await PR.api(API + "/ai-summary", { method: "POST", body: { papers: chosen } });
       S.summaryText = r.text || "";
-      await PR.api(API + "/candidate", { method: "POST", body: { action: "save-summary", paper: chosen[0], summary_markdown: S.summaryText, model: r.model || "" } });
+      await PR.api(API + "/candidate", { method: "POST", body: { action: "save-summary", paper: chosen[0], summary_markdown: S.summaryText, model: r.model || "", target: r.target || "" } });
       const current = await PR.api(API); S.candidates = current.candidates || S.candidates; S.summaries = current.summaries || S.summaries;
       return showSummary(S.candidates.find((c) => c.paper_key === S.summaryKey) || { ...record, summary_markdown: S.summaryText, summary_model: r.model });
     } catch (e) { PR.toast(PR.t("摘要整理未完成：{message}", { message: PR.t(e.message) })); }
     finally { S.summaryBusy = false; if (button) { button.disabled = false; button.textContent = PR.t("整理摘要"); } }
   }
   function showSummary(record) {
-    const content = '<div class="rw-source">' + PR.t("根據候選論文的來源摘要整理") + (record.summary_model ? ' · ' + esc(record.summary_model) : '') + (record.updated || record.summary_updated ? ' · ' + esc(record.updated || record.summary_updated) : '') + '</div><article class="markdown rw-summary">' + PR.mdBlocks(record.summary_markdown || "") + '</article><div class="rw-dialog-foot"><button class="btn line" data-download-summary>' + PR.t("下載") + '</button><button class="btn line" data-export-summary-vault>' + PR.t("匯入 Obsidian") + '</button></div>';
+    const content = '<div class="rw-source">' + PR.t("根据候选论文的来源摘要整理") + (PR.aiOutputLanguage(record.summary_target) ? ' · ' + esc(PR.aiOutputLanguage(record.summary_target)) : '') + (record.summary_model ? ' · ' + esc(record.summary_model) : '') + (record.updated || record.summary_updated ? ' · ' + esc(record.updated || record.summary_updated) : '') + '</div><article class="markdown rw-summary">' + PR.mdBlocks(record.summary_markdown || "") + '</article><div class="rw-dialog-foot"><button class="btn line" data-edit-summary>' + PR.t("编辑摘要") + '</button><button class="btn line" data-download-summary>' + PR.t("下载") + '</button><button class="btn line" data-export-summary-vault>' + PR.t("汇入 Obsidian") + '</button></div>';
     S.summaryText = record.summary_markdown || "";
-    openModal(PR.t("論文摘要整理"), content, async () => {}, CLOSE_ONLY);
+    openModal(PR.t("论文摘要整理"), content, async () => {}, CLOSE_ONLY);
+    const edit = $("[data-edit-summary]", $("#rw-modal"));
+    if (edit) edit.onclick = () => {
+      $("#rw-modal").hidden = true;
+      PR.editResearchSummary(record, saved => {
+        if (!saved) return;
+        S.summaries = S.summaries.map(item => item.paper_key === saved.paper_key ? saved : item);
+        S.candidates = S.candidates.map(item => item.paper_key === saved.paper_key ? { ...item,
+          summary_markdown: saved.summary_markdown, summary_model: saved.summary_model, summary_target: saved.summary_target, summary_updated: saved.updated } : item);
+        renderActive();
+      });
+    };
     const download = $("[data-download-summary]", $("#rw-modal"));
     if (download) download.onclick = () => exportMarkdown(paperExportStem(record) + "-summary.md", S.summaryText);
     const vault = $("[data-export-summary-vault]", $("#rw-modal"));
@@ -1304,7 +1317,7 @@
       try {
         const handle = await window.showSaveFilePicker({ suggestedName: safeName, types: [{ description: "Markdown", accept: { "text/markdown": [".md"] } }] });
         const stream = await handle.createWritable(); await stream.write(text); await stream.close();
-        PR.toast(PR.t("Markdown 已匯出。")); return;
+        PR.toast(PR.t("Markdown 已汇出。")); return;
       } catch (error) { if (error.name === "AbortError") return; throw error; }
     }
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
@@ -1321,50 +1334,37 @@
     const paper = record?.paper || {};
     return shortExportStem(paper.title_en || paper.title || paper.title_zh, "EasyRead");
   }
-  function formatComparisonMarkdown(rawContent, sources) {
-    if (!rawContent) return "";
-    const sourceList = Array.isArray(sources) ? sources : [];
-    const citeRegex = /\[P(\d+)\s*(?:\|\s*(?:第?\s*(\d+)\s*頁)?\s*)?\|\s*([a-zA-Z0-9_\-]+)(?:\s*\|\s*([^\]]+))?\]/g;
-    const formatted = String(rawContent).replace(citeRegex, (match, pNum, page, blockId, quote) => {
-      const idx = parseInt(pNum, 10) - 1;
-      const paper = sourceList[idx] || {};
-      const paperId = paper.sha256 || paper.id || "";
-      const pageLabel = page ? PR.t("第 {page} 頁", { page }) : "";
-      const locLabel = [pageLabel, blockId ? "#" + blockId : ""].filter(Boolean).join(" ");
-      const quoteAttr = quote ? escAttr(quote.trim()) : "";
-      if (paperId && blockId) {
-        return '<a class="rw-evidence-jump" href="/read/' + escAttr(paperId) + '#b-' + escAttr(blockId) + '" target="_blank" title="' + quoteAttr + '">[P' + pNum + ' · ' + (locLabel || blockId) + ' ↗]</a>';
-      }
-      return match;
-    });
-    return PR.mdBlocks ? PR.mdBlocks(formatted) : esc(formatted);
+  function formatComparisonMarkdown(content, sources) {
+    return PR.researchCitations.html(content || "", sources || []);
   }
   function showComparisonRecord(proposal) {
     S.compareProposal = proposal || null;
-    if (!proposal) return PR.toast(PR.t("找不到比較結果。"));
-    const status = proposal.status === "accepted" ? PR.t("已存入 Obsidian") : proposal.status === "rejected" ? PR.t("已捨棄") : PR.t("待審閱");
+    if (!proposal) return PR.toast(PR.t("找不到比较结果。"));
+    const local = proposal.storage === "library";
+    const status = proposal.status === "accepted" ? (local ? PR.t("已保存到文献库") : PR.t("已存入 Obsidian")) : proposal.status === "rejected" ? PR.t("已舍弃") : PR.t("待审阅");
     const sources = (proposal.sources || proposal.evidence || []).map((source) => {
-      const label = source.title || source.paper_title || source.id || PR.t("論文");
+      const label = source.title || source.paper_title || source.id || PR.t("论文");
       return '<li>' + titleHtml(label) + (source.location ? ' <small>' + esc(source.location) + '</small>' : '') + '</li>';
     }).join("");
     const sourceCount = (proposal.sources || proposal.evidence || []).length;
     const linkedCount = Number.isFinite(Number(proposal.linked_paper_count)) ? Number(proposal.linked_paper_count) : sourceCount;
-    const linkReminder = sourceCount > linkedCount
-      ? '<p class="rw-source rw-export-reminder">' + PR.t("提醒：有部分選定論文尚未匯出單篇筆記。仍可產生比較報告，但這些論文於 Obsidian 中可能暫時無法建立雙向連結。建議先匯出單篇筆記，再重新產生比較報告。") + '</p>'
+    const linkReminder = !local && sourceCount > linkedCount
+      ? '<p class="rw-source rw-export-reminder">' + PR.t("提醒：有部分选定论文尚未汇出单篇笔记。仍可产生比较报告，但这些论文于 Obsidian 中可能暂时无法建立双向连结。建议先汇出单篇笔记，再重新产生比较报告。") + '</p>'
       : "";
     const actions = '<div class="rw-dialog-actions">' +
-      btn(PR.t("編輯名稱"), "edit-comparison-title", "line", 'data-id="' + escAttr(proposal.id) + '"') +
-      btn(PR.t("下載"), "export-comparison", "line") +
-      (proposal.status === "pending" ? btn(PR.t("接受並存入 Obsidian"), "compare-accept", "accent") + btn(PR.t("捨棄草稿"), "compare-reject", "line") : '') +
+      btn(PR.t("编辑名称"), "edit-comparison-title", "line", 'data-id="' + escAttr(proposal.id) + '"') +
+      btn(PR.t("下载"), "export-comparison", "line") +
+      (proposal.status === "pending" ? btn(local ? PR.t("保存到文献库") : PR.t("接受并存入 Obsidian"), "compare-accept", "accent") + btn(PR.t("舍弃草稿"), "compare-reject", "line") : '') +
+      (local && proposal.status === "accepted" ? btn(PR.t("导出到 Obsidian"), "export-comparison-vault", "line") : '') +
       '</div>';
-    const body = '<div class="rw-source">' + PR.t("狀態：{status}；請先核對各篇論文的原文證據與評估條件。", { status }) + '</div>' +
+    const body = '<div class="rw-source">' + PR.t("状态：{status}；请先核对各篇论文的原文证据与评估条件。", { status }) + (PR.aiOutputLanguage(proposal.output_target) ? ' · ' + esc(PR.aiOutputLanguage(proposal.output_target)) : '') + '</div>' +
       '<article class="markdown rw-summary">' + formatComparisonMarkdown(proposal.content || "", proposal.sources || proposal.evidence || []) + '</article>' +
-      (sources ? '<section class="rw-evidence"><h3>' + PR.t("證據來源") + '</h3><ul>' + sources + '</ul>' + linkReminder + '</section>' : linkReminder) + actions;
-    openModal(proposal.title || PR.t("論文比較"), body, async () => {}, CLOSE_ONLY, { headerClose: true });
+      (sources ? '<section class="rw-evidence"><h3>' + PR.t("证据来源") + '</h3><ul>' + sources + '</ul>' + linkReminder + '</section>' : linkReminder) + actions;
+    openModal(proposal.title || PR.t("论文比较"), body, async () => {}, CLOSE_ONLY, { headerClose: true });
   }
   async function exportComparison(proposal) {
     if (!proposal?.content) return;
-    const title = proposal.title || PR.t("論文比較");
+    const title = proposal.title || PR.t("论文比较");
     const body = String(proposal.content).replace(/^\s*#\s+.*(?:\r?\n|$)/, "").trimStart();
     await exportMarkdown(shortExportStem(title, "paper-comparison") + ".md", "# " + title + "\n\n" + body);
   }
@@ -1379,7 +1379,7 @@
     const path = await chooseVault();
     if (!path) return false;
     await PR.api(RESEARCH_API + "/setup", { method: "POST", body: { vault: path } });
-    PR.toast(PR.t("已連結 Obsidian Vault。"));
+    PR.toast(PR.t("已连结 Obsidian Vault。"));
     return true;
   }
 
@@ -1387,51 +1387,51 @@
     if (!record?.paper_key || !record.summary_markdown) return;
     if (!(await ensureVault())) return;
     const result = await PR.api(API + "/export/summary", { method: "POST", body: { paper_key: record.paper_key } });
-    if (result.conflicts?.length) throw new Error(PR.t("有檔案未能安全更新，請先檢查衝突。"));
-    PR.toast(PR.t("摘要已匯入 Obsidian Vault。"));
+    if (result.conflicts?.length) throw new Error(PR.t("有档案未能安全更新，请先检查冲突。"));
+    PR.toast(PR.t("摘要已汇入 Obsidian Vault。"));
   }
 
   async function aiQuery() {
     const query = $("#rw-query")?.value?.trim() || "";
-    if (!query) return PR.toast(PR.t("請先輸入研究主題。"));
+    if (!query) return PR.toast(PR.t("请先输入研究主题。"));
     const button = $("[data-action='ai-query']"); if (button?.disabled) return;
-    if (button) { button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在產生搜尋關鍵字…"); }
+    if (button) { button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在产生搜寻关键字…"); }
     try {
       const r = await PR.api(API + "/ai-query", { method: "POST", body: { query } });
       const suggestions = (r.suggestions || []).map((x) => String(x || "").trim()).filter(Boolean);
       const chips = suggestions.length
-        ? '<div class="rw-ai-chips"><span class="rw-source">' + PR.t("點擊直接以此關鍵字搜尋：") + '</span><div class="rw-keyword-pills">' +
+        ? '<div class="rw-ai-chips"><span class="rw-source">' + PR.t("点击直接以此关键字搜寻：") + '</span><div class="rw-keyword-pills">' +
           suggestions.map((kw) => '<button type="button" class="btn sm line" data-action="apply-single-kw" data-kw="' + escAttr(kw) + '">' + esc(kw) + '</button>').join("") +
           '</div></div>'
         : '';
       const bodyHtml = chips +
-        '<p class="rw-source">' + PR.t("可編輯關鍵字草稿；點選「套用關鍵字」將以第一行關鍵字進行搜尋，或直接點選上方按鈕。選取草稿中的文字可再按「AI 改寫」。") + '</p>' +
-        '<div class="rw-field"><label>' + PR.t("關鍵字草稿（每行一組）") + '</label><textarea id="rw-ai-query" rows="6">' + esc(suggestions.join("\n")) + '</textarea></div>' +
-        '<button type="button" class="btn line" data-action="rewrite-selected">' + PR.t("AI 改寫選取文字") + '</button><div id="rw-rewrite-results"></div>';
-      openModal(PR.t("AI 建議的英文關鍵字"), bodyHtml, async (modal) => {
+        '<p class="rw-source">' + PR.t("可编辑关键字草稿；点选「套用关键字」将以第一行关键字进行搜寻，或直接点选上方按钮。选取草稿中的文字可再按「AI 改写」。") + '</p>' +
+        '<div class="rw-field"><label>' + PR.t("关键字草稿（每行一组）") + '</label><textarea id="rw-ai-query" rows="6">' + esc(suggestions.join("\n")) + '</textarea></div>' +
+        '<button type="button" class="btn line" data-action="rewrite-selected">' + PR.t("AI 英文改写") + '</button><div id="rw-rewrite-results"></div>';
+      openModal(PR.t("AI 建议的英文关键字"), bodyHtml, async (modal) => {
         const edited = $("#rw-ai-query", modal).value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
-        if (!edited.length) throw new Error(PR.t("請保留至少一組關鍵字。"));
+        if (!edited.length) throw new Error(PR.t("请保留至少一组关键字。"));
         const chosen = edited[0];
         S.mode = "topic"; S.query = chosen; S.results = []; renderExplore(); await search();
-      }, PR.t("套用關鍵字"), { dismissOnBackdrop: false, headerClose: true });
-    } catch (e) { PR.toast(PR.t("AI 關鍵字產生失敗：{message}", { message: PR.t(e.message) })); }
-    finally { if (button?.isConnected) { button.disabled = false; button.textContent = PR.t("AI 產生搜尋關鍵字"); } }
+      }, PR.t("套用关键字"), { dismissOnBackdrop: false, headerClose: true });
+    } catch (e) { PR.toast(PR.t("AI 关键字产生失败：{message}", { message: PR.t(e.message) })); }
+    finally { if (button?.isConnected) { button.disabled = false; button.textContent = PR.t("AI 生成英文检索词"); } }
   }
   async function rewriteSelected() {
     const modal = $("#rw-modal"), draft = $("#rw-ai-query", modal);
     const start = draft?.selectionStart ?? 0, end = draft?.selectionEnd ?? 0;
     const selected = draft?.value.slice(start, end).trim() || "";
-    if (!selected) return PR.toast(PR.t("請先在關鍵字草稿中選取要改寫的文字。"));
+    if (!selected) return PR.toast(PR.t("请先在关键字草稿中选取要改写的文字。"));
     const button = $("[data-action='rewrite-selected']", modal); if (button.disabled) return;
-    button.disabled = true; button.textContent = PR.t("AI 正在改寫…");
-    $("#rw-rewrite-results", modal).innerHTML = '<div class="rw-source" role="status">' + PR.t("正在依選取文字產生建議…") + '</div>';
+    button.disabled = true; button.textContent = PR.t("AI 正在改写…");
+    $("#rw-rewrite-results", modal).innerHTML = '<div class="rw-source" role="status">' + PR.t("正在依选取文字产生建议…") + '</div>';
     try {
       const result = await PR.api(API + "/ai-rewrite", { method: "POST", body: { selected_text: selected, context: draft.value } });
       S.rewriteRange = { start, end };
       $("#rw-rewrite-results", modal).innerHTML = '<div class="rw-list">' + result.suggestions.map((value, index) => '<div class="rw-rewrite-option"><span>' + esc(value) + '</span><button class="btn sm line" data-rewrite-accept="' + index + '">' + PR.t("套用") + '</button></div>').join("") + '</div>';
       S.rewriteSuggestions = result.suggestions;
-    } catch (e) { $("#rw-rewrite-results", modal).innerHTML = '<div class="rw-error">' + esc(PR.t("{message} 請確認模型設定後重試。", { message: PR.t(e.message) })) + '</div>'; }
-    finally { button.disabled = false; button.textContent = PR.t("AI 改寫選取文字"); }
+    } catch (e) { $("#rw-rewrite-results", modal).innerHTML = '<div class="rw-error">' + esc(PR.t("{message} 请确认模型设定后重试。", { message: PR.t(e.message) })) + '</div>'; }
+    finally { button.disabled = false; button.textContent = PR.t("AI 英文改写"); }
   }
   async function generatePath() {
     if (S.pathLoading) return;
@@ -1439,7 +1439,7 @@
     S.pathTopic = topicField?.value.trim() || ""; S.pathGoal = goalField?.value.trim() || "";
     const params = new URLSearchParams(location.search), retryRequest = S.pathRetryRequest;
     const startPaper = retryRequest?.start_paper || { title: params.get("start_title") || params.get("title") || "", doi: params.get("start_doi") || "", openalex_id: params.get("start_openalex") || "" };
-    if (!S.pathTopic && !startPaper.title) { S.pathError = PR.t("請輸入研究主題，或從閱讀器以目前論文作為起點。"); renderPath(); return; }
+    if (!S.pathTopic && !startPaper.title) { S.pathError = PR.t("请输入研究主题，或从阅读器以目前论文作为起点。"); renderPath(); return; }
     S.pathLoading = true; S.pathError = ""; renderPath();
     try {
       const candidatePapers = (retryRequest?.candidate_papers || retryRequest?.papers || S.candidates.map((c) => c.paper).filter(Boolean)).slice(0, 30);
@@ -1461,7 +1461,7 @@
     try {
       const result = await PR.api(API + "/reading-path/relations", { method: "POST", body: { path_id: S.pathId, revision: S.pathRevision, force: true } });
       if (result.path) applyPathSnapshot(result.path);
-      if (result.partial) S.pathRelationError = result.path?.relations_error || PR.t("部分引用資料暫時無法取得。");
+      if (result.partial) S.pathRelationError = result.path?.relations_error || PR.t("部分引用资料暂时无法取得。");
     } catch (error) { S.pathRelationError = error.message || String(error); }
     finally { S.pathRelationsLoading = false; renderPath(); }
   }
@@ -1472,7 +1472,7 @@
     [order[from], order[to]] = [order[to], order[from]];
     try {
       const result = await PR.api(API + "/reading-path/reorder", { method: "POST", body: { path_id: S.pathId, revision: S.pathRevision, paper_keys: order } });
-      if (result.path) { applyPathSnapshot(result.path); PR.toast(PR.t("閱讀順序已更新。")); }
+      if (result.path) { applyPathSnapshot(result.path); PR.toast(PR.t("阅读顺序已更新。")); }
       renderPath();
     } catch (error) { PR.toast(PR.t(error.message)); }
   }
@@ -1518,11 +1518,12 @@
     const b = e.target.closest("[data-action]"); if (!b) return;
     try {
       switch (b.dataset.action) {
+        case "keyword-maps": return PR.openKeywordMaps([...S.keywordSelected], S.items.filter(item => !item.archived).map(item => item.id));
         case "keyword-mode": S.keywordMode = b.dataset.kwMode || (b.dataset.mode === "any" ? "any" : "all"); await loadKeywordMatches(); return renderKeywords();
         case "keyword-archive": await PR.api(API + "/keywords/archive", { method: "POST", body: { keyword_id: b.dataset.keywordId, archived: true } }); S.keywordSelected.delete(b.dataset.keywordId); return loadKeywords(false);
         case "keyword-restore": await PR.api(API + "/keywords/archive", { method: "POST", body: { keyword_id: b.dataset.keywordId, archived: false } }); return loadKeywords(false);
         case "keyword-delete": {
-          if (!(await PR.confirm({ title: PR.t("確定要永久移除此關鍵字嗎？相關的比對關聯也會一併清除。"), danger: true }))) return;
+          if (!(await PR.confirm({ title: PR.t("确定要永久移除此关键字吗？相关的比对关联也会一并清除。"), danger: true }))) return;
           await PR.api(API + "/keywords/delete", { method: "POST", body: { keyword_id: b.dataset.keywordId } });
           S.keywordSelected.delete(b.dataset.keywordId); return loadKeywords(false);
         }
@@ -1538,7 +1539,7 @@
         }
         case "keyword-batch-delete": {
           if (!S.keywordSelected.size) return;
-          if (!(await PR.confirm({ title: PR.t("確定要永久移除選取的 {n} 個關鍵字嗎？相關比對關聯也會一併清除。", { n: S.keywordSelected.size }), danger: true }))) return;
+          if (!(await PR.confirm({ title: PR.t("确定要永久移除选取的 {n} 个关键字吗？相关比对关联也会一并清除。", { n: S.keywordSelected.size }), danger: true }))) return;
           await PR.api(API + "/keywords/delete", { method: "POST", body: { keyword_ids: [...S.keywordSelected] } });
           S.keywordSelected.clear(); return loadKeywords(false);
         }
@@ -1559,12 +1560,12 @@
           const isArchived = Number(current.archived) === 1;
           const items = [
             {
-              label: PR.t("編輯關鍵字"),
+              label: PR.t("编辑关键字"),
               icon: "edit",
               fn: async () => {
-                const name = await PR.promptText({ title: PR.t("關鍵字名稱"), value: current.name });
+                const name = await PR.promptText({ title: PR.t("关键字名称"), value: current.name });
                 if (!name || !name.trim()) return;
-                const match = await PR.promptText({ title: PR.t("原文比對詞"), value: current.match_text });
+                const match = await PR.promptText({ title: PR.t("原文比对词"), value: current.match_text });
                 if (!match || !match.trim()) return;
                 const res = await PR.api(API + "/keywords/update", { method: "POST", body: { keyword_id: current.id, name: name.trim(), match_text: match.trim() } });
                 await loadKeywords(false);
@@ -1572,7 +1573,7 @@
               }
             },
             {
-              label: isArchived ? PR.t("恢復關鍵字") : PR.t("封存關鍵字"),
+              label: isArchived ? PR.t("恢复关键字") : PR.t("封存关键字"),
               icon: "archive",
               fn: async () => {
                 await PR.api(API + "/keywords/archive", { method: "POST", body: { keyword_id: current.id, archived: !isArchived } });
@@ -1582,11 +1583,11 @@
             },
             "-",
             {
-              label: PR.t("移除關鍵字"),
+              label: PR.t("移除关键字"),
               icon: "trash",
               danger: true,
               fn: async () => {
-                if (!(await PR.confirm({ title: PR.t("確定要永久移除此關鍵字嗎？相關的比對關聯也會一併清除。"), danger: true }))) return;
+                if (!(await PR.confirm({ title: PR.t("确定要永久移除此关键字吗？相关的比对关联也会一并清除。"), danger: true }))) return;
                 await PR.api(API + "/keywords/delete", { method: "POST", body: { keyword_id: current.id } });
                 S.keywordSelected.delete(current.id);
                 await loadKeywords(false);
@@ -1611,7 +1612,7 @@
             const count = Number(b.dataset.count || 0);
             const span = b.querySelector("span");
             if (span) {
-              span.textContent = isExp ? PR.t("收合額外段落 ▴") : PR.t("展開另外 {n} 個段落 ▾", { n: count });
+              span.textContent = isExp ? PR.t("收合额外段落 ▴") : PR.t("展开另外 {n} 个段落 ▾", { n: count });
             }
           } else {
             renderKeywords();
@@ -1620,8 +1621,8 @@
         }
         case "keyword-edit": {
           const current = S.keywords.find((k) => k.id === b.dataset.keywordId); if (!current) return;
-          const name = await PR.promptText({ title: PR.t("關鍵字名稱"), value: current.name }); if (!name || !name.trim()) return;
-          const match = await PR.promptText({ title: PR.t("原文比對詞"), value: current.match_text }); if (!match || !match.trim()) return;
+          const name = await PR.promptText({ title: PR.t("关键字名称"), value: current.name }); if (!name || !name.trim()) return;
+          const match = await PR.promptText({ title: PR.t("原文比对词"), value: current.match_text }); if (!match || !match.trim()) return;
           const res = await PR.api(API + "/keywords/update", { method: "POST", body: { keyword_id: current.id, name: name.trim(), match_text: match.trim() } });
           await loadKeywords(false); if (res.scan_needed) startKeywordScan(current.id); return;
         }
@@ -1639,7 +1640,7 @@
               match = name;
             }
           }
-          if (!name || !match) return PR.toast(PR.t("請填寫關鍵字名稱與原文比對詞"));
+          if (!name || !match) return PR.toast(PR.t("请填写关键字名称与原文比对词"));
           try {
             const res = await PR.api(API + "/keywords", { method: "POST", body: { name, match_text: match } });
             if (nameIn) nameIn.value = "";
@@ -1648,7 +1649,7 @@
             await loadKeywords(false);
             if (res.scan_needed) startKeywordScan(res.keyword.id);
           } catch (err) {
-            PR.toast(err.message || PR.t("新增關鍵字失敗"));
+            PR.toast(err.message || PR.t("新增关键字失败"));
           }
           return;
         }
@@ -1661,7 +1662,7 @@
           const task = allTasks().find((x) => x.id === S.quickPeekTaskId);
           if (!task || !S.statuses.some((item) => item.id === b.dataset.status)) return;
           await patchTask(task, { status: b.dataset.status });
-          PR.toast(PR.t("閱讀狀態已更新。"));
+          PR.toast(PR.t("阅读状态已更新。"));
           return;
         }
         case "quick-peek-category": {
@@ -1670,7 +1671,7 @@
           const tags = new Set(task.tags || []);
           tags.has(b.dataset.category) ? tags.delete(b.dataset.category) : tags.add(b.dataset.category);
           await patchTask(task, { tags: Array.from(tags) });
-          PR.toast(PR.t("分類已更新。"));
+          PR.toast(PR.t("分类已更新。"));
           return;
         }
         case "quick-peek-star": {
@@ -1678,16 +1679,24 @@
           if (!task) return;
           const interested = !task.interested;
           await patchTask(task, { interested, starred: interested });
-          PR.toast(PR.t("星標已更新。"));
+          PR.toast(PR.t("星标已更新。"));
           return;
         }
         case "compare-accept": case "compare-reject": {
           const proposal = S.compareProposal; if (!proposal?.id) return;
-          if (b.dataset.action === "compare-accept" && !(await ensureVault())) return;
+          if (b.dataset.action === "compare-accept" && proposal.storage !== "library" && !(await ensureVault())) return;
           S.compareProposal = await PR.api(RESEARCH_API + "/proposals/" + proposal.id + "/review", { method: "POST", body: { decision: b.dataset.action === "compare-accept" ? "accept" : "reject" } });
           if (S.tab === "comparisons") { showComparisonRecord(S.compareProposal); await refreshComparisons(); }
           else renderCandidates();
-          if (S.compareProposal.status === "accepted") PR.toast(PR.t("比較草稿已存入 Obsidian。"));
+          if (S.compareProposal.status === "accepted") PR.toast(S.compareProposal.storage === "library" ? PR.t("比较报告已保存到文献库。") : PR.t("比较草稿已存入 Obsidian。"));
+          return;
+        }
+        case "export-comparison-vault": {
+          const proposal = S.compareProposal;
+          if (!proposal?.id || !(await ensureVault())) return;
+          const result = await PR.api(RESEARCH_API + "/comparisons/" + encodeURIComponent(proposal.id) + "/export", { method: "POST", body: {} });
+          if (result.conflicts?.length) throw new Error(PR.t("有文件未能安全更新，请先检查冲突。"));
+          PR.toast(PR.t("已导出到 Obsidian。"));
           return;
         }
         case "export-comparison": {
@@ -1711,22 +1720,22 @@
         }
         case "edit-comparison-title": {
           const proposal = await PR.api(RESEARCH_API + "/proposals/" + encodeURIComponent(b.dataset.id));
-          const current = proposal?.title || PR.t("跨論文比較");
-          return openModal(PR.t("編輯比較名稱"), '<label class="rw-field"><span>' + PR.t("比較名稱") + '</span><input id="rw-comparison-title" maxlength="80" value="' + escAttr(current) + '"></label>', async (modal) => {
+          const current = proposal?.title || PR.t("跨论文比较");
+          return openModal(PR.t("编辑比较名称"), '<label class="rw-field"><span>' + PR.t("比较名称") + '</span><input id="rw-comparison-title" maxlength="80" value="' + escAttr(current) + '"></label>', async (modal) => {
             const next = $("#rw-comparison-title", modal)?.value.trim();
             if (!next || next === current) return;
             const updated = await PR.api(RESEARCH_API + "/proposals/" + encodeURIComponent(b.dataset.id) + "/title", { method: "POST", body: { title: next } });
             if (S.compareProposal?.id === updated.id) S.compareProposal = updated;
             S.comparisons = S.comparisons.map((item) => item.id === updated.id ? { ...item, title: updated.title } : item);
             renderComparisons();
-          }, PR.t("儲存"));
+          }, PR.t("储存"));
         }
         case "compare-open-picker": S.comparePickerOpen = true; S.compareSetupOpen = false; S.comparePickerCategory = ""; S.comparePickerExpanded = false; return renderComparisons();
         case "compare-picker-category": S.comparePickerCategory = b.dataset.category || ""; S.comparePickerExpanded = false; return renderComparisons();
         case "compare-picker-back": S.comparePickerCategory = ""; S.comparePickerExpanded = false; return renderComparisons();
         case "compare-picker-more": S.comparePickerExpanded = true; return renderComparisons();
         case "compare-open-setup":
-          if (S.compareSelection.size < 2 || S.compareSelection.size > 5) return PR.toast(PR.t("請先選擇 2 至 5 篇論文。"));
+          if (S.compareSelection.size < 2 || S.compareSelection.size > 5) return PR.toast(PR.t("请先选择 2 至 5 篇论文。"));
           S.comparePickerOpen = false; S.compareSetupOpen = true; return renderComparisons();
         case "compare-cancel": S.compareSetupOpen = false; S.comparePickerOpen = true; S.comparePickerCategory = ""; S.comparePickerExpanded = false; history.replaceState({}, "", "/research?mode=comparisons"); return renderComparisons();
         case "compare-add-dimension": {
@@ -1755,14 +1764,14 @@
           const pathIndex = Number(b.dataset.paperIndex); if (!work && Number.isInteger(pathIndex)) work = S.pathResults?.[pathIndex]?.paper;
           const record = S.candidates.find((c) => c.paper_key === key) || candidateFor(work);
           work ||= record?.paper;
-          if (!work) throw new Error(PR.t("找不到這篇論文資料，請重新搜尋後操作。"));
+          if (!work) throw new Error(PR.t("找不到这篇论文资料，请重新搜寻后操作。"));
           if (b.disabled) return;
           b.disabled = true; b.textContent = record ? PR.t("正在移出…") : PR.t("正在加入…");
           try {
             await PR.api(API + "/candidate", { method: "POST", body: { action: record ? "remove" : "add", paper: work } });
             S.candidates = (await PR.api(API)).candidates || [];
-          } catch (error) { b.disabled = false; b.textContent = record ? PR.t("移出候選") : PR.t("加入候選"); throw error; }
-          PR.toast(record ? PR.t("已從候選清單移除。") : PR.t("已加入候選清單，摘要會在背景自動整理。"));
+          } catch (error) { b.disabled = false; b.textContent = record ? PR.t("移出候选") : PR.t("加入候选"); throw error; }
+          PR.toast(record ? PR.t("已从候选清单移除。") : PR.t("已加入候选清单，摘要会在背景自动整理。"));
           return renderActive();
         }
         case "remove-candidate": {
@@ -1781,7 +1790,7 @@
         case "download-summary": { const record = S.summaries.find((x) => x.paper_key === b.dataset.key) || S.candidates.find((c) => c.paper_key === b.dataset.key); if (record?.summary_markdown) await exportMarkdown(paperExportStem(record) + "-summary.md", record.summary_markdown); return; }
         case "trash-summary": {
           const record = S.summaries.find((x) => x.paper_key === b.dataset.key); if (!record) return;
-          if (!(await PR.confirm({ title: PR.t("將摘要移到回收站？"), body: PR.t("摘要會從「已整理摘要」移除，可在文獻庫的回收站還原。論文與閱讀資料不會受到影響。"), ok: PR.t("移到回收站"), danger: true, at: b }))) return;
+          if (!(await PR.confirm({ title: PR.t("将摘要移到回收站？"), body: PR.t("摘要会从「已整理摘要」移除，可在文献库的回收站还原。论文与阅读资料不会受到影响。"), ok: PR.t("移到回收站"), danger: true, at: b }))) return;
           b.disabled = true;
           try { await PR.api("/api/trash", { method: "POST", body: { action: "move-summary", type: "summary", name: record.paper_key } }); }
           catch (error) { b.disabled = false; throw error; }
@@ -1817,13 +1826,13 @@
         case "generate-path": return generatePath();
         case "rewrite-selected": return rewriteSelected();
         case "publication-check": {
-          b.disabled = true; b.textContent = PR.t("正在核對 DOI…");
+          b.disabled = true; b.textContent = PR.t("正在核对 DOI…");
           try {
             const record = await PR.api(API + "/publication-check?doi=" + encodeURIComponent(b.dataset.doi));
-            const body = '<dl class="rw-publication-data"><dt>' + PR.t("Crossref 登錄標題") + '</dt><dd>' + titleHtml(record.title || PR.t("未提供")) + '</dd><dt>' + PR.t("出版來源") + '</dt><dd>' + esc(record.container_title || PR.t("未提供")) + '</dd><dt>' + PR.t("資料類型") + '</dt><dd>' + esc(record.type || PR.t("未提供")) + '</dd><dt>' + PR.t("出版年份") + '</dt><dd>' + esc(record.year || PR.t("未提供")) + '</dd><dt>DOI</dt><dd>' + esc(record.doi) + '</dd></dl><p class="rw-source">' + PR.t("Crossref 書目紀錄可協助核對 DOI、刊名與資料類型；仍需依會議官方紀錄確認正式發表狀態。") + '</p>';
-            openModal(PR.t("DOI／出版資料核對"), body, async () => {}, CLOSE_ONLY);
-          } catch (error) { PR.toast(PR.t("Crossref 核對失敗：{message}", { message: PR.t(error.message) })); }
-          finally { b.disabled = false; b.textContent = PR.t("核對 DOI 出版資料"); }
+            const body = '<dl class="rw-publication-data"><dt>' + PR.t("Crossref 登录标题") + '</dt><dd>' + titleHtml(record.title || PR.t("未提供")) + '</dd><dt>' + PR.t("出版来源") + '</dt><dd>' + esc(record.container_title || PR.t("未提供")) + '</dd><dt>' + PR.t("资料类型") + '</dt><dd>' + esc(record.type || PR.t("未提供")) + '</dd><dt>' + PR.t("出版年份") + '</dt><dd>' + esc(record.year || PR.t("未提供")) + '</dd><dt>DOI</dt><dd>' + esc(record.doi) + '</dd></dl><p class="rw-source">' + PR.t("Crossref 书目纪录可协助核对 DOI、刊名与资料类型；仍需依会议官方纪录确认正式发表状态。") + '</p>';
+            openModal(PR.t("DOI／出版资料核对"), body, async () => {}, CLOSE_ONLY);
+          } catch (error) { PR.toast(PR.t("Crossref 核对失败：{message}", { message: PR.t(error.message) })); }
+          finally { b.disabled = false; b.textContent = PR.t("核对 DOI 出版资料"); }
           return;
         }
         case "relation": return relations(b);
@@ -1848,12 +1857,12 @@
             const suggestions = (res.suggestions || []).map((x) => String(x || "").trim()).filter(Boolean);
             if (suggestions.length) {
               S.relationRequest.aiKeywords = suggestions;
-              PR.toast(PR.t("已提煉 {count} 組主題關鍵字。", { count: suggestions.length }));
+              PR.toast(PR.t("已提炼 {count} 组主题关键字。", { count: suggestions.length }));
             } else {
-              PR.toast(PR.t("未能提煉出更多關鍵字，建議直接使用現有標題搜尋。"));
+              PR.toast(PR.t("未能提炼出更多关键字，建议直接使用现有标题搜寻。"));
             }
           } catch (err) {
-            PR.toast(PR.t("AI 關鍵字提煉失敗：{message}", { message: PR.t(err.message) }));
+            PR.toast(PR.t("AI 关键字提炼失败：{message}", { message: PR.t(err.message) }));
           } finally {
             S.aiDistillBusy = false;
             renderExplore();
@@ -1871,13 +1880,13 @@
         }
         case "skip": await PR.api(API + "/skip", { method: "POST", body: { paper_key: b.dataset.key } }); S.results = S.results.filter((w) => paperKey(w) !== b.dataset.key); return renderExplore();
         case "attach-pdf": return attachPdf(b.dataset.key);
-        case "retry-pdf": await PR.api(API + "/retry-pdf", { method: "POST", body: { paper_key: b.dataset.key } }); PR.toast(PR.t("已重新排入 PDF 下載。")); return init();
+        case "retry-pdf": await PR.api(API + "/retry-pdf", { method: "POST", body: { paper_key: b.dataset.key } }); PR.toast(PR.t("已重新排入 PDF 下载。")); return init();
         case "interested": { const task = allTasks().find((x) => x.id === b.dataset.taskId); if (task) { const interested = !task.interested; return patchTask(task, { interested, starred: interested }); } break; }
         case "archive-task": {
           const task = allTasks().find((x) => x.id === b.dataset.taskId);
           if (task) {
             await patchTask(task, { archived: true });
-            PR.toast(PR.t("已移至封存區"));
+            PR.toast(PR.t("已移至封存区"));
           }
           break;
         }
@@ -1918,7 +1927,7 @@
         await loadKeywords(false);
         if (res.scan_needed) startKeywordScan(res.keyword.id);
       } catch (err) {
-        PR.toast(err.message || PR.t("新增關鍵字失敗"));
+        PR.toast(err.message || PR.t("新增关键字失败"));
       }
     }
   });
@@ -1947,7 +1956,7 @@
       return renderComparisons();
     }
     if (c.matches("[data-compare-paper]")) {
-      if (c.checked && S.compareSelection.size >= 5) { c.checked = false; return PR.toast(PR.t("最多選擇 5 篇論文。")); }
+      if (c.checked && S.compareSelection.size >= 5) { c.checked = false; return PR.toast(PR.t("最多选择 5 篇论文。")); }
       c.checked ? S.compareSelection.add(c.dataset.comparePaper) : S.compareSelection.delete(c.dataset.comparePaper);
       return renderComparisons();
     }
@@ -1971,7 +1980,7 @@
     e.preventDefault();
     const destination = next.dataset.column;
     const order = allTasks().filter((item) => (item.status || "unread") === destination).length * 100 + 100;
-    try { await patchTask(task, { status: destination, manual_order: order }); PR.toast(PR.t("閱讀狀態已移至「{status}」。", { status: statusLabel(destination) })); }
+    try { await patchTask(task, { status: destination, manual_order: order }); PR.toast(PR.t("阅读状态已移至「{status}」。", { status: statusLabel(destination) })); }
     catch (error) { PR.toast(PR.t(error.message)); }
   });
   document.addEventListener("keydown", (e) => {
@@ -2015,7 +2024,7 @@
       const restored = await Promise.allSettled(rollback.map((x) => saveTaskFields(x.item, { status: x.status, manual_order: x.manual_order })));
       try { const data = await PR.api(API); S.items = data.items || S.items; S.saved = data.saved || S.saved; renderBoard(); } catch (_) { /* retain the last rendered board while the service reconnects */ }
       const fullyRestored = restored.every((x) => x.status === "fulfilled");
-      PR.toast(fullyRestored ? PR.t("拖曳未能儲存，已還原原排序。") : PR.t("拖曳未能儲存；連線恢復後請確認排序。") );
+      PR.toast(fullyRestored ? PR.t("拖曳未能储存，已还原原排序。") : PR.t("拖曳未能储存；连线恢复后请确认排序。") );
     }
     dragged = null;
   });

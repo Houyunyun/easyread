@@ -56,8 +56,8 @@
     <button class="order-caret" data-order-menu aria-haspopup="menu" aria-expanded="false"></button>
   </div>
   <button class="btn" data-act="dock" aria-controls="readerDock" aria-expanded="false" disabled>侧栏</button>
-  <button class="btn ink-toggle" id="inkToggle" aria-pressed="false" title="手寫註記（W）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M13.8 3.2l3 3-8.7 8.7-3.8.8.8-3.8zM3.5 17h13"></path></svg><span>手寫</span></button>
-  <button class="btn" id="stickerToggle" type="button" aria-expanded="false" aria-controls="stickerPanel" title="貼紙素材庫（S）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h12v9l-4 4H4zM12 16.5v-4h4"></path></svg><span>貼紙</span></button>
+  <button class="btn ink-toggle" id="inkToggle" aria-pressed="false" title="手写注记（W）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M13.8 3.2l3 3-8.7 8.7-3.8.8.8-3.8zM3.5 17h13"></path></svg><span>手写</span></button>
+  <button class="btn" id="stickerToggle" type="button" aria-expanded="false" aria-controls="stickerPanel" title="贴纸素材库（S）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h12v9l-4 4H4zM12 16.5v-4h4"></path></svg><span>贴纸</span></button>
   <button class="btn" data-act="research">研究</button>
   <button class="btn" data-act="settings" title="字号、版心、字体（=、- 调字号）">Aa</button>
   <span class="save-state" role="status" title="保存状态"><i aria-hidden="true"></i><span>…</span></span>
@@ -78,32 +78,33 @@
 <main id="stage">
   <article id="paper" lang="zh-CN"></article>
   <aside id="margin" aria-label="讨论与笔记"></aside>
-  <svg id="inkLayer" aria-label="手寫註記畫布"></svg>
+  <svg id="inkLayer" aria-label="手写注记画布"></svg>
 </main>
 
-<div id="inkTools" role="toolbar" aria-label="手寫工具" hidden>
-  <div class="ink-tool-group" role="group" aria-label="筆色">
-    <button type="button" class="ink-swatch" data-ink-color="#1d1d1d" aria-label="黑筆" title="黑筆" aria-pressed="true"><i></i></button>
-    <button type="button" class="ink-swatch" data-ink-color="#d94b4b" aria-label="紅筆" title="紅筆"><i></i></button>
-    <button type="button" class="ink-swatch" data-ink-color="#2878c8" aria-label="藍筆" title="藍筆"><i></i></button>
-    <button type="button" class="ink-swatch" data-ink-color="#27845b" aria-label="綠筆" title="綠筆"><i></i></button>
-    <label class="ink-swatch ink-custom" title="自訂顏色"><input type="color" data-ink-custom value="#6d5bd0" aria-label="自訂顏色"><i></i></label>
+<div id="inkTools" role="toolbar" aria-label="手写工具" hidden>
+  <button type="button" data-ink-input aria-pressed="false"></button>
+  <div class="ink-tool-group" role="group" aria-label="笔色">
+    <button type="button" class="ink-swatch" data-ink-color="#1d1d1d" aria-label="黑笔" title="黑笔" aria-pressed="true"><i></i></button>
+    <button type="button" class="ink-swatch" data-ink-color="#d94b4b" aria-label="红笔" title="红笔"><i></i></button>
+    <button type="button" class="ink-swatch" data-ink-color="#2878c8" aria-label="蓝笔" title="蓝笔"><i></i></button>
+    <button type="button" class="ink-swatch" data-ink-color="#27845b" aria-label="绿笔" title="绿笔"><i></i></button>
+    <label class="ink-swatch ink-custom" title="自订颜色"><input type="color" data-ink-custom value="#6d5bd0" aria-label="自订颜色"><i></i></label>
   </div>
   <details class="ink-width" id="inkWidth">
-    <summary title="筆寬"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 14.5h12M6.5 10h7M8.5 5.5h3"></path></svg><span>筆寬</span></summary>
-    <label><span>筆寬</span><input type="range" data-ink-width min="1" max="12" step="1" value="2" aria-label="筆寬"></label>
+    <summary title="笔宽"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 14.5h12M6.5 10h7M8.5 5.5h3"></path></svg><span>笔宽</span></summary>
+    <label><span>笔宽</span><input type="range" data-ink-width min="1" max="12" step="1" value="2" aria-label="笔宽"></label>
   </details>
   <span class="ink-tool-divider" aria-hidden="true"></span>
   <div class="ink-width ink-eraser"><button type="button" class="ink-action" data-ink-erase aria-pressed="false" aria-expanded="false" aria-controls="eraserSize" title="橡皮擦（X）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.1 4.1l8.8 8.8-3.5 3.5H6.8l-3.1-3.1zM3.7 13.4h9.1"></path></svg><span>橡皮擦</span></button><label id="eraserSize" data-eraser-size hidden><span>橡皮擦大小</span><input type="range" data-eraser-width min="8" max="80" step="2" value="24" aria-label="橡皮擦大小"></label></div>
-  <button type="button" class="ink-action" data-ink-lasso aria-pressed="false" title="套索選取"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5.5c2.8-2.8 8.5-2.7 10.2.4 1.5 2.7-.8 6.6-4.7 7.5-3.8.9-7.2-1.2-6.6-4.6.4-2.6 3.7-3.3 5.5-1.8 1.4 1.2.5 3.2-1.1 3.1M8.3 10.2l-2.7 4.3"></path></svg><span>套索選取</span></button>
-  <button type="button" class="ink-action" data-ink-text aria-pressed="false" title="插入文字方塊"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5V3h14v2M10 3v14M7 17h6"></path></svg><span>插入文字方塊</span></button>
-  <button type="button" class="ink-action" data-ink-undo title="復原（Ctrl/⌘ + Z）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5L3.5 8.5 7 12M4 8.5h7a4.5 4.5 0 1 1 0 9"></path></svg><span>復原</span></button>
+  <button type="button" class="ink-action" data-ink-lasso aria-pressed="false" title="套索选取"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5.5c2.8-2.8 8.5-2.7 10.2.4 1.5 2.7-.8 6.6-4.7 7.5-3.8.9-7.2-1.2-6.6-4.6.4-2.6 3.7-3.3 5.5-1.8 1.4 1.2.5 3.2-1.1 3.1M8.3 10.2l-2.7 4.3"></path></svg><span>套索选取</span></button>
+  <button type="button" class="ink-action" data-ink-text aria-pressed="false" title="插入文字方块"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5V3h14v2M10 3v14M7 17h6"></path></svg><span>插入文字方块</span></button>
+  <button type="button" class="ink-action" data-ink-undo title="复原（Ctrl/⌘ + Z）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5L3.5 8.5 7 12M4 8.5h7a4.5 4.5 0 1 1 0 9"></path></svg><span>复原</span></button>
   <button type="button" class="ink-action" data-ink-redo title="重做（Ctrl/⌘ + Shift + Z）"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M13 5l3.5 3.5L13 12m3.5-3.5h-7a4.5 4.5 0 1 0 0 9"></path></svg><span>重做</span></button>
-  <button type="button" class="ink-action" data-ink-hide aria-pressed="false" title="隱藏筆跡"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10s2.7-4.5 7.5-4.5S17.5 10 17.5 10 14.8 14.5 10 14.5 2.5 10 2.5 10zM10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path></svg><span data-ink-hide-label>隱藏筆跡</span></button>
+  <button type="button" class="ink-action" data-ink-hide aria-pressed="false" title="隐藏笔迹"><svg class="i sm" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 10s2.7-4.5 7.5-4.5S17.5 10 17.5 10 14.8 14.5 10 14.5 2.5 10 2.5 10zM10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path></svg><span data-ink-hide-label>隐藏笔迹</span></button>
 </div>
 
-<section id="stickerPanel" role="dialog" aria-label="貼紙素材庫" hidden></section>
-<div id="stickerTools" role="toolbar" aria-label="貼紙工具" hidden></div>
+<section id="stickerPanel" role="dialog" aria-label="贴纸素材库" hidden></section>
+<div id="stickerTools" role="toolbar" aria-label="贴纸工具" hidden></div>
 <section id="pageview" class="side-panel" aria-label="PDF 原页">
   <div class="pv-head">
     <button class="btn icon" data-pv="prev" title="上一页（[）">‹</button>
@@ -131,8 +132,8 @@
 <div class="dialog-backdrop" id="settingsDlg"><div class="dialog" role="dialog" aria-label="设置"></div></div>
 <div class="dialog-backdrop" id="textDlg"><div class="dialog wide" role="dialog"></div></div>
 
-<div class="dialog-backdrop" id="mindmapDlg"><div class="dialog mm-dialog" role="dialog" aria-label="論文心智圖"></div></div>
-<div class="dialog-backdrop" id="deepReportDlg"><div class="dialog deep-dialog" role="dialog" aria-label="論文深度剖析報告"></div></div>
+<div class="dialog-backdrop" id="mindmapDlg"><div class="dialog mm-dialog" role="dialog" aria-label="论文心智图"></div></div>
+<div class="dialog-backdrop" id="deepReportDlg"><div class="dialog deep-dialog" role="dialog" aria-label="论文深度剖析报告"></div></div>
 
 <div id="settings" class="menu" role="dialog" aria-label="阅读设置"></div>
 <div id="popover" class="popover" role="tooltip"></div>
@@ -144,6 +145,9 @@
 <script src="/web/vendor/katex/katex.min.js"></script>
 <script src="/web/js/common/i18n.js"></script>
 <script src="/web/js/common/util.js"></script>
+<script src="/web/js/common/ai-language.js"></script>
+<script src="/web/js/common/clipboard.js"></script>
+<script src="/web/js/reader/reader-input.js"></script>
 <script src="/web/js/common/dropdown.js"></script>
 <script src="/web/js/common/library-nav.js"></script>
 <script src="/web/js/common/presence.js"></script>
@@ -197,6 +201,7 @@
 <script src="/web/vendor/mind-elixir/MindElixir.iife.js"></script>
 <script src="/web/js/reader/mindmap-edit.js"></script>
 <script src="/web/js/reader/mindmap-view.js"></script>
+<script src="/web/js/reader/deep-report-actions.js"></script>
 <script src="/web/js/reader/planner.js"></script>
 <script src="/web/js/reader/side-resize.js"></script>
 <script src="/web/vendor/note-libraries.js"></script>

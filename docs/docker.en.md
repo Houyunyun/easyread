@@ -126,6 +126,19 @@ Create the host `./vault` directory and give container UID/GID 1000 read/write p
 
 Re-export preserves user text outside managed blocks. Mind-map exports retain editable Mermaid source alongside the PNG preview. See the [research guide](research.en.md).
 
+## Code-only updates with an existing full runtime
+
+When a working `easyread:local` full image exists and Python dependencies have not changed, reuse it instead of downloading the CLI/browser/PDF toolchain again:
+
+```bash
+docker build -f docker/Dockerfile.app --build-arg BASE_IMAGE=easyread:local \
+  --build-arg PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple -t easyread:next .
+docker tag easyread:next easyread:local
+docker compose up -d --no-build
+```
+
+This reinstalls the application and runs `pip check`. Use the root Dockerfile for first installation or runtime/dependency changes.
+
 ## Data and updates
 
 | Named volume (prefixed by Compose project) | Content |

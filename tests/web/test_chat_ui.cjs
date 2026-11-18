@@ -46,7 +46,7 @@ async function reader(threads = [], options = {}) {
     window: { PR }, katex: require("../../easyread/web/vendor/katex/katex.min.js"),
   });
   vm.runInNewContext(source("chat-effort"), { window: { PR } });
-  vm.runInNewContext(source("chat-images") + "\n" + source("chat-documents") + "\n" + source("chat"), {
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../easyread/web/js/common/clipboard.js"), "utf8") + "\n" + source("chat-images") + "\n" + source("chat-documents") + "\n" + source("chat"), {
     window: { PR, addEventListener() {} },
     document: { addEventListener(name, fn) { if (!listeners.has(name)) listeners.set(name, []); listeners.get(name).push(fn); } },
     navigator: { clipboard: { async writeText(text) { copied.push(text); } } },

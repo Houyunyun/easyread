@@ -2,7 +2,7 @@
 (function (PR) {
   "use strict";
   const dock = PR.$("#readerDock"), toggle = PR.$('[data-act="dock"]');
-  const names = { pages: "PDF", gallery: PR.t("图表"), research: PR.t("研究脈絡"), notes: PR.t("笔记"), map: PR.t("思维导图"), chat: PR.t("问 AI") };
+  const names = { pages: "PDF", gallery: PR.t("图表"), research: PR.t("研究脉络"), notes: PR.t("笔记"), map: PR.t("思维导图"), chat: PR.t("问 AI") };
   const isResource = key => key === "map" || key === "gallery" || key.startsWith("fig:");
   const views = new Map([["pages", PR.$("#pageview")], ["notes", PR.$("#notespanel")], ["chat", PR.$("#chatpanel")], ["research", PR.$("#researchpanel")]]);
   const MIME = "application/x-easyread-panel", MEDIA = "application/x-easyread-media";

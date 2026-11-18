@@ -126,6 +126,19 @@ services:
 
 导出会保留用户在托管区块之外的内容；思维导图同时保留 PNG 预览和可编辑 Mermaid 源码。完整说明见[研究功能指南](research.md)。
 
+## 仅更新应用代码（复用已有完整运行环境）
+
+本机已经有可用的 `easyread:local` 完整镜像，且 Python 依赖未改变时，可避免重复下载 CLI、浏览器及 PDF 组件：
+
+```bash
+docker build -f docker/Dockerfile.app --build-arg BASE_IMAGE=easyread:local \
+  --build-arg PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple -t easyread:next .
+docker tag easyread:next easyread:local
+docker compose up -d --no-build
+```
+
+此路径会重新安装应用并运行 `pip check`。首次安装、依赖或 CLI 运行环境变更时，仍使用根目录 Dockerfile 的完整构建。
+
 ## 数据和更新
 
 | 命名卷（带 Compose 项目前缀） | 内容 |

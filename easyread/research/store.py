@@ -19,12 +19,12 @@ KINDS = {
     "concept": "Concepts",
     "question": "Questions",
     "hypothesis": "Hypotheses",
-    "comparison": "05-跨論文比較",
+    "comparison": "05-跨论文比较",
 }
 
 # New multi-file Obsidian export layout.  The legacy folders above remain
 # readable for compatibility with existing Research OS notes.
-EXPORT_FOLDERS = ("01-論文分析", "02-心智圖", "03-閱讀標註", "04-論文深度剖析", "05-跨論文比較", "06-論文摘要")
+EXPORT_FOLDERS = ("01-论文分析", "02-心智图", "03-阅读标注", "04-论文深度剖析", "05-跨论文比较", "06-论文摘要")
 
 
 def state_dir() -> Path:
@@ -43,7 +43,7 @@ def normalize_folders(value=None) -> list[str]:
     if isinstance(value, str):
         value = value.replace(";", ",").split(",")
     if not isinstance(value, (list, tuple)):
-        raise ValueError(tr("索引資料夾必須是 Vault 內的相對路徑清單。"))
+        raise ValueError(tr("索引资料夹必须是 Vault 内的相对路径清单。"))
     result = []
     for item in value:
         raw = str(item or "").strip().replace("\\", "/")
@@ -53,10 +53,10 @@ def normalize_folders(value=None) -> list[str]:
         # turn an absolute path into an apparently safe vault-relative path.
         raw_parts = raw.split("/")
         if raw.startswith("/") or any(part in (".", "..") or part.startswith(".") for part in raw_parts):
-            raise ValueError(tr("索引資料夾必須位於 Vault 內，且不能包含隱藏資料夾。"))
+            raise ValueError(tr("索引资料夹必须位于 Vault 内，且不能包含隐藏资料夹。"))
         path = PurePosixPath(raw)
         if path.is_absolute() or PureWindowsPath(raw).drive:
-            raise ValueError(tr("索引資料夾必須位於 Vault 內，且不能包含隱藏資料夾。"))
+            raise ValueError(tr("索引资料夹必须位于 Vault 内，且不能包含隐藏资料夹。"))
         normalized = path.as_posix()
         if normalized.casefold() not in {entry.casefold() for entry in result}:
             result.append(normalized)
@@ -78,16 +78,16 @@ def vault_path() -> Path | None:
 
 def set_vault(raw: str, folders=None) -> Path:
     if not raw.strip():
-        raise ValueError(tr("請選擇 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请选择 Obsidian Vault 资料夹。"))
     path = Path(raw).expanduser()
     selected_folders = normalize_folders(folders)
     path.mkdir(parents=True, exist_ok=True)
     path = path.resolve(strict=True)
     if not path.is_dir():
-        raise ValueError(tr("所選路徑不是資料夾。"))
+        raise ValueError(tr("所选路径不是资料夹。"))
     if path == config.HOME.resolve() or path == config.library_dir().resolve():
-        raise ValueError(tr("請選擇 Obsidian Vault 資料夾，不可選 PaperRead 資料目錄。"))
-    destinations = [contained_path(path, Path("Research") / name) for name in {*KINDS.values(), *EXPORT_FOLDERS}]
+        raise ValueError(tr("请选择 Obsidian Vault 资料夹，不可选 PaperRead 资料目录。"))
+    destinations = [contained_path(path, Path("Research") / tr(name)) for name in {*KINDS.values(), *EXPORT_FOLDERS}]
     for destination in destinations:
         destination.mkdir(parents=True, exist_ok=True)
     prefs.save({"research": {"vault": str(path), "folders": selected_folders}})
@@ -99,17 +99,17 @@ def contained_path(root: Path, path: Path) -> Path:
     root = Path(root).expanduser().resolve()
     candidate = (root / path).resolve()
     if not candidate.is_relative_to(root) or candidate == root:
-        raise ValueError("Path must remain inside the selected Vault")
+        raise ValueError(tr("路径必须位于所选 Vault 内"))
     return candidate
 
 
 def validate_vault_path(path: Path) -> Path:
     root = vault_path()
     if root is None:
-        raise ValueError(tr("請先設定 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))
     resolved = contained_path(root, path)
     if resolved.suffix.lower() != ".md":
-        raise ValueError(tr("筆記路徑必須是所選 Vault 內的 Markdown 檔案。"))
+        raise ValueError(tr("笔记路径必须是所选 Vault 内的 Markdown 档案。"))
     return resolved
 
 
@@ -123,9 +123,9 @@ def open_easyread(sha256: str, block: str = "") -> str:
 
 
 def markdown_path(root: Path, kind: str, title: str, identity: str) -> Path:
-    folder = KINDS.get(kind)
+    folder = tr(KINDS[kind]) if kind in KINDS else None
     if not folder:
-        raise ValueError(tr("不支援的研究筆記類型。"))
+        raise ValueError(tr("不支援的研究笔记类型。"))
     safe = re.sub(r"[<>:\"/\\|?*\x00-\x1f]", "-", title).strip(" .-")[:100] or kind.title()
     if safe.upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
         safe = "_" + safe

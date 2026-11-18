@@ -28,38 +28,38 @@
   function label(task) {
     const type = taskType(task);
     if (type === "index") return PR.t("研究索引");
-    if (type === "comparison") return PR.t("跨論文比較");
-    if (type === "mindmap") return PR.t("論文心智圖");
-    if (type === "smart-annotate") return PR.t("智慧標註");
-    if (type === "deep-analysis") return PR.t("論文深度剖析");
-    if (type === "path") return PR.t("閱讀路徑分析");
+    if (type === "comparison") return PR.t("跨论文比较");
+    if (type === "mindmap") return PR.t("论文心智图");
+    if (type === "smart-annotate") return PR.t("智慧标注");
+    if (type === "deep-analysis") return PR.t("论文深度剖析");
+    if (type === "path") return PR.t("阅读路径分析");
     return task?.title || PR.t("研究分析");
   }
   function taskRunningTitle(type) {
     if (type === "index") return PR.t("正在建立研究索引");
-    if (type === "path") return PR.t("正在分析閱讀路徑");
-    if (type === "mindmap") return PR.t("正在整理論文心智圖…");
-    if (type === "smart-annotate") return PR.t("正在進行智慧標註分析…");
-    if (type === "deep-analysis") return PR.t("正在進行論文深度剖析…");
-    if (type === "comparison") return PR.t("正在整理跨論文比較…");
-    return PR.t("正在執行分析…");
+    if (type === "path") return PR.t("正在分析阅读路径");
+    if (type === "mindmap") return PR.t("正在整理论文心智图…");
+    if (type === "smart-annotate") return PR.t("正在进行智慧标注分析…");
+    if (type === "deep-analysis") return PR.t("正在进行论文深度剖析…");
+    if (type === "comparison") return PR.t("正在整理跨论文比较…");
+    return PR.t("正在执行分析…");
   }
   function taskCompletedTitle(type) {
     if (type === "index") return PR.t("研究索引已完成");
-    if (type === "path") return PR.t("閱讀路徑已完成");
-    if (type === "mindmap") return PR.t("論文心智圖已完成");
-    if (type === "smart-annotate") return PR.t("智慧標註已完成");
-    if (type === "deep-analysis") return PR.t("論文深度剖析已完成");
-    if (type === "comparison") return PR.t("跨論文比較已完成");
+    if (type === "path") return PR.t("阅读路径已完成");
+    if (type === "mindmap") return PR.t("论文心智图已完成");
+    if (type === "smart-annotate") return PR.t("智慧标注已完成");
+    if (type === "deep-analysis") return PR.t("论文深度剖析已完成");
+    if (type === "comparison") return PR.t("跨论文比较已完成");
     return PR.t("研究分析已完成");
   }
   function taskRunningHelp(type) {
-    if (type === "path") return PR.t("你可以關閉此視窗，繼續使用 EasyRead；完成後會通知你。");
-    if (type === "mindmap") return PR.t("心智圖整理可能需要較久；你可以關閉此視窗，繼續使用 EasyRead，完成後會通知你。");
-    if (type === "smart-annotate") return PR.t("智慧標註分析可能需要較久；你可以關閉此視窗，繼續使用 EasyRead，完成後會通知你。");
-    if (type === "deep-analysis") return PR.t("深度剖析可能需要較久；你可以關閉此視窗，繼續使用 EasyRead，完成後會通知你。");
-    if (type === "comparison") return PR.t("跨論文比較可能需要較久；你可以關閉此視窗，繼續使用 EasyRead，完成後會通知你。");
-    return PR.t("分析可能需要較久；你可以關閉此視窗，繼續使用 EasyRead，完成後會通知你。");
+    if (type === "path") return PR.t("你可以关闭此视窗，继续使用 EasyRead；完成后会通知你。");
+    if (type === "mindmap") return PR.t("心智图整理可能需要较久；你可以关闭此视窗，继续使用 EasyRead，完成后会通知你。");
+    if (type === "smart-annotate") return PR.t("智慧标注分析可能需要较久；你可以关闭此视窗，继续使用 EasyRead，完成后会通知你。");
+    if (type === "deep-analysis") return PR.t("深度剖析可能需要较久；你可以关闭此视窗，继续使用 EasyRead，完成后会通知你。");
+    if (type === "comparison") return PR.t("跨论文比较可能需要较久；你可以关闭此视窗，继续使用 EasyRead，完成后会通知你。");
+    return PR.t("分析可能需要较久；你可以关闭此视窗，继续使用 EasyRead，完成后会通知你。");
   }
   function resultUrl(task, retry = false) {
     const type = taskType(task);
@@ -89,10 +89,10 @@
     if (task.kind === "smart-annotate" && !task.stage_label) {
       if (["queued", "running"].includes(task.state)) {
         task.stage_label = task.total > 0
-          ? PR.t("正在分析論文（第 {done} / {total} 批）…", { done: Math.min((task.done || 0) + 1, task.total), total: task.total })
-          : (task.message || PR.t("正在進行智慧標註分析…"));
+          ? PR.t("正在分析论文（第 {done} / {total} 批）…", { done: Math.min((task.done || 0) + 1, task.total), total: task.total })
+          : (task.message || PR.t("正在进行智慧标注分析…"));
       } else if (task.state === "completed") {
-        task.stage_label = task.message || PR.t("智慧標註已完成");
+        task.stage_label = task.message || PR.t("智慧标注已完成");
       }
     }
     if (task.state === "completed") {
@@ -175,10 +175,10 @@
     let title = running ? taskRunningTitle(type)
       : task.state === "completed" ? taskCompletedTitle(type)
       : task.state === "cancelled" ? PR.t("分析已取消")
-      : task.state === "interrupted" ? PR.t("分析已中斷") : PR.t("分析未完成");
+      : task.state === "interrupted" ? PR.t("分析已中断") : PR.t("分析未完成");
 
     function formatDataScope(scope) {
-      if (!scope) return PR.t("全文整理內容");
+      if (!scope) return PR.t("全文整理内容");
       const exact = PR.t(scope);
       if (exact !== scope) return exact;
       const m = scope.match(/^全文\s*1\s*[–-]\s*(\d+)\s*頁\s*[（(]\s*涵蓋[：:]\s*(.*?)\s*[)）]$/);
@@ -187,87 +187,89 @@
         const rawSections = m[2].split(/[、,]/).map((s) => s.trim()).filter(Boolean);
         const sep = PR.lang === "en" ? ", " : "、"; /* i18n-ok */
         const translatedSections = rawSections.map((s) => PR.t(s));
-        return PR.t("全文 1–{max} 頁（涵蓋：{sections}）", {
+        return PR.t("全文 1–{max} 页（涵盖：{sections}）", {
           max: maxPage,
           sections: translatedSections.join(sep)
         });
       }
       const m2 = scope.match(/^共\s*(\d+)\s*篇論文全文與個人批註$/);
       if (m2) {
-        return PR.t("共 {n} 篇論文全文與個人批註", { n: m2[1] });
+        return PR.t("共 {n} 篇论文全文与个人批注", { n: m2[1] });
       }
       return PR.t(scope);
     }
-    const stageWhat = task.stage_label ? PR.t(task.stage_label) : (task.message ? PR.t(task.message) : (running ? taskRunningTitle(type) : PR.t("處理中…")));
+    const stageWhat = task.stage_label ? PR.t(task.stage_label) : (task.message ? PR.t(task.message) : (running ? taskRunningTitle(type) : PR.t("处理中…")));
     const dataScope = formatDataScope(task.data_scope);
+    const outputLanguage = PR.aiOutputLanguage?.(task.target || task.output_target) || "";
     const resultState = task.result_state || (task.state === "completed" ? "completed" : (task.state === "failed" || task.state === "interrupted") ? "failed" : task.state === "cancelled" ? "cancelled" : (running ? "running" : "unknown"));
     let resultStateText = "";
     let resultClass = "";
     if (resultState === "completed") {
-      resultStateText = PR.t("已完成（結果可用）");
+      resultStateText = PR.t("已完成（结果可用）");
       resultClass = "pr-status-completed";
     } else if (resultState === "partial") {
-      resultStateText = PR.t("部分完成（部分結果可用）");
+      resultStateText = PR.t("部分完成（部分结果可用）");
       resultClass = "pr-status-partial";
     } else if (resultState === "failed" || task.state === "failed") {
-      resultStateText = PR.t("分析失敗");
+      resultStateText = PR.t("分析失败");
       resultClass = "pr-status-failed";
     } else if (resultState === "cancelled" || task.state === "cancelled") {
       resultStateText = PR.t("已取消");
       resultClass = "";
     } else {
-      resultStateText = PR.t("正在處理中…");
+      resultStateText = PR.t("正在处理中…");
       resultClass = "pr-status-running";
     }
 
     let nextStepText = "";
     if (running) {
-      nextStepText = PR.t("可繼續閱讀或在背景等待，完成後將自動通知。");
+      nextStepText = PR.t("可继续阅读或在背景等待，完成后将自动通知。");
     } else if (task.state === "completed") {
-      nextStepText = PR.t("可立即查看詳細分析與原文依據。");
+      nextStepText = PR.t("可立即查看详细分析与原文依据。");
     } else if (task.state === "failed" || task.state === "interrupted") {
-      nextStepText = task.error_reason ? (PR.t("失敗原因：") + PR.t(task.error_reason)) : PR.t("可重試任務或檢查模型設定。");
+      nextStepText = task.error_reason ? (PR.t("失败原因：") + PR.t(task.error_reason)) : PR.t("可重试任务或检查模型设定。");
     }
 
     const preservedHint = task.preserved_previous
-      ? '<div class="pr-task-preserved-hint">' + PR.t("已保留先前分析結果與輸入內容，可直接查看或重試。") + '</div>'
+      ? '<div class="pr-task-preserved-hint">' + PR.t("已保留先前分析结果与输入内容，可直接查看或重试。") + '</div>'
       : '';
 
     const modalTasks = getModalTasks();
     const tabsSig = modalTasks.map((item) => [item.id, item.state, item.phase || "", item.stage_label || ""].join(":")).join("|");
-    const signature = [task.id, task.state, task.phase, stageWhat, dataScope, resultState, title, nextStepText, tabsSig].join("\n");
+    const signature = [task.id, task.state, task.phase, stageWhat, dataScope, outputLanguage, resultState, title, nextStepText, tabsSig].join("\n");
     if (!modal.hidden && modal.dataset.signature === signature) return;
 
     const controls = running
-      ? '<button class="btn line" type="button" data-task-continue>' + PR.t("繼續使用") + '</button>' + (task.state === "cancelling" ? '' : '<button class="btn danger" type="button" data-task-cancel>' + PR.t("取消分析") + '</button>')
+      ? '<button class="btn line" type="button" data-task-continue>' + PR.t("继续使用") + '</button>' + (task.state === "cancelling" ? '' : '<button class="btn danger" type="button" data-task-cancel>' + PR.t("取消分析") + '</button>')
       : task.state === "completed"
-        ? '<button class="btn accent" type="button" data-task-view>' + PR.t("查看結果") + '</button><button class="btn line" type="button" data-task-continue>' + PR.t("關閉") + '</button>'
+        ? '<button class="btn accent" type="button" data-task-view>' + PR.t("查看结果") + '</button><button class="btn line" type="button" data-task-continue>' + PR.t("关闭") + '</button>'
         : (task.state === "failed" || task.state === "interrupted")
-          ? (task.preserved_previous ? '<button class="btn line" type="button" data-task-view>' + PR.t("查看前次結果") + '</button>' : '') +
-            '<button class="btn accent" type="button" data-task-retry>' + PR.t("返回重試") + '</button>' +
-            '<button class="btn line" type="button" data-task-settings>' + PR.t("檢查模型設定") + '</button>' +
-            '<button class="btn line" type="button" data-task-continue>' + PR.t("關閉") + '</button>'
-          : '<button class="btn line" type="button" data-task-continue>' + PR.t("關閉") + '</button>';
+          ? (task.preserved_previous ? '<button class="btn line" type="button" data-task-view>' + PR.t("查看前次结果") + '</button>' : '') +
+            '<button class="btn accent" type="button" data-task-retry>' + PR.t("返回重试") + '</button>' +
+            '<button class="btn line" type="button" data-task-settings>' + PR.t("检查模型设定") + '</button>' +
+            '<button class="btn line" type="button" data-task-continue>' + PR.t("关闭") + '</button>'
+          : '<button class="btn line" type="button" data-task-continue>' + PR.t("关闭") + '</button>';
 
     const detailsMarkup = '<div class="pr-task-details">' +
-      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("正在做什麼") + '</span><span class="pr-task-val">' + esc(stageWhat) + '</span></div>' +
-      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("資料範圍") + '</span><span class="pr-task-val">' + esc(dataScope) + '</span></div>' +
-      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("結果可用性") + '</span><span class="pr-task-val ' + resultClass + '">' + esc(resultStateText) + '</span></div>' +
+      (outputLanguage ? '<div class="pr-task-row"><span class="pr-task-val">' + esc(outputLanguage) + '</span></div>' : '') +
+      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("正在做什么") + '</span><span class="pr-task-val">' + esc(stageWhat) + '</span></div>' +
+      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("资料范围") + '</span><span class="pr-task-val">' + esc(dataScope) + '</span></div>' +
+      '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("结果可用性") + '</span><span class="pr-task-val ' + resultClass + '">' + esc(resultStateText) + '</span></div>' +
       (nextStepText ? '<div class="pr-task-row"><span class="pr-task-label">' + PR.t("下一步") + '</span><span class="pr-task-val">' + esc(nextStepText) + '</span></div>' : '') +
       preservedHint +
       '</div>';
 
     const tabsMarkup = modalTasks.length > 1
-      ? '<div class="pr-task-tabs" role="tablist" aria-label="' + esc(PR.t("背景任務切換")) + '">' +
+      ? '<div class="pr-task-tabs" role="tablist" aria-label="' + esc(PR.t("背景任务切换")) + '">' +
           modalTasks.map((item) => {
             const isCurrent = item.id === task.id;
             const isItemRunning = active(item);
             const dotClass = isItemRunning ? "is-running"
               : item.state === "completed" ? "is-completed"
               : (item.state === "failed" || item.state === "interrupted") ? "is-failed" : "is-cancelled";
-            const stateShort = isItemRunning ? PR.t("進行中")
+            const stateShort = isItemRunning ? PR.t("进行中")
               : item.state === "completed" ? PR.t("已完成")
-              : (item.state === "failed" || item.state === "interrupted") ? PR.t("失敗") : PR.t("已取消");
+              : (item.state === "failed" || item.state === "interrupted") ? PR.t("失败") : PR.t("已取消");
             return '<button type="button" class="pr-task-tab' + (isCurrent ? ' is-active' : '') + '" role="tab" aria-selected="' + isCurrent + '" data-task-select="' + esc(item.id) + '">' +
               '<span class="pr-task-tab-dot ' + dotClass + '"></span>' +
               '<span class="pr-task-tab-name">' + esc(label(item)) + '</span>' +
@@ -277,7 +279,7 @@
         '</div>'
       : '<p class="pr-task-kind">' + esc(label(task)) + '</p>';
 
-    modal.innerHTML = '<div class="pr-task-dialog" role="dialog" aria-modal="true" aria-labelledby="pr-task-title"><div class="pr-task-head"><span class="pr-task-indicator' + (running ? ' is-running' : '') + '"></span><h2 id="pr-task-title">' + esc(title) + '</h2><button type="button" class="pr-task-close" data-task-continue aria-label="' + esc(PR.t("關閉")) + '">×</button></div>' + tabsMarkup + detailsMarkup + '<div class="pr-task-actions">' + controls + '</div></div>';
+    modal.innerHTML = '<div class="pr-task-dialog" role="dialog" aria-modal="true" aria-labelledby="pr-task-title"><div class="pr-task-head"><span class="pr-task-indicator' + (running ? ' is-running' : '') + '"></span><h2 id="pr-task-title">' + esc(title) + '</h2><button type="button" class="pr-task-close" data-task-continue aria-label="' + esc(PR.t("关闭")) + '">×</button></div>' + tabsMarkup + detailsMarkup + '<div class="pr-task-actions">' + controls + '</div></div>';
     modal.dataset.signature = signature;
     modal.hidden = false;
     state.dialogOpen = true;
@@ -350,9 +352,9 @@
     widget.hidden = !current;
     if (current) {
       const entryText = working.length > 1
-        ? PR.t("{name}等 {n} 項任務進行中", { name: label(current), n: working.length })
+        ? PR.t("{name}等 {n} 项任务进行中", { name: label(current), n: working.length })
         : working.length === 1
-          ? PR.t("{name}進行中", { name: label(current) })
+          ? PR.t("{name}进行中", { name: label(current) })
           : PR.t("研究分析已完成");
       const countBadge = working.length > 1 ? '<span class="pr-task-entry-count">' + working.length + '</span>' : '';
       widget.innerHTML = '<button type="button" class="pr-task-entry-button" aria-label="' + esc(entryText) + '"><span class="pr-task-entry-dot' + (working.length ? ' is-running' : '') + '"></span><span>' + esc(entryText) + '</span>' + countBadge + '<span class="pr-task-entry-chevron">›</span></button>';
@@ -369,8 +371,8 @@
     const isSmartAnnotate = type === "smart-annotate";
     const isDeepAnalysis = type === "deep-analysis";
     const title = completed ? taskCompletedTitle(type) :
-      task.state === "interrupted" ? PR.t("分析已中斷") : PR.t("分析未完成");
-    const actionLabel = completed ? PR.t("查看結果") : PR.t("返回重試");
+      task.state === "interrupted" ? PR.t("分析已中断") : PR.t("分析未完成");
+    const actionLabel = completed ? PR.t("查看结果") : PR.t("返回重试");
     PR.toast(esc(title) + (task.message ? " · " + esc(PR.t(task.message)) : ""), {
       label: actionLabel,
       fn: () => {

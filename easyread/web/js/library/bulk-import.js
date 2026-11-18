@@ -20,13 +20,13 @@
 
   function pickHtml() {
     const lead = s.sync
-      ? PR.t("只匯入尚未存在的 PDF，不會修改 Zotero；已刪除的論文會先詢問。")
+      ? PR.t("只汇入尚未存在的 PDF，不会修改 Zotero；已删除的论文会先询问。")
       : PR.t("把 Zotero 里的论文 PDF、分类、标签和元数据（标题、作者、年份、期刊、DOI、摘要）搬进 EasyRead。只读 Zotero 的数据，不会改动它。");
     return '<p class="zt-lead">' + lead + "</p>" +
       (s.candidates.length ? '<div class="zt-paths">' + s.candidates.map((c) => '<label class="zt-path"><input type="radio" name="ztPath" value="' + esc(c.path) + '"' + (c.path === s.path ? " checked" : "") + "><span>" + esc(c.path) + "</span></label>").join("") + "</div>"
         : '<p class="hint">' + PR.t("没找到 Zotero 的数据文件夹。在 Zotero 的 设置 → 高级 → 文件和文件夹 里能看到“数据存储位置”，选那个文件夹。") + "</p>") +
       '<button class="linkish zt-pick-link" data-z="other">' + icon("folder", "sm") + PR.t("选别的文件夹…") + "</button>" +
-      (s.sync ? '<div class="zt-sync-box"><label class="field"><span>' + PR.t("連結附件根目錄（選填）") + '</span><div class="inline"><input class="input" id="zoteroBase" value="' + esc(s.base) + '"><button class="btn zt-icon-btn" type="button" data-z="base" title="' + esc(PR.t("選擇附件目錄")) + '" aria-label="' + esc(PR.t("選擇附件目錄")) + '">' + icon("folder", "sm") + "</button></div></label></div>" : "") +
+      (s.sync ? '<div class="zt-sync-box"><label class="field"><span>' + PR.t("连结附件根目录（选填）") + '</span><div class="inline"><input class="input" id="zoteroBase" value="' + esc(s.base) + '"><button class="btn zt-icon-btn" type="button" data-z="base" title="' + esc(PR.t("选择附件目录")) + '" aria-label="' + esc(PR.t("选择附件目录")) + '">' + icon("folder", "sm") + "</button></div></label></div>" : "") +
       '<div class="actions"><button class="btn" data-z="close">' + PR.t("取消") + '</button><button class="btn accent" data-z="scan"' + (s.path && !s.busy ? "" : " disabled") + ">" + (s.busy ? '<span class="spin"></span> ' + PR.t("正在读取") : (s.sync ? icon("sync", "sm") + PR.t("下一步") : PR.t("下一步"))) + "</button></div>";
   }
   function scanHtml() {
@@ -54,20 +54,20 @@
     const st = s.status || {};
     const running = st.state === "running";
     const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
-    return (st.sync && st.from_backup ? '<p class="zt-warn">' + PR.t("目前使用 Zotero 備份，資料可能不是最新。") + '</p>' : '') + (running ? '<div class="zt-bar"><i style="width:' + pct + '%"></i></div><p class="zt-now">' + PR.t("{done}/{total}：{title}", { done: st.done, total: st.total, title: esc(st.message || "") }) + "</p>"
+    return (st.sync && st.from_backup ? '<p class="zt-warn">' + PR.t("目前使用 Zotero 备份，资料可能不是最新。") + '</p>' : '') + (running ? '<div class="zt-bar"><i style="width:' + pct + '%"></i></div><p class="zt-now">' + PR.t("{done}/{total}：{title}", { done: st.done, total: st.total, title: esc(st.message || "") }) + "</p>"
       : '<p class="zt-done">' + esc(st.state === "error" ? PR.t("迁移出错：{msg}", { msg: st.message }) : st.state === "stopped" ? PR.t("已停止，已经导入的保留。") : st.sync ? PR.t("同步完成。") : zotero() ? PR.t("迁移完成。") : PR.t("导入完成。")) + "</p>") +
-      '<div class="zt-stats">' + stat(st.imported || 0, PR.t("篇新导入")) + stat(st.existing || 0, st.sync ? PR.t("篇已存在，略過") : PR.t("篇原来就在库里，补了分类")) +
-      (zotero() ? stat((st.skipped || []).length, st.sync ? PR.t("篇已略過") : PR.t("条没有 PDF，跳过")) : "") + stat((st.failed || []).length, PR.t("条没导进来")) + "</div>" +
+      '<div class="zt-stats">' + stat(st.imported || 0, PR.t("篇新导入")) + stat(st.existing || 0, st.sync ? PR.t("篇已存在，略过") : PR.t("篇原来就在库里，补了分类")) +
+      (zotero() ? stat((st.skipped || []).length, st.sync ? PR.t("篇已略过") : PR.t("条没有 PDF，跳过")) : "") + stat((st.failed || []).length, PR.t("条没导进来")) + "</div>" +
       more(PR.t("没导进来的"), st.failed) + more(PR.t("跳过的"), st.skipped) +
       (running ? '<p class="hint">' + PR.t("可以关掉这个窗口，迁移在后台继续。") + "</p>" : "") +
       '<div class="actions">' + (running ? '<button class="btn" data-z="stop">' + PR.t("停止") + '</button><button class="btn accent" data-z="close">' + PR.t("后台继续") + "</button>"
         : '<button class="btn accent" data-z="finish">' + PR.t("完成") + "</button>") + "</div>";
   }
   function render() {
-    const review = () => '<p>' + PR.t("以下論文曾從 EasyRead 刪除。勾選要重新匯入的項目，其餘會略過。") + '</p>' +
-      (s.scan.from_backup ? '<p class="zt-warn">' + PR.t("目前使用 Zotero 備份，資料可能不是最新。") + '</p>' : '') +
+    const review = () => '<p>' + PR.t("以下论文曾从 EasyRead 删除。勾选要重新汇入的项目，其余会略过。") + '</p>' +
+      (s.scan.from_backup ? '<p class="zt-warn">' + PR.t("目前使用 Zotero 备份，资料可能不是最新。") + '</p>' : '') +
       '<div class="zt-list">' + s.scan.deleted.map(x => '<label class="zt-path"><input type="checkbox" data-sync-id="' + esc(x.sha256) + '"> <span>' + titleHtml(x.title) + '</span></label>').join('') + '</div>' +
-      '<div class="actions"><button class="btn" data-z="close">' + PR.t("取消") + '</button><button class="btn accent" data-z="sync-start">' + icon("sync", "sm") + PR.t("開始同步") + "</button></div>";
+      '<div class="actions"><button class="btn" data-z="close">' + PR.t("取消") + '</button><button class="btn accent" data-z="sync-start">' + icon("sync", "sm") + PR.t("开始同步") + "</button></div>";
     box.innerHTML = title() + (s.step === "pick" ? pickHtml() : s.step === "scan" ? scanHtml() : s.step === "review" ? review() : runHtml());
   }
 
@@ -178,7 +178,7 @@
           const p = await PR.pickFolder({ title: PR.t("选择 Zotero 的数据文件夹"), body: PR.t("Zotero 的 设置 → 高级 → 文件和文件夹 里写着“数据存储位置”，就是放 zotero.sqlite 的那个文件夹。") });
           if (p) { if (!s.candidates.some((c) => c.path === p)) s.candidates.push({ path: p }); s.path = p; s.base = s.candidates.find(c => c.path === p)?.base || ""; render(); }
         } else {
-          const p = await PR.pickFolder({ title: PR.t("選擇附件目錄") });
+          const p = await PR.pickFolder({ title: PR.t("选择附件目录") });
           if (p) { s.base = p; render(); }
         }
       } finally { if (b.isConnected) { b.disabled = false; b.innerHTML = prev; } }

@@ -1045,3 +1045,12 @@ html[data-theme="dark"] .rw-evidence-jump,
 [data-view="progress"] .rw-panel + .rw-panel { margin-top: 20px; }
 
 .rw-retrieval-snippet { white-space: pre-wrap; overflow-wrap: anywhere; }
+.rw-summary-editor { width: min(880px, 94vw); max-width: 94vw; }
+.rw-summary-editor textarea { box-sizing: border-box; width: 100%; min-height: 40vh; max-height: 60vh; resize: vertical; font: 15px/1.7 var(--sans); }
+.rw-summary-editor [data-summary-preview] { max-height: 60vh; overflow: auto; }
+.rw-keyword-map-dialog { width: min(1100px, 96vw); max-width: 96vw; max-height: 92vh; overflow: auto; }
+.kwm-scroll { max-height: 54vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.kwm-canvas { position: relative; width: 990px; }
+.kwm-canvas svg { position: absolute; inset: 0; pointer-events: none; fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.kwm-node { position: absolute; width: 210px; height: 64px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: 13px/1.3 var(--sans); overflow: hidden; text-align: left; }
+.kwm-node:focus-visible { outline: 2px solid var(--accent); }

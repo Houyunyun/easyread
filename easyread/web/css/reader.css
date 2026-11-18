@@ -106,7 +106,7 @@ body.en-only #paper { font-family: var(--serif-en); }  /* 只读英文原文：�
 .blk-heading .num { color: var(--ink-3); font-weight: 500; margin-right: .7em; }
 .blk-heading .en-title { display: block; font: italic .74em/1.4 var(--serif-en); color: var(--ink-3); margin-top: .25em; letter-spacing: 0; font-weight: 400; }
 .blk-heading.appendix-start { margin-top: 4.5em; padding-top: 2.2em; border-top: 1px solid var(--rule); }
-.blk-heading.appendix-start::after { content: "附录"; position: absolute; top: .6em; left: 0; font: 12px/1 var(--ui); letter-spacing: .3em; color: var(--ink-3); }
+.blk-heading.appendix-start::after { content: var(--appendix-label, "附录"); position: absolute; top: .6em; left: 0; font: 12px/1 var(--ui); letter-spacing: .3em; color: var(--ink-3); }
 
 .blk-list ol, .blk-list ul { margin: 0; padding-left: 1.6em; }
 .blk-list li { margin: .25em 0; padding-left: .2em; }
@@ -215,12 +215,12 @@ textarea.editor { display: block; width: 100%; resize: none; overflow: hidden; b
 .card:hover .lbl .meta { opacity: 1; }
 .card .ttl { font-weight: 600; color: var(--ink); font-size: 13.5px; margin: 0 0 2px; }
 .card .q { color: var(--ink); margin: 0 0 4px; }
-.card .q::before { content: "问　"; color: var(--ink-3); }
+.card .q::before { content: var(--question-label, "问　"); color: var(--ink-3); }
 .card .quote { font: 12.5px/1.6 var(--serif-zh); color: var(--ink-3); margin: 0 0 3px; }
 .card.mine.c-green .quote { box-shadow: inset 3px 0 0 var(--hl-green); padding-left: 6px; }
 .card.mine.c-blue .quote { box-shadow: inset 3px 0 0 var(--hl-blue); padding-left: 6px; }
 .card.mine.c-pink .quote { box-shadow: inset 3px 0 0 var(--hl-pink); padding-left: 6px; }
-.card .quote.lost::after { content: "（译文已改，未找到这段话）"; font-size: 11px; }
+.card .quote.lost::after { content: var(--lost-quote-label, "（译文已改，未找到这段话）"); font-size: 11px; }
 .card .body p { margin: 0 0 .5em; }
 .card .body p:last-child { margin-bottom: 0; }
 .card .body .katex { font-size: 1em; }

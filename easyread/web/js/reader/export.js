@@ -25,7 +25,7 @@
     const body = '<div class="exp-opts">' +
       KINDS.map(([k, l]) => '<label><input type="checkbox" data-exp="' + k + '"' + (saved[k] ? " checked" : "") + ">" + l +
         (c[k] != null ? '<span class="n">' + PR.t("{n} 条", { n: c[k] }) + "</span>" : "") + "</label>").join("") +
-      '</div>' + (PR.openResearchExport ? '<button class="btn line" data-research-export>' + PR.t("研究匯出 / Obsidian") + '</button>' : '');
+      '</div>' + (PR.openResearchExport ? '<button class="btn line" data-research-export>' + PR.t("研究汇出 / Obsidian") + '</button>' : '');
     PR.openExportDialog({title:PR.t("导出笔记"), filename:exportFilename(), body, prepare});
   };
 
@@ -43,7 +43,7 @@
       }
       const ink = Object.values(S.reader.ink || {}).filter(x => !x.deleted).length;
       const stickers = Object.values(S.reader.stickers || {}).filter(x => !x.deleted).length;
-      const warning = ink || stickers ? PR.t("Markdown 不包含手寫與貼紙；請使用離線 HTML 保留畫布註記。") + "\n\n" : "";
+      const warning = ink || stickers ? PR.t("Markdown 不包含手写与贴纸；请使用离线 HTML 保留画布注记。") + "\n\n" : "";
       const text = warning + PR.notesMarkdown(pick, chat);
       return new Blob([text], {type:"text/markdown;charset=utf-8"});
   }

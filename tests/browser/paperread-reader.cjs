@@ -24,6 +24,7 @@ async page => {
   await page.locator('[data-asset="atom"]').dblclick();
   await page.waitForFunction(n => Object.values(PR.state.reader.stickers || {}).filter(x => !x.deleted).length === n + 1, beforeStickers);
   await page.locator('#stickerToggle').click();
+  await page.locator('#inkToggle').click();
   await page.locator('[data-ink-text]').click();
   await page.mouse.click(start.x + 100, start.y + 15);
   await page.locator('.ink-text-editor').fill('Reader text box\n$E=mc^2$');

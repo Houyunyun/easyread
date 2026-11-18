@@ -17,7 +17,7 @@ function setup(source='Lucide') {
   const document={documentElement:{dataset:{theme:'light'}},body:element(),listeners:{},getElementById:id=>elements[id],querySelector(){return null},addEventListener(type,fn){this.listeners[type]=fn;},createElement(){return element()},createElementNS(_ns,name){const e=element();e.kind=name;e.querySelector=selector=>selector==='image'?e.children.find(child=>child.kind==='image'):selector==='[data-sticker-content]'?e.children.find(child=>Object.hasOwn(child.attributes,'data-sticker-content')):null;return e;}};
   layer.querySelectorAll=selector=>selector==='[data-sticker]'?layer.children.filter(x=>x.dataset.sticker):[];
   const sticker={id:'s1',assetId:'atom',anchor:'p1',textHash:'hash',ref:[100,100],x:0,y:0,width:40,height:40,rotation:0,opacity:.4,z:1,locked:false};
-  const PR={state:{reader:{stickers:{s1:sticker}}}, t:s=>s, esc:s=>String(s||''), md:text=>String(text).replace(/\$([^$]+)\$/g,'<span class="katex">$1</span>'), icon:name=>`<svg data-icon="${name}"></svg>`, ls:{get:(_k,d)=>d,set:()=>true}, on(){}, renderInk(){}, toggleInk(){}, hashText:()=> 'hash', recordStickerHistory(){}, commit(op){if(op.op==='sticker')this.state.reader.stickers[op.sticker.id]=op.sticker;}, $$: () => [block], stickerLasso:require('../../easyread/web/js/reader/sticker-lasso.js'), stickerGeometry:require('../../easyread/web/js/reader/sticker-geometry.js'),stickerStyle:require('../../easyread/web/js/reader/sticker-style.js')};
+  const PR={readerInput:{configure(){},acceptsCanvas:e=>e.pointerType!=="pen"},state:{reader:{stickers:{s1:sticker}}}, t:s=>s, esc:s=>String(s||''), md:text=>String(text).replace(/\$([^$]+)\$/g,'<span class="katex">$1</span>'), icon:name=>`<svg data-icon="${name}"></svg>`, ls:{get:(_k,d)=>d,set:()=>true}, on(){}, renderInk(){}, toggleInk(){}, hashText:()=> 'hash', recordStickerHistory(){}, commit(op){if(op.op==='sticker')this.state.reader.stickers[op.sticker.id]=op.sticker;}, $$: () => [block], stickerLasso:require('../../easyread/web/js/reader/sticker-lasso.js'), stickerGeometry:require('../../easyread/web/js/reader/sticker-geometry.js'),stickerStyle:require('../../easyread/web/js/reader/sticker-style.js')};
   let themeChanged;
   class MockImage { constructor() { setTimeout(() => { this.naturalWidth = 24; this.naturalHeight = 24; this.onload?.(); }, 0); } }
   const context={window:{PR,innerWidth:1200,innerHeight:800,addEventListener(){}},document,innerWidth:1200,innerHeight:800,Image:MockImage,URL,MutationObserver:class{constructor(callback){themeChanged=callback}observe(){}},DOMParser:class{parseFromString(){return {querySelector(){return null},documentElement:{localName:'svg'},querySelectorAll(){return []}}}},TextDecoder,Uint8Array,atob:s=>Buffer.from(s,'base64').toString('binary'),console};
@@ -36,7 +36,7 @@ test('library uses a custom category menu, a rounded star and a single license d
   assert.match(panel.innerHTML,/data-favorite[^>]*aria-pressed="true"/);
   const option={dataset:{categoryValue:'science'},hasAttribute:name=>name==='data-category-value'};
   panel.listeners.click({target:{closest:()=>option}});
-  assert.match(panel.innerHTML,/aria-label="分類: 科學"/);
+  assert.match(panel.innerHTML,/aria-label="分类: 科学"/);
 });
 
 test('selected Lucide sticker exposes direct styling while keeping opacity and keyboard movement',()=>{

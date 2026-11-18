@@ -279,7 +279,6 @@ window.PR = window.PR || {};
       t.appendChild(b);
     }
     t.classList.add("open");
-    if (PR.translateDom) PR.translateDom(t);
     clearTimeout(PR._toastT);
     PR._toastT = setTimeout(() => t.classList.remove("open"), ms || 4200);
   };

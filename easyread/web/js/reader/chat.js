@@ -331,7 +331,7 @@
     const card = b.closest(".cm.ai");
     const m = card && thread() && thread().messages.find((x) => x.id === card.dataset.id);
     if (c === "export-md" && m) return PR.exportChatMarkdown(st.cur, m.id, b);
-    if (c === "copy" && m) navigator.clipboard.writeText(m.content).then(() => PR.toast(PR.t("已复制")));
+    if (c === "copy" && m) PR.copyText(m.content).then(() => PR.toast(PR.t("已复制"))).catch(error => PR.toast(PR.errorText(error)));
     if (c === "pin" && m) {
       try {
         await PR.api("/api/p/" + PR.pid + "/chat/pin", { method: "POST", body: { thread: st.cur, id: m.id } });

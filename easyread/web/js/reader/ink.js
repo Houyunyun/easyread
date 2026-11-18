@@ -6,6 +6,8 @@
   const colorOk = value => /^#[0-9a-f]{6}$/i.test(value);
   let active = false, hidden = false, erasing = false, color = colors[0], width = 2, drawing = null, erasingStrokes = null, last = null, erasePrevious = null, eraseCursor = null, eraserWidth = 24, textMode = false;
   const undo = [], redo = [];
+  let pointerId = null;
+  let inputMode = PR.ls?.get("paperread-ink-input-mode", "mouse") === "pen" ? "pen" : "mouse";
   const strokes = () => Object.values(PR.state.reader.ink || {}).filter(stroke => !stroke.deleted);
   const stage = () => document.getElementById("stage");
   const now = () => Date.now();
@@ -85,7 +87,7 @@
       const expected=undoing ? "after" : "before";
       const changed=(entry.selection.stickers || []).some(item=>content(PR.state.reader.stickers?.[item.id])!==content(item[expected])) ||
         (entry.selection.ink || []).some(item=>content(PR.state.reader.ink?.[item.id])!==content(item[expected]));
-      if (changed) { undo.length=redo.length=0; PR.toast(PR.t("選取內容已在其他地方修改，無法復原")); return false; }
+      if (changed) { undo.length=redo.length=0; PR.toast(PR.t("选取内容已在其他地方修改，无法复原")); return false; }
       for (const item of entry.selection.stickers || []) {
         const value=undoing ? item.before : item.after;
         if (value) PR.commit({op:"sticker",sticker:{...value,deleted:false}}); else PR.commit({op:"sticker_del",id:item.id});
@@ -103,7 +105,7 @@
         return JSON.stringify(clean, (_key,item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])) : item);
       };
       if (entry.stickers.some(item => content(PR.state.reader.stickers?.[item.id]) !== content(undoing ? item.after : item.before))) {
-        undo.length = redo.length = 0; PR.toast(PR.t("貼紙已在其他地方修改，無法復原")); return false;
+        undo.length = redo.length = 0; PR.toast(PR.t("贴纸已在其他地方修改，无法复原")); return false;
       }
       for (const item of entry.stickers) {
         const value=undoing ? item.before : item.after;
@@ -119,7 +121,7 @@
           ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
       };
       if (content(PR.state.reader.stickers?.[entry.id]) !== content(undoing ? entry.after : entry.before)) {
-        undo.length = redo.length = 0; PR.toast(PR.t("貼紙已在其他地方修改，無法復原")); return false;
+        undo.length = redo.length = 0; PR.toast(PR.t("贴纸已在其他地方修改，无法复原")); return false;
       }
       const value = undoing ? entry.before : entry.after;
       if (value) PR.commit({ op: "sticker", sticker: { ...value, deleted: false } });
@@ -178,8 +180,34 @@
   }
   PR.setInkEraser = setEraser;
 
+  function endGesture() {
+    const id = pointerId; pointerId = null;
+    finish(); finishErase();
+    if (eraseCursor) eraseCursor.hidden = true;
+    if (id !== null && layer.hasPointerCapture?.(id)) layer.releasePointerCapture(id);
+  }
+  PR.finishInkGesture = endGesture;
+  function syncInputMode() {
+    PR.readerInput?.configure(active, inputMode);
+    layer.classList.toggle("pen-only", active && inputMode === "pen");
+    const button = tools.querySelector("[data-ink-input]");
+    if (button) {
+      button.textContent = inputMode === "pen" ? PR.t("仅手写笔") : PR.t("鼠标 / 触摸");
+      button.setAttribute("aria-pressed", String(inputMode === "pen"));
+      button.title = PR.t("切换输入方式：仅手写笔模式只允许笔操作画布；落笔时防止误触，抬笔后可用鼠标操作工具栏");
+    }
+  }
+  PR.setInkInputMode = mode => {
+    endGesture(); PR.cancelStickerGesture?.();
+    inputMode = mode === "pen" ? "pen" : "mouse";
+    PR.ls?.set("paperread-ink-input-mode", inputMode);
+    syncInputMode();
+  };
+  PR.inkInputMode = () => inputMode;
+  syncInputMode();
+
   layer.addEventListener("pointerdown", e => {
-    if (!active || e.button !== 0 || PR.stickerMode) return;
+    if (!active || e.button !== 0 || PR.stickerMode || pointerId !== null || !PR.readerInput.acceptsCanvas(e)) return;
     e.preventDefault();
     if (textMode) {
       textMode = false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false");
@@ -188,9 +216,10 @@
       else PR.insertInkText?.(e.clientX, e.clientY);
       return;
     }
+    pointerId = e.pointerId;
     if (erasing) { erasingStrokes = []; layer.setPointerCapture(e.pointerId); eraseAt(e, erasingStrokes); return; }
     const block = nearestBlock(e.clientY);
-    if (!block) return;
+    if (!block) { pointerId = null; return; }
     const r = block.getBoundingClientRect(), p = point(e, r);
     const group = last && last.anchor === block.dataset.id && last.color === color && last.width === width && now() - last.time < 8000 &&
       Math.hypot(p[0] - last.point[0], p[1] - last.point[1]) < 90 ? last.group : PR.uid("ink");
@@ -198,6 +227,7 @@
     layer.setPointerCapture(e.pointerId);
   });
   layer.addEventListener("pointermove", e => {
+    if (!PR.readerInput.acceptsCanvas(e) || (pointerId !== null && pointerId !== e.pointerId)) return;
     if (active && erasing) cursor(e);
     if (drawing) {
       const block = document.getElementById("b-" + drawing.anchor), r = block.getBoundingClientRect(), p = point(e, r);
@@ -210,13 +240,15 @@
   });
   layer.addEventListener("pointerleave", () => { if (eraseCursor && !erasingStrokes) eraseCursor.hidden = true; });
   layer.addEventListener("pointerup", e => {
+    if (pointerId !== e.pointerId) return;
     if (drawing) { const d = drawing; finish(); last = { anchor: d.anchor, color: d.color, width: d.width, time: now(), point: d.points[d.points.length - 1], group: d.group }; }
-    finishErase();
-    if (eraseCursor) eraseCursor.hidden = true;
+    endGesture();
   });
-  layer.addEventListener("pointercancel", () => { finish(); finishErase(); });
-  window.addEventListener("blur", () => { finish(); finishErase(); });
-  window.addEventListener("scroll", () => { finish(); finishErase(); }, { passive: true });
+  for (const type of ["pointercancel", "lostpointercapture"])
+    layer.addEventListener(type, e => { if (e.pointerId === pointerId) endGesture(); });
+  window.addEventListener("blur", endGesture);
+  window.addEventListener("scroll", endGesture, { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) endGesture(); });
   function renderPreview() {
     render();
     const r = document.getElementById("b-" + drawing.anchor).getBoundingClientRect(), sr = stage().getBoundingClientRect();
@@ -226,15 +258,22 @@
     path.setAttribute("stroke-linecap", "round"); path.setAttribute("stroke-linejoin", "round"); layer.append(path);
   }
 
-  document.getElementById("inkToggle")?.addEventListener("click", () => {
-    active = !active; tools.hidden = !active; layer.classList.toggle("active", active);
+  PR.setInkActive = on => {
+    endGesture(); PR.cancelStickerGesture?.();
+    active = !!on; tools.hidden = !active; layer.classList.toggle("active", active);
     document.getElementById("inkToggle").setAttribute("aria-pressed", String(active));
-    if (!active) { finish(); setEraser(false); PR.setLassoMode?.(false); textMode = false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false"); PR.closeStickerPanel?.(); }
-  });
-  PR.toggleInk = () => document.getElementById("inkToggle")?.click();
+    PR.setStickerMode?.(false); PR.closeStickerPanel?.();
+    setEraser(false); textMode = false;
+    tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false");
+    syncInputMode();
+  };
+  document.getElementById("inkToggle")?.addEventListener("click", () => PR.setInkActive(!active));
+  PR.toggleInk = () => PR.setInkActive(!active);
   PR.toggleInkEraser = () => {
-    if (!active) PR.toggleInk();
-    setEraser(!erasing); showEraserSize(erasing);
+    if (!active) PR.setInkActive(true);
+    PR.setStickerMode?.(false); textMode = false;
+    tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false");
+    endGesture(); setEraser(!erasing); showEraserSize(erasing);
   };
   function setColor(next, button) {
     if (!colorOk(next)) return;
@@ -254,11 +293,13 @@
   }
   tools.addEventListener("click", e => {
     const button = e.target.closest("button"); if (!button) return;
+    endGesture();
+    if (button.hasAttribute("data-ink-input")) PR.setInkInputMode(inputMode === "pen" ? "mouse" : "pen");
     if (button.dataset.inkColor) { PR.setStickerMode?.(false); PR.closeStickerPanel?.(); setColor(button.dataset.inkColor, button); }
     if (button.hasAttribute("data-ink-erase")) { PR.setStickerMode?.(false); PR.closeStickerPanel?.(); textMode = false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false"); setEraser(true); showEraserSize(true); }
     if (button.hasAttribute("data-ink-lasso")) { setEraser(false); PR.closeStickerPanel?.(); textMode=false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed","false"); PR.setLassoMode?.(!PR.lassoMode); button.setAttribute("aria-pressed",String(!!PR.lassoMode)); }
     if (button.hasAttribute("data-ink-text")) { PR.setLassoMode?.(false); PR.setStickerMode?.(false); PR.closeStickerPanel?.(); setEraser(false); textMode = !textMode; button.setAttribute("aria-pressed", String(textMode)); }
-    if (button.hasAttribute("data-ink-hide")) { hidden = !hidden; button.setAttribute("aria-pressed", String(hidden)); const label = button.querySelector("[data-ink-hide-label]"); if (label) label.textContent = hidden ? PR.t("顯示筆跡") : PR.t("隱藏筆跡"); render(); }
+    if (button.hasAttribute("data-ink-hide")) { hidden = !hidden; button.setAttribute("aria-pressed", String(hidden)); const label = button.querySelector("[data-ink-hide-label]"); if (label) label.textContent = hidden ? PR.t("显示笔迹") : PR.t("隐藏笔迹"); render(); }
     if (button.hasAttribute("data-ink-undo")) PR.inkHistory(false);
     if (button.hasAttribute("data-ink-redo")) PR.inkHistory(true);
   });
@@ -270,19 +311,17 @@
   document.addEventListener("pointerdown", e => { if (!e.target.closest?.(".ink-eraser")) showEraserSize(false); });
   document.addEventListener("keydown", e => {
     if (e.defaultPrevented || e.isComposing || e.target.closest?.("input,textarea,select,[contenteditable],#chatStyleHelp")) return;
-    if (!active) return;
+    if (!active && !PR.stickerMode) return;
     if (e.key === "Escape") {
       PR.setLassoMode?.(false); PR.setStickerMode?.(false);
       if (tools.querySelector("[data-eraser-size]")?.hidden === false) { e.preventDefault(); e.stopImmediatePropagation(); showEraserSize(false); tools.querySelector("[data-ink-erase]")?.focus(); return; }
-      e.preventDefault(); e.stopImmediatePropagation(); active = false; tools.hidden = true; setEraser(false);
-      layer.classList.remove("active"); textMode = false; tools.querySelector("[data-ink-text]")?.setAttribute("aria-pressed", "false"); tools.querySelector("[data-ink-lasso]")?.setAttribute("aria-pressed", "false"); document.getElementById("inkToggle").setAttribute("aria-pressed", "false");
-      finish(); return;
+      e.preventDefault(); e.stopImmediatePropagation(); PR.setInkActive(false); return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     if (e.key.toLowerCase() === "z" && PR.inkHistory(e.shiftKey)) e.preventDefault();
     if (e.key.toLowerCase() === "y" && PR.inkHistory(true)) e.preventDefault();
   });
-  const layoutObserver = new ResizeObserver(PR.debounce(() => { if (drawing) finish(); render(); }, 100));
+  const layoutObserver = new ResizeObserver(PR.debounce(() => { endGesture(); render(); }, 100));
   layoutObserver.observe(document.getElementById("paper")); layoutObserver.observe(stage());
   PR.on("rendered", () => setTimeout(render, 0));
   PR.on("block-rendered", () => setTimeout(render, 0));

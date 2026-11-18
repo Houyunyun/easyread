@@ -8,6 +8,8 @@ import tempfile
 import threading
 import time
 import unittest
+import os
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from email.message import Message
 from pathlib import Path
@@ -25,6 +27,7 @@ from easyread.server import research_api, server
 from easyread.server.library_api import LibraryLocation
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class PortFixture(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -44,6 +47,7 @@ class PortFixture(unittest.TestCase):
         return {"id": "paper:p1:analysis", "kind": "analysis", "title": "Evidence", "body": "Generated evidence", **fields}
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class ExportContainmentTest(PortFixture):
     def export(self, docs):
         with patch.object(obsidian_export, "vault_path", return_value=self.vault):
@@ -143,6 +147,7 @@ class ExportContainmentTest(PortFixture):
         self.assertEqual(outside.read_text(), "keep")
 
 
+@patch.dict(os.environ, {"EASYREAD_LANG": "zh"})
 class WorkspacePersistenceTest(PortFixture):
     def test_mindmap_edits_revisions_and_offline_snapshot_do_not_generate(self):
         db_path = self.lib.root / ".paperread-planning.sqlite3"
@@ -150,10 +155,11 @@ class WorkspacePersistenceTest(PortFixture):
             empty = workspace.offline_snapshot(self.ws)
             self.assertFalse(empty["mindmap"]["cached"])
             self.assertFalse(db_path.exists())
-            saved = workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"mermaid": "mindmap\n  root((Saved))", "revision": 0})
+            identity = workspace.get(self.app, f"/api/research/v2/paper/{self.ws.id}/mindmap")
+            saved = workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"target": identity["target"], "source_sha256": identity["source_sha256"], "mermaid": "mindmap\n  root((Saved))", "revision": 0})
             self.assertEqual(saved["revision"], 1)
             with self.assertRaises(ValueError):
-                workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"mermaid": "mindmap\n  root((Stale))", "revision": 0})
+                workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"target": identity["target"], "source_sha256": identity["source_sha256"], "mermaid": "mindmap\n  root((Stale))", "revision": 0})
             write_json_atomic(self.ws.root / "report.json", {"markdown": "Saved audit", "paper_id": self.ws.id})
             offline = workspace.offline_snapshot(self.ws)
             online = workspace.get(self.app, f"/api/research/v2/paper/{self.ws.id}/mindmap")
@@ -257,20 +263,21 @@ class WorkspacePersistenceTest(PortFixture):
     def test_language_rules_respect_paper_target_over_ui_language(self):
         with patch.object(i18n, "lang", return_value="en"):
             prompt = deep_analysis.build_audit_prompt({"target": "zh-Hant"}, "Evidence")
-        self.assertIn("繁體中文", prompt)
-        self.assertNotIn("Please output the entire report in English", prompt)
+        self.assertIn("繁体中文", prompt)
+        self.assertNotIn("只用英文（English）", prompt)
         self.assertEqual(workspace._mindmap_language_guide({"target": "zh-TW"})[0], "zh-Hant")
-        self.assertNotIn("繁體中文", workspace._mindmap_language_guide({"target": "fr"})[1]["name"])
+        self.assertNotIn("繁体中文", workspace._mindmap_language_guide({"target": "fr"})[1]["name"])
 
     def test_regeneration_does_not_overwrite_a_concurrent_manual_mindmap_edit(self):
         from easyread.chat import chat_models
         from easyread.engines import engines
 
         def model(*args, **kwargs):
-            workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"mermaid": "mindmap\n  root((Manual concurrent edit))", "revision": 0})
+            identity = workspace.get(self.app, f"/api/research/v2/paper/{self.ws.id}/mindmap")
+            workspace.post(self.app, f"/paper/{self.ws.id}/mindmap/save", {"target": identity["target"], "source_sha256": identity["source_sha256"], "mermaid": "mindmap\n  root((Manual concurrent edit))", "revision": 0})
             return "mindmap\n  root((Generated))"
 
         with patch.object(chat_models, "engine_cfg", return_value=({"engine": "test"}, {"id": "test"})), patch.object(engines, "run", side_effect=model):
-            with self.assertRaisesRegex(ValueError, "Mindmap changed"):
+            with self.assertRaisesRegex(ValueError, "心智图已变更"):
                 workspace.post(self.app, f"/paper/{self.ws.id}/mindmap", {})
         self.assertIn("Manual concurrent edit", workspace.offline_snapshot(self.ws)["mindmap"]["mermaid"])

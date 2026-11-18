@@ -28,6 +28,10 @@
 
 <p align="center"><img src="images/en/library.png" width="860" alt="Library"></p>
 
+## Handwriting and stickers
+
+Handwriting and stickers open independently: opening the sticker library closes handwriting, without enabling the pen. Handwriting defaults to mouse/touch input. Click its input-mode button to select pen-only input; the choice is saved in this browser. In pen-only mode, drawing, erasing, lasso selection and text placement accept only pointers the browser identifies as `pen`; mouse and touch cannot operate the canvas. While the pen is down, accidental input, text selection and menus are suppressed. Lift the pen to configure or exit with the mouse; the keyboard remains available. Closing handwriting restores normal reading and sticker interaction. If your device reports its pen as a mouse, deliberately switch back to mouse/touch mode, which does not offer palm rejection.
+
 ## Pick your translation model
 
 | Engine | What you need | Notes |

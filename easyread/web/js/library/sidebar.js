@@ -10,7 +10,7 @@
   "use strict";
   const L = PR.lib;
   const ALL = ["all", PR.t("全部"), "book", (i) => !i.archived];
-  const STARRED = ["starred", PR.t("星標"), "star", (i) => !i.archived && i.starred];
+  const STARRED = ["starred", PR.t("星标"), "star", (i) => !i.archived && i.starred];
   const DEFAULT_STATUS = [
     { id: "unread", label: PR.t("未读") }, { id: "reading", label: PR.t("在读") }, { id: "organizing", label: PR.t("待整理") },
     { id: "done", label: PR.t("已读") },
@@ -252,11 +252,11 @@
         L.patchMany(toArchive.map((i) => [i.id, { archived: true }]));
         PR.toast(n > 1 ? PR.t("{n} 篇已封存", { n }) : PR.t("已封存"));
       } else {
-        PR.toast(PR.t("已經在封存區了"));
+        PR.toast(PR.t("已经在封存区了"));
       }
     }
     else if (v === "starred") { L.patchMany(its.filter((i) => !i.starred).map((i) => [i.id, { starred: true }])); PR.toast(n > 1 ? PR.t("{n} 篇已加星标", { n }) : PR.t("已加星标")); }
-    else if (STATUS()[v]) { L.patchMany(its.map((i) => [i.id, { status: v, archived: false }])); PR.toast(n > 1 ? PR.t("{n} 篇已標為{status}", { n, status: STATUS()[v] }) : PR.t("已標為{status}", { status: STATUS()[v] })); }
+    else if (STATUS()[v]) { L.patchMany(its.map((i) => [i.id, { status: v, archived: false }])); PR.toast(n > 1 ? PR.t("{n} 篇已标为{status}", { n, status: STATUS()[v] }) : PR.t("已标为{status}", { status: STATUS()[v] })); }
     else {
       const add = its.filter((i) => !(i.tags || []).includes(c));
       const name = PR.esc(T.label(c));

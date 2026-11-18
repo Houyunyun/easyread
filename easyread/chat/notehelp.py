@@ -1,7 +1,7 @@
-"""論文筆記的 AI 助手：點評、幫我改、起草稿。
+"""论文笔记的 AI 助手：点评、帮我改、起草稿。
 
-和「問 AI」對話分開：結果直接流回筆記面板，不進對話記錄；由讀者決定要不要替換或追加到筆記裡。
-輸出格式和對話一樣：一行一個 JSON，{"t": 片段} … 最後 {"done": true} 或 {"error": …}。
+和「问 AI」对话分开：结果直接流回笔记面板，不进对话记录；由读者决定要不要替换或追加到笔记里。
+输出格式和对话一样：一行一个 JSON，{"t": 片段} … 最后 {"done": true} 或 {"error": …}。
 """
 from __future__ import annotations
 
@@ -9,34 +9,33 @@ import json
 import threading
 
 from ..translate import langs
-from ..research.language import reply_rule
+from ..research.language import output_rule
 from ..chat import chat
 from ..chat import chat_models
 from ..app import config
 from ..engines import engines
 from ..app.i18n import tr
 from ..app.log import log
-from ..translate.prompts import _block_text
 from ..library.store import Workspace
 
 PAPER_BUDGET = 48000  # 不能自己读文件的引擎：随提示词附上的原文与表格字数上限
 ANNOTATION_BUDGET = 2500  # 随提示词附上的读者划线与批注字数上限
 
 ASK = {
-    "review": ("請點評這份筆記：哪些理解是準確的；哪些地方和論文不符或理解有誤（說清論文實際怎麼說、在哪一節）；"  # i18n-ok 提示詞
-               "漏掉了哪些重要內容；還可以往哪想。直接、具體，分條寫，不要客套，不要重寫整份筆記。"),  # i18n-ok
-    "revise": ("請幫讀者修改並完善這份筆記：保留他的觀點、結構和口吻，修正和論文不符的地方，補上明顯漏掉的要點，把表達理順。"  # i18n-ok
-               "善用富文本結構：理順標題層級，適度補充關鍵公式（$TeX$）、數據對比表格或待辦清單（- [ ]）。"  # i18n-ok
-               "若筆記中有未填寫的空白區塊、空引用塊或空列點，請直接根據論文內容補齊具體內容並移除空白項目。"  # i18n-ok
-               "只輸出修改後的完整筆記（Markdown，公式寫 $TeX$），不要解釋改了什麼。"),  # i18n-ok
-    "draft": ("讀者還沒寫筆記。請根據論文內容與讀者標註幫他起一份結構嚴謹、內容充實的高品質讀書筆記。"  # i18n-ok
-              "所有章節標題與內文一律依照指定語言撰寫（保留模型、資料集與指標英文原名）。"  # i18n-ok
+    "review": ("请点评这份笔记：哪些理解是准确的；哪些地方和论文不符或理解有误（说清论文实际怎么说、在哪一节）；"  # i18n-ok 提示词
+               "漏掉了哪些重要内容；还可以往哪想。直接、具体，分条写，不要客套，不要重写整份笔记。"),  # i18n-ok
+    "revise": ("请帮读者修改并完善这份笔记：保留他的观点、结构和口吻，修正和论文不符的地方，补上明显漏掉的要点，把表达理顺。"  # i18n-ok
+               "善用富文本结构：理顺标题层级，适度补充关键公式（$TeX$）、数据对比表格或待办清单（- [ ]）。"  # i18n-ok
+               "若笔记中有未填写的空白区块、空引用块或空列点，请直接根据论文内容补齐具体内容并移除空白项目。"  # i18n-ok
+               "只输出修改后的完整笔记（Markdown，公式写 $TeX$），不要解释改了什么。"),  # i18n-ok
+    "draft": ("读者还没写笔记。请根据论文内容与读者标注帮他起一份结构严谨、内容充实的高品质读书笔记。"  # i18n-ok
+              "所有章节标题与内文一律依照指定语言撰写（保留模型、资料集与指标英文原名）。"  # i18n-ok
               "充分利用富文本排版能力：\n"  # i18n-ok
-              "1. 核心問題與動機：闡明背景、核心痛點，並用引用塊（> ）總結作者的核心直覺洞見。\n"  # i18n-ok
-              "2. 方法與資料流要點：梳理模組分工，寫出關鍵數學公式（行內 $TeX$ 或獨立 $$TeX$$）。\n"  # i18n-ok
-              "3. 主要結論與關鍵實驗證據：將論文中的關鍵實驗表格數據（如主實驗或消融實驗）整理成 Markdown 表格，並搭配條列結論。\n"  # i18n-ok
-              "4. 局限與延伸思考：指出缺陷或假設條件，並用待辦清單（- [ ]）列出後續可追蹤或復現的問題。\n"  # i18n-ok
-              "使用 Markdown 標題（##）與分層條列組織以利轉為心智圖。請直接寫出具體分析與結論，不要留空白填空區或空列點。只輸出筆記本身。"),  # i18n-ok
+              "1. 核心问题与动机：阐明背景、核心痛点，并用引用块（> ）总结作者的核心直觉洞见。\n"  # i18n-ok
+              "2. 方法与资料流要点：梳理模组分工，写出关键数学公式（行内 $TeX$ 或独立 $$TeX$$）。\n"  # i18n-ok
+              "3. 主要结论与关键实验证据：将论文中的关键实验表格数据（如主实验或消融实验）整理成 Markdown 表格，并搭配条列结论。\n"  # i18n-ok
+              "4. 局限与延伸思考：指出缺陷或假设条件，并用待办清单（- [ ]）列出后续可追踪或复现的问题。\n"  # i18n-ok
+              "使用 Markdown 标题（##）与分层条列组织以利转为心智图。请直接写出具体分析与结论，不要留空白填空区或空列点。只输出笔记本身。"),  # i18n-ok
 }
 
 
@@ -48,7 +47,7 @@ def _table_text(b: dict) -> str:
 
 
 def _source_block_text(b: dict) -> str:
-    """提取論文區塊文字：以精準原文（英文）為主，保留數學公式與表格。"""
+    """提取论文区块文字：以精准原文（英文）为主，保留数学公式与表格。"""
     btype = b.get("type")
     if btype == "list":
         return "\n".join(f"- {it.get('en') or it.get('zh', '')}" for it in b.get("items", []) if isinstance(it, dict))
@@ -68,7 +67,7 @@ def _paper_text(ws: Workspace) -> str:
     gl = paper.get("glossary", [])
     out, used = [], 0
     if gl:
-        gl_text = "已有術語表（專有名詞請依此對照）：\n" + "\n".join(f"- {g['en']} = {g['zh']}" for g in gl if g.get("en"))  # i18n-ok 提示詞
+        gl_text = "已有术语表（专有名词请依此对照）：\n" + "\n".join(f"- {g['en']} = {g['zh']}" for g in gl if g.get("en"))  # i18n-ok 提示词
         out.append(gl_text + "\n")
         used += len(gl_text)
     for b in blocks:
@@ -82,7 +81,7 @@ def _paper_text(ws: Workspace) -> str:
         if not t:
             continue
         if used + len(t) > PAPER_BUDGET:
-            out.append("……（後面的內容省略）")  # i18n-ok 提示詞
+            out.append("……（后面的内容省略）")  # i18n-ok 提示词
             break
         out.append(t)
         used += len(t)
@@ -101,10 +100,10 @@ def _reader_annotations(ws: Workspace) -> str:
             continue
         parts = []
         if quote:
-            parts.append(f"劃線：「{quote}」")  # i18n-ok 提示詞
+            parts.append(f"划线：「{quote}」")  # i18n-ok 提示词
         if body:
-            parts.append(f"批註：{body}")  # i18n-ok 提示詞
-        entry = "- " + "｜".join(parts)  # i18n-ok 提示詞
+            parts.append(f"批注：{body}")  # i18n-ok 提示词
+        entry = "- " + "｜".join(parts)  # i18n-ok 提示词
         if used + len(entry) > ANNOTATION_BUDGET:
             break
         lines.append(entry)
@@ -112,16 +111,16 @@ def _reader_annotations(ws: Workspace) -> str:
     return "\n".join(lines)
 
 
-def prompt(ws: Workspace, mode: str, note: str, engine: str) -> str:
+def prompt(ws: Workspace, mode: str, note: str, engine: str, target: str = "") -> str:
     meta = ws.load("paper").get("meta", {})
     title = meta.get("title_zh") or meta.get("title_en") or ""
-    paper = ("論文全文在目前目錄的 paper.json 裡（blocks 裡是譯文和原文），需要核對時使用 Read 工具讀取。"  # i18n-ok 提示詞
-             if engine == "claude" else "論文原文與關鍵資料（節錄）：\n" + _paper_text(ws))  # i18n-ok
+    paper = ("论文全文在目前目录的 paper.json 里（blocks 里是译文和原文），需要核对时使用 Read 工具读取。"  # i18n-ok 提示词
+             if engine == "claude" else "论文原文与关键资料（节录）：\n" + _paper_text(ws))  # i18n-ok
     annotations = _reader_annotations(ws)
-    ann_block = f"讀者在正文中的劃線與批註：\n{annotations}\n\n" if annotations else ""  # i18n-ok 提示詞
-    return (f"你正在幫讀者整理論文《{title}》的筆記。{reply_rule(meta)}。{ASK[mode]}\n\n{paper}\n\n"  # i18n-ok
+    ann_block = f"读者在正文中的划线与批注：\n{annotations}\n\n" if annotations else ""  # i18n-ok 提示词
+    return (f"你正在帮读者整理论文《{title}》的笔记。{output_rule(target or langs.reply_code(meta))}{ASK[mode]}\n\n{paper}\n\n"  # i18n-ok
             + ann_block
-            + (f"讀者的筆記：\n<<<\n{note}\n>>>" if note.strip() else ""))  # i18n-ok
+            + (f"读者的笔记：\n<<<\n{note}\n>>>" if note.strip() else ""))  # i18n-ok
 
 
 def is_local_model(ecfg: dict, m: dict) -> bool:
@@ -147,7 +146,8 @@ def handle(handler, ws: Workspace, body: dict) -> None:
     if mode != "draft" and not note.strip():
         raise ValueError(tr("笔记还是空的"))
     ecfg, m = chat_models.engine_cfg(config.load(), body.get("model"))
-    text = prompt(ws, mode, note, ecfg["engine"])
+    target = langs.reply_code(ws.load("paper").get("meta"))
+    text = prompt(ws, mode, note, ecfg["engine"], target)
     handler.send_response(200)
     handler.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
     handler.send_header("Cache-Control", "no-store")
@@ -160,7 +160,7 @@ def handle(handler, ws: Workspace, body: dict) -> None:
         handler.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8"))
         handler.wfile.flush()
     try:
-        init_payload = {"model": chat_models.label(m)}
+        init_payload = {"model": chat_models.label(m), "target": target}
         notice = local_model_notice(ecfg, m)
         if notice:
             init_payload["notice"] = notice

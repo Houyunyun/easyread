@@ -63,7 +63,7 @@
   }
 
   /* 將 Mermaid mindmap 文字解析為 MindElixirData 樹狀結構 */
-  function parseToData(source, fallbackTitle = PR.t("論文心智圖")) {
+  function parseToData(source, fallbackTitle = PR.t("论文心智图")) {
     let rawRoot = null;
     const lines = String(source || "").split(/\r?\n/);
     const parsedLines = [];
@@ -189,26 +189,26 @@
     let tbHtml = "";
 
     if (expandControls) {
-      tbHtml += '<button type="button" class="btn icon sm" data-mm-act="expand-all" title="' + PR.t("全部展開") + '" aria-label="' + PR.t("全部展開") + '">' + ICON_EXPAND_ALL + '</button>';
+      tbHtml += '<button type="button" class="btn icon sm" data-mm-act="expand-all" title="' + PR.t("全部展开") + '" aria-label="' + PR.t("全部展开") + '">' + ICON_EXPAND_ALL + '</button>';
       tbHtml += '<button type="button" class="btn icon sm" data-mm-act="collapse-main" title="' + PR.t("收合至主分支") + '" aria-label="' + PR.t("收合至主分支") + '">' + ICON_COLLAPSE_MAIN + '</button>';
       tbHtml += '<span class="mm-tb-sep"></span>';
     }
 
     if (showDirBtn) {
-      tbHtml += '<button type="button" class="btn sm mm-btn-dir" data-mm-act="toggle-dir" title="' + PR.t("切換佈局方向（向右／雙側）") + '">' + (direction === 2 ? PR.t("雙側") : PR.t("向右")) + '</button>';
+      tbHtml += '<button type="button" class="btn sm mm-btn-dir" data-mm-act="toggle-dir" title="' + PR.t("切换布局方向（向右／双侧）") + '">' + (direction === 2 ? PR.t("双侧") : PR.t("向右")) + '</button>';
       tbHtml += '<span class="mm-tb-sep"></span>';
     }
 
     if (zoomControls) {
-      tbHtml += '<button type="button" class="btn icon sm" data-mm-act="zoom-out" title="' + PR.t("縮小") + '">−</button>';
+      tbHtml += '<button type="button" class="btn icon sm" data-mm-act="zoom-out" title="' + PR.t("缩小") + '">−</button>';
       tbHtml += '<span class="mm-zoom-label" data-mm-zoom>100%</span>';
       tbHtml += '<button type="button" class="btn icon sm" data-mm-act="zoom-in" title="' + PR.t("放大") + '">+</button>';
-      tbHtml += '<button type="button" class="btn sm" data-mm-act="fit-center" title="' + PR.t("適應視窗並置中") + '">' + PR.t("適應") + '</button>';
+      tbHtml += '<button type="button" class="btn sm" data-mm-act="fit-center" title="' + PR.t("适应视窗并置中") + '">' + PR.t("适应") + '</button>';
     }
 
     if (showModalBtn && onOpenModal) {
       tbHtml += '<span class="mm-tb-sep"></span>';
-      tbHtml += '<button type="button" class="btn sm accent mm-btn-modal" data-mm-act="open-modal" title="' + PR.t("詳細檢視心智圖") + '">' + PR.t("詳細檢視") + '</button>';
+      tbHtml += '<button type="button" class="btn sm accent mm-btn-modal" data-mm-act="open-modal" title="' + PR.t("详细检视心智图") + '">' + PR.t("详细检视") + '</button>';
     }
 
     toolbar.innerHTML = tbHtml;
@@ -222,7 +222,12 @@
       direction: curDirection,
       draggable: false,
       editable: false,
-      contextMenu: options.editable === true,
+      contextMenu: options.editable === true ? { locale: {
+        addChild: PR.t("添加子节点"), addParent: PR.t("添加父节点"), addSibling: PR.t("添加同级节点"),
+        removeNode: PR.t("删除节点"), focus: PR.t("聚焦模式"), cancelFocus: PR.t("退出聚焦模式"),
+        moveUp: PR.t("上移"), moveDown: PR.t("下移"), link: PR.t("连接"),
+        linkBidirectional: PR.t("双向连接"), clickTips: PR.t("请选择目标节点"), summary: PR.t("摘要"),
+      } } : false,
       toolBar: false,
       keypress: false,
       mouseSelectionButton: 2, // 2: 右鍵選取，讓左鍵自然為拖曳平移
@@ -234,12 +239,12 @@
     let instance = null;
     try {
       instance = new ME(meOptions);
-      const mindData = data ? JSON.parse(JSON.stringify(data)) : ME.new(PR.t("論文心智圖"));
+      const mindData = data ? JSON.parse(JSON.stringify(data)) : ME.new(PR.t("论文心智图"));
       mindData.direction = curDirection;
       mindData.theme = getTheme(isDark);
       instance.init(mindData);
     } catch (err) {
-      console.error("[MindElixir] 初始化失敗:", err); // i18n-ok
+      console.error("[MindElixir] 初始化失败:", err); // i18n-ok
       container.innerHTML = '<div class="rp-map-error"><span>' + PR.esc(err.message) + '</span></div>';
       return null;
     }
@@ -305,7 +310,7 @@
         fitAndCenter();
       } else if (act === "toggle-dir") {
         curDirection = curDirection === 2 ? 1 : 2;
-        btn.textContent = curDirection === 2 ? PR.t("雙側") : PR.t("向右");
+        btn.textContent = curDirection === 2 ? PR.t("双侧") : PR.t("向右");
         if (curDirection === 2) instance.initSide();
         else instance.initRight();
         fitAndCenter();
@@ -362,7 +367,7 @@
   function renderPanel(container, generated, options = {}) {
     generated = PR.mindmapEdits ? PR.mindmapEdits.current(generated) : generated;
     const rawMermaid = generated?.mermaid || "";
-    const title = options.title || PR.t("論文心智圖");
+    const title = options.title || PR.t("论文心智图");
     const mindData = parseToData(rawMermaid, title);
 
     const onOpenModal = () => {
@@ -390,19 +395,19 @@
     const dialog = backdrop.querySelector(".dialog");
     if (!dialog) return;
 
-    const title = options.title || PR.t("論文心智圖");
+    const title = options.title || PR.t("论文心智图");
     const titleDisp = PR.titleHtml ? PR.titleHtml(title) : PR.esc(title);
 
     const isDark = isDarkTheme();
     dialog.innerHTML =
       '<div class="mm-modal-head">' +
-        '<div class="mm-modal-title"><b>' + PR.t("論文心智圖") + '</b><span class="mm-modal-sub">' + titleDisp + '</span></div>' +
+        '<div class="mm-modal-title"><b>' + PR.t("论文心智图") + '</b><span class="mm-modal-sub">' + titleDisp + '</span><small>' + PR.esc(PR.aiOutputLanguage(options.generated?.target)) + '</small></div>' +
         '<div class="mm-modal-actions">' +
-          (options.onRegenerate ? '<button type="button" class="btn sm line" data-mm-modal="regen">' + PR.icon("sparkle", "sm") + PR.t("重新產生") + '</button>' : '') +
+          (options.onRegenerate ? '<button type="button" class="btn sm line" data-mm-modal="regen">' + PR.icon("sparkle", "sm") + PR.t("重新产生") + '</button>' : '') +
           '<button type="button" class="btn icon sm theme-btn" data-mm-modal="theme" title="' + (isDark ? PR.t("换成浅色") : PR.t("换成深色")) + '">' +
             (PR.icon ? PR.icon(isDark ? "sun" : "moon", "sm") : '') +
           '</button>' +
-          '<button type="button" class="btn icon sm" data-mm-modal="close" title="' + PR.t("關閉") + '" aria-label="' + PR.t("關閉") + '">×</button>' +
+          '<button type="button" class="btn icon sm" data-mm-modal="close" title="' + PR.t("关闭") + '" aria-label="' + PR.t("关闭") + '">×</button>' +
         '</div>' +
       '</div>' +
       '<div class="mm-modal-body" id="mmModalStage"></div>';
@@ -473,7 +478,7 @@
   /* 匯出為 PNG 格式 Blob 物件（完整展開節點） */
   async function exportPngBlob(sourceOrData, options = {}) {
     const ME = getME();
-    if (!ME) throw new Error("MindElixir not loaded");
+    if (!ME) throw new Error(PR.t("心智图组件尚未加载"));
 
     let data = null;
     if (typeof sourceOrData === "string") {
@@ -481,7 +486,7 @@
     } else if (sourceOrData && sourceOrData.nodeData) {
       data = JSON.parse(JSON.stringify(sourceOrData));
     } else {
-      throw new Error("Invalid mindmap data");
+      throw new Error(PR.t("心智图数据无效"));
     }
 
     // 完整展開所有分支以產出完整圖像

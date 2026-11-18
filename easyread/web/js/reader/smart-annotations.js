@@ -37,16 +37,16 @@
 
   function smartColorLegend() {
     const highlighters = [
-      ["yellow", PR.t("核心主張"), PR.t("標記完整的重要句子、核心論點與結論")],
-      ["green", PR.t("方法與證據"), PR.t("標記研究方法、實驗架構與關鍵結果")],
-      ["blue", PR.t("背景知識"), PR.t("標記重要背景、問題定義與領域概念")],
-      ["pink", PR.t("研究限制"), PR.t("標記研究限制、瓶頸、缺陷與待解問題")],
+      ["yellow", PR.t("核心主张"), PR.t("标记完整的重要句子、核心论点与结论")],
+      ["green", PR.t("方法与证据"), PR.t("标记研究方法、实验架构与关键结果")],
+      ["blue", PR.t("背景知识"), PR.t("标记重要背景、问题定义与领域概念")],
+      ["pink", PR.t("研究限制"), PR.t("标记研究限制、瓶颈、缺陷与待解问题")],
     ];
     const underlines = [
-      ["yellow", PR.t("關鍵詞"), PR.t("標記核心概念、專有名詞與新術語")],
-      ["green", PR.t("數據指標"), PR.t("標記數值、統計指標、百分比與實驗數據")],
-      ["blue", PR.t("引用來源"), PR.t("標記作者、理論名稱、基準模型與文獻")],
-      ["pink", PR.t("疑點與風險"), PR.t("標記不確定性、矛盾語句與潛在風險")],
+      ["yellow", PR.t("关键词"), PR.t("标记核心概念、专有名词与新术语")],
+      ["green", PR.t("数据指标"), PR.t("标记数值、统计指标、百分比与实验数据")],
+      ["blue", PR.t("引用来源"), PR.t("标记作者、理论名称、基准模型与文献")],
+      ["pink", PR.t("疑点与风险"), PR.t("标记不确定性、矛盾语句与潜在风险")],
     ];
 
     const renderPills = (list, isUnderline) =>
@@ -62,15 +62,15 @@
 
     return '<div class="smart-legend-box">' +
       '<div class="smart-legend-head">' +
-      '<span class="smart-legend-title">' + PR.t("標註規則圖例") + '</span>' +
+      '<span class="smart-legend-title">' + PR.t("标注规则图例") + '</span>' +
       '</div>' +
       '<div class="smart-legend-body">' +
       '<div class="smart-legend-group">' +
-      '<div class="smart-legend-subhead">' + PR.t("螢光筆（句子）") + '</div>' +
+      '<div class="smart-legend-subhead">' + PR.t("萤光笔（句子）") + '</div>' +
       '<div class="smart-legend-grid">' + renderPills(highlighters, false) + '</div>' +
       '</div>' +
       '<div class="smart-legend-group">' +
-      '<div class="smart-legend-subhead">' + PR.t("底線筆（短語）") + '</div>' +
+      '<div class="smart-legend-subhead">' + PR.t("底线笔（短语）") + '</div>' +
       '<div class="smart-legend-grid">' + renderPills(underlines, true) + '</div>' +
       '</div>' +
       '</div>' +
@@ -80,27 +80,27 @@
   function smartDialog() {
     const dlg = PR.$("#readerDlg");
     const sections = smartSections();
-    dlg.querySelector(".dialog").innerHTML = '<h2>' + PR.t("智慧標註") + '</h2>' +
+    dlg.querySelector(".dialog").innerHTML = '<h2>' + PR.t("智慧标注") + '</h2>' +
       '<div class="smart-alert-banner">' +
       '<span class="smart-alert-icon">ℹ</span>' +
-      '<span>' + PR.t("先產生待確認建議；接受後才會套用到正文，不會覆蓋手動標註。") + '</span>' +
+      '<span>' + PR.t("先产生待确认建议；接受后才会套用到正文，不会覆盖手动标注。") + '</span>' +
       '</div>' +
       smartColorLegend() +
       '<div class="smart-form-section">' +
         '<div class="smart-form-group">' +
-          '<label class="smart-group-label">' + PR.t("劃記強度") + '</label>' +
+          '<label class="smart-group-label">' + PR.t("划记强度") + '</label>' +
           '<input type="hidden" id="smartIntensity" value="standard">' +
-          '<div class="smart-segmented" role="radiogroup" aria-label="' + PR.esc(PR.t("劃記強度")) + '">' +
-            '<button type="button" class="smart-seg-btn" data-seg="smartIntensity" data-val="concise" title="' + PR.esc(PR.t("每段只保留最有價值的資訊，適合快速閱讀")) + '">' +
-              '<span class="seg-title">' + PR.t("精簡") + '</span>' +
-              '<span class="seg-sub">' + PR.t("快速閱讀") + '</span>' +
+          '<div class="smart-segmented" role="radiogroup" aria-label="' + PR.esc(PR.t("划记强度")) + '">' +
+            '<button type="button" class="smart-seg-btn" data-seg="smartIntensity" data-val="concise" title="' + PR.esc(PR.t("每段只保留最有价值的资讯，适合快速阅读")) + '">' +
+              '<span class="seg-title">' + PR.t("精简") + '</span>' +
+              '<span class="seg-sub">' + PR.t("快速阅读") + '</span>' +
             '</button>' +
-            '<button type="button" class="smart-seg-btn active" data-seg="smartIntensity" data-val="standard" title="' + PR.esc(PR.t("保留各類重要資訊與核心詞彙，適合一般研究")) + '">' +
-              '<span class="seg-title">' + PR.t("標準") + '</span>' +
+            '<button type="button" class="smart-seg-btn active" data-seg="smartIntensity" data-val="standard" title="' + PR.esc(PR.t("保留各类重要资讯与核心词汇，适合一般研究")) + '">' +
+              '<span class="seg-title">' + PR.t("标准") + '</span>' +
               '<span class="seg-sub">' + PR.t("一般研究") + '</span>' +
             '</button>' +
-            '<button type="button" class="smart-seg-btn" data-seg="smartIntensity" data-val="detailed" title="' + PR.esc(PR.t("增加次要證據與詳細數據，適合深入研究")) + '">' +
-              '<span class="seg-title">' + PR.t("詳細") + '</span>' +
+            '<button type="button" class="smart-seg-btn" data-seg="smartIntensity" data-val="detailed" title="' + PR.esc(PR.t("增加次要证据与详细数据，适合深入研究")) + '">' +
+              '<span class="seg-title">' + PR.t("详细") + '</span>' +
               '<span class="seg-sub">' + PR.t("深入研究") + '</span>' +
             '</button>' +
           '</div>' +
@@ -109,53 +109,53 @@
           '<div class="smart-form-col">' +
             '<div class="smart-label-wrap">' +
               '<label class="smart-group-label" for="smartMode">' + PR.t("分析模式") + '</label>' +
-              '<button type="button" class="smart-help-btn" data-smart-mode-help title="' + PR.esc(PR.t("說明三種標註模式的差異")) + '" aria-label="' + PR.esc(PR.t("說明三種標註模式的差異")) + '">' +
+              '<button type="button" class="smart-help-btn" data-smart-mode-help title="' + PR.esc(PR.t("说明三种标注模式的差异")) + '" aria-label="' + PR.esc(PR.t("说明三种标注模式的差异")) + '">' +
                 PR.icon("question", "sm") +
               '</button>' +
             '</div>' +
             '<select id="smartMode" class="smart-select">' +
-              '<option value="auto">' + PR.t("AI 自動標註") + '</option>' +
-              '<option value="suggest">' + PR.t("AI 建議標註") + '</option>' +
-              '<option value="purpose">' + PR.t("依研究目的標註") + '</option>' +
+              '<option value="auto">' + PR.t("AI 自动标注") + '</option>' +
+              '<option value="suggest">' + PR.t("AI 建议标注") + '</option>' +
+              '<option value="purpose">' + PR.t("依研究目的标注") + '</option>' +
             '</select>' +
           '</div>' +
           '<div class="smart-form-col">' +
-            '<label class="smart-group-label">' + PR.t("分析範圍") + '</label>' +
+            '<label class="smart-group-label">' + PR.t("分析范围") + '</label>' +
             '<input type="hidden" id="smartScope" value="all">' +
-            '<div class="smart-segmented" role="radiogroup" aria-label="' + PR.esc(PR.t("分析範圍")) + '">' +
+            '<div class="smart-segmented" role="radiogroup" aria-label="' + PR.esc(PR.t("分析范围")) + '">' +
               '<button type="button" class="smart-seg-btn active" data-seg="smartScope" data-val="all">' +
                 '<span class="seg-title">' + PR.t("全文") + '</span>' +
               '</button>' +
               '<button type="button" class="smart-seg-btn" data-seg="smartScope" data-val="section">' +
-                '<span class="seg-title">' + PR.t("指定章節") + '</span>' +
+                '<span class="seg-title">' + PR.t("指定章节") + '</span>' +
               '</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
         '<section id="smartModeHelp" class="smart-mode-help" role="region" hidden>' +
           '<div class="smart-mode-help-head">' +
-            '<b>' + PR.t("分析模式差異說明") + '</b>' +
-            '<button type="button" class="smart-help-close" data-smart-mode-help-close aria-label="' + PR.t("關閉模式說明") + '">×</button>' +
+            '<b>' + PR.t("分析模式差异说明") + '</b>' +
+            '<button type="button" class="smart-help-close" data-smart-mode-help-close aria-label="' + PR.t("关闭模式说明") + '">×</button>' +
           '</div>' +
           '<dl class="smart-mode-dl">' +
-            '<dt>' + PR.t("AI 自動標註") + '</dt>' +
-            '<dd>' + PR.t("由 AI 全面均衡分析全文，自動發掘最重要的核心主張、方法、關鍵詞與數據指標。") + '</dd>' +
-            '<dt>' + PR.t("AI 建議標註") + '</dt>' +
-            '<dd>' + PR.t("側重標註研究方法、架構設計、實驗結果與文獻引用，適合深化技術細節。") + '</dd>' +
-            '<dt>' + PR.t("依研究目的標註") + '</dt>' +
-            '<dd>' + PR.t("依讀者自訂的研究目的（在下方輸入框填寫）進行聚焦定向標記，精準過濾相關內容。") + '</dd>' +
+            '<dt>' + PR.t("AI 自动标注") + '</dt>' +
+            '<dd>' + PR.t("由 AI 全面均衡分析全文，自动发掘最重要的核心主张、方法、关键词与数据指标。") + '</dd>' +
+            '<dt>' + PR.t("AI 建议标注") + '</dt>' +
+            '<dd>' + PR.t("侧重标注研究方法、架构设计、实验结果与文献引用，适合深化技术细节。") + '</dd>' +
+            '<dt>' + PR.t("依研究目的标注") + '</dt>' +
+            '<dd>' + PR.t("依读者自订的研究目的（在下方输入框填写）进行聚焦定向标记，精准过滤相关内容。") + '</dd>' +
           '</dl>' +
         '</section>' +
         '<div class="smart-field smart-section-field" hidden>' +
-          '<label class="smart-group-label" for="smartSection">' + PR.t("章節") + '</label>' +
+          '<label class="smart-group-label" for="smartSection">' + PR.t("章节") + '</label>' +
           '<select id="smartSection" class="smart-select">' + sections.map((s) => '<option value="' + PR.esc(s.id) + '">' + PR.esc(s.label) + '</option>').join("") + '</select>' +
         '</div>' +
         '<div class="smart-field smart-purpose-field">' +
-          '<label class="smart-group-label" for="smartPurpose">' + PR.t("研究目的（可選）") + '</label>' +
-          '<textarea id="smartPurpose" rows="2" class="smart-textarea" placeholder="' + PR.esc(PR.t("例如：找出可用於 3D segmentation 的方法與限制")) + '"></textarea>' +
+          '<label class="smart-group-label" for="smartPurpose">' + PR.t("研究目的（可选）") + '</label>' +
+          '<textarea id="smartPurpose" rows="2" class="smart-textarea" placeholder="' + PR.esc(PR.t("例如：找出可用于 3D segmentation 的方法与限制")) + '"></textarea>' +
         '</div>' +
       '</div>' +
-      '<div class="actions"><button class="btn" data-smart-close>' + PR.t("取消") + '</button><button class="btn primary" data-smart-start>' + PR.t("開始分析") + '</button></div>';
+      '<div class="actions"><button class="btn" data-smart-close>' + PR.t("取消") + '</button><button class="btn primary" data-smart-start>' + PR.t("开始分析") + '</button></div>';
     dlg.classList.add("open");
 
     const section = dlg.querySelector(".smart-section-field");
@@ -201,44 +201,44 @@
 
   function smartCard(a) {
     const isUnderline = a.style === "underline" || a.type === "underline";
-    const label = isUnderline ? PR.t("底線") : PR.t("螢光筆");
-    const color = a.color === "pink" ? PR.t("紅") : (PR.HL_COLORS.find(([key]) => key === a.color) || ["", a.color || PR.t("黃")])[1];
+    const label = isUnderline ? PR.t("底线") : PR.t("萤光笔");
+    const color = a.color === "pink" ? PR.t("红") : (PR.HL_COLORS.find(([key]) => key === a.color) || ["", a.color || PR.t("黄")])[1];
     const semanticRole = isUnderline ? ({
-      yellow: PR.t("關鍵詞"),
-      green: PR.t("數據指標"),
-      blue: PR.t("引用來源"),
-      pink: PR.t("疑點與風險"),
-    }[a.color] || PR.t("關鍵詞")) : ({
-      yellow: PR.t("核心主張"),
-      green: PR.t("方法與證據"),
-      blue: PR.t("背景知識"),
+      yellow: PR.t("关键词"),
+      green: PR.t("数据指标"),
+      blue: PR.t("引用来源"),
+      pink: PR.t("疑点与风险"),
+    }[a.color] || PR.t("关键词")) : ({
+      yellow: PR.t("核心主张"),
+      green: PR.t("方法与证据"),
+      blue: PR.t("背景知识"),
       pink: PR.t("研究限制"),
-    }[a.color] || PR.t("核心主張"));
-    const location = a.locatable ? (a.page ? PR.t("第 {page} 頁", { page: a.page }) : PR.t("已定位")) :
-      (a.stale_reason === "translation_changed" ? PR.t("譯文已更新，請重新分析") :
-        (a.source_stale ? PR.t("來源已更新，請重新分析") : PR.t("無法定位，請修改原文")));
+    }[a.color] || PR.t("核心主张"));
+    const location = a.locatable ? (a.page ? PR.t("第 {page} 页", { page: a.page }) : PR.t("已定位")) :
+      (a.stale_reason === "translation_changed" ? PR.t("译文已更新，请重新分析") :
+        (a.source_stale ? PR.t("来源已更新，请重新分析") : PR.t("无法定位，请修改原文")));
 
     const overlapBadge = a.manual_overlap
-      ? '<span class="smart-badge smart-badge-overlap" title="' + PR.esc(PR.t("與手動劃記重疊（{quote}）", { quote: a.overlap_quote || "" })) + '">' + PR.t("與手動劃記重疊") + '</span>'
+      ? '<span class="smart-badge smart-badge-overlap" title="' + PR.esc(PR.t("与手动划记重叠（{quote}）", { quote: a.overlap_quote || "" })) + '">' + PR.t("与手动划记重叠") + '</span>'
       : '';
 
     let actionsHtml = '';
     if (a.manual_overlap) {
-      actionsHtml = '<button class="btn sm warning" data-smart-action="accept" title="' + PR.esc(PR.t("保留此 AI 標註，與既有手動標註並存")) + '">' + PR.t("保留重疊") + '</button>' +
-        '<button class="btn sm line" data-smart-action="reject" title="' + PR.esc(PR.t("略過此重疊標註")) + '">' + PR.t("略過") + '</button>' +
+      actionsHtml = '<button class="btn sm warning" data-smart-action="accept" title="' + PR.esc(PR.t("保留此 AI 标注，与既有手动标注并存")) + '">' + PR.t("保留重叠") + '</button>' +
+        '<button class="btn sm line" data-smart-action="reject" title="' + PR.esc(PR.t("略过此重叠标注")) + '">' + PR.t("略过") + '</button>' +
         '<button class="btn sm line" data-smart-action="edit">' + PR.t("修改") + '</button>';
     } else {
       actionsHtml = '<button class="btn sm primary" data-smart-action="accept"' + (a.locatable ? "" : " disabled") + '>' + PR.t("接受") + '</button>' +
         '<button class="btn sm line" data-smart-action="edit">' + PR.t("修改") + '</button>' +
-        '<button class="btn sm line danger" data-smart-action="reject">' + PR.t("拒絕") + '</button>';
+        '<button class="btn sm line danger" data-smart-action="reject">' + PR.t("拒绝") + '</button>';
     }
 
     return '<article class="smart-card' + (a.locatable ? "" : " smart-unlocatable") + (a.manual_overlap ? " smart-overlap" : "") + '" data-smart-id="' + PR.esc(a.annotation_id) + '" data-anchor="' + PR.esc(a.anchor || "") + '">' +
-      '<div class="smart-card-head"><span class="smart-tag smart-tag-' + PR.esc(a.color) + (isUnderline ? ' is-underline' : '') + '">' + PR.esc(semanticRole) + '</span>' + overlapBadge + '<span class="grow"></span><span class="smart-meta">' + PR.esc(color) + " · " + PR.esc(label) + " · " + PR.esc(location) + '</span></div>' +
-      (a.manual_overlap ? '<div class="smart-overlap-hint">' + PR.esc(PR.t("偵測到此處已存在手動劃記：「{quote}」。AI 不會覆蓋您的劃記，您可以決定是否保留此重疊建議。", { quote: a.overlap_quote || "" })) + '</div>' : '') +
-      '<blockquote class="smart-quote' + (isUnderline ? ' smart-quote-underline' : '') + '">' + PR.md(a.quote || PR.t("沒有可顯示的原文"), { cite: false, xref: false }) + '</blockquote>' +
-      (a.note ? '<p class="smart-note"><b>' + PR.t("AI 註記") + '</b> ' + PR.mdBlocks(a.note) + '</p>' : '') +
-      (a.reason ? '<p class="smart-reason"><b>' + PR.t("標註原因") + '</b> ' + PR.esc(a.reason) + '</p>' : '') +
+      '<div class="smart-card-head"><span class="smart-tag smart-tag-' + PR.esc(a.color) + (isUnderline ? ' is-underline' : '') + '">' + PR.esc(semanticRole) + '</span>' + overlapBadge + '<span class="grow"></span><span class="smart-meta">' + PR.esc(color) + " · " + PR.esc(label) + " · " + PR.esc(location) + (PR.aiOutputLanguage(a.target) ? ' · ' + PR.esc(PR.aiOutputLanguage(a.target)) : '') + '</span></div>' +
+      (a.manual_overlap ? '<div class="smart-overlap-hint">' + PR.esc(PR.t("侦测到此处已存在手动划记：「{quote}」。AI 不会覆盖您的划记，您可以决定是否保留此重叠建议。", { quote: a.overlap_quote || "" })) + '</div>' : '') +
+      '<blockquote class="smart-quote' + (isUnderline ? ' smart-quote-underline' : '') + '">' + PR.md(a.quote || PR.t("没有可显示的原文"), { cite: false, xref: false }) + '</blockquote>' +
+      (a.note ? '<p class="smart-note"><b>' + PR.t("AI 注记") + '</b> ' + PR.mdBlocks(a.note) + '</p>' : '') +
+      (a.reason ? '<p class="smart-reason"><b>' + PR.t("标注原因") + '</b> ' + PR.esc(a.reason) + '</p>' : '') +
       '<div class="smart-actions">' + actionsHtml + '</div></article>';
   }
 
@@ -250,8 +250,8 @@
     const running = smartJob && ["queued", "running"].includes(smartJob.state);
     const progressText = running
       ? (smartJob.total > 0
-          ? PR.t("正在分析論文（第 {done} / {total} 批）…", { done: Math.min((smartJob.done || 0) + 1, smartJob.total), total: smartJob.total })
-          : PR.t("正在分析論文，完成後會顯示待確認項目…"))
+          ? PR.t("正在分析论文（第 {done} / {total} 批）…", { done: Math.min((smartJob.done || 0) + 1, smartJob.total), total: smartJob.total })
+          : PR.t("正在分析论文，完成后会显示待确认项目…"))
       : "";
 
     let batchButtons = '';
@@ -259,19 +259,19 @@
       batchButtons = '<button class="btn sm line" data-smart-cancel>' + PR.t("取消分析") + '</button>';
     } else if (list.length > 0) {
       if (cleanCount > 0) {
-        batchButtons += '<button class="btn sm primary" data-smart-action="accept-all" title="' + PR.esc(PR.t("僅接受無手動衝突的標註")) + '">' + (overlapCount > 0 ? PR.t("批次接受（{n} 筆非重疊）", { n: cleanCount }) : PR.t("批次接受")) + '</button>';
+        batchButtons += '<button class="btn sm primary" data-smart-action="accept-all" title="' + PR.esc(PR.t("仅接受无手动冲突的标注")) + '">' + (overlapCount > 0 ? PR.t("批次接受（{n} 笔非重叠）", { n: cleanCount }) : PR.t("批次接受")) + '</button>';
       }
       if (overlapCount > 0) {
-        batchButtons += '<button class="btn sm warning line" data-smart-action="accept-all-overlap" title="' + PR.esc(PR.t("包含與手動劃記重疊的標註一併接受")) + '">' + PR.t("全部接受（含重疊 {n} 筆）", { n: overlapCount }) + '</button>';
-        batchButtons += '<button class="btn sm line" data-smart-action="reject-overlaps" title="' + PR.esc(PR.t("略過所有與手動劃記重疊的建議")) + '">' + PR.t("略過重疊") + '</button>';
+        batchButtons += '<button class="btn sm warning line" data-smart-action="accept-all-overlap" title="' + PR.esc(PR.t("包含与手动划记重叠的标注一并接受")) + '">' + PR.t("全部接受（含重叠 {n} 笔）", { n: overlapCount }) + '</button>';
+        batchButtons += '<button class="btn sm line" data-smart-action="reject-overlaps" title="' + PR.esc(PR.t("略过所有与手动划记重叠的建议")) + '">' + PR.t("略过重叠") + '</button>';
       }
-      batchButtons += '<button class="btn sm line danger" data-smart-action="reject-all">' + PR.t("批次拒絕") + '</button>';
+      batchButtons += '<button class="btn sm line danger" data-smart-action="reject-all">' + PR.t("批次拒绝") + '</button>';
     }
 
-    let h = '<section class="np-smart"><div class="np-smart-head"><div><b>' + PR.t("AI 待確認標註") + '</b><span class="smart-count">' + list.length + '</span></div><span class="grow"></span>' +
+    let h = '<section class="np-smart"><div class="np-smart-head"><div><b>' + PR.t("AI 待确认标注") + '</b><span class="smart-count">' + list.length + '</span></div><span class="grow"></span>' +
       batchButtons + '</div>' +
       (running ? '<p class="hint smart-progress"><span class="spin"></span> ' + progressText + '</p>' : '') +
-      (list.length ? '<div class="np-smart-list">' + list.map(smartCard).join("") + '</div>' : '<p class="hint smart-empty">' + PR.t("尚未產生 AI 標註建議。先按「智慧標註」開始分析。") + '</p>') + '</section>';
+      (list.length ? '<div class="np-smart-list">' + list.map(smartCard).join("") + '</div>' : '<p class="hint smart-empty">' + PR.t("尚未产生 AI 标注建议。先按「智慧标注」开始分析。") + '</p>') + '</section>';
     return h;
   }
 
@@ -287,11 +287,11 @@
   }
 
   function smartEdit(card, a) {
-    PR.popover(card, '<div class="hd">' + PR.t("修改 AI 標註") + '</div>' +
-      '<label class="smart-edit-field">' + PR.t("譯文定位文字") + '<textarea id="smartEditQuote" rows="3">' + PR.esc(a.quote || "") + '</textarea></label>' +
-      '<label class="smart-edit-field">' + PR.t("AI 註記") + '<textarea id="smartEditNote" rows="3">' + PR.esc(a.note || "") + '</textarea></label>' +
-      '<label class="smart-edit-field">' + PR.t("標註原因") + '<textarea id="smartEditReason" rows="2">' + PR.esc(a.reason || "") + '</textarea></label>' +
-      '<div class="smart-edit-actions"><button class="btn sm" data-smart-edit="cancel">' + PR.t("取消") + '</button><button class="btn sm primary" data-smart-edit="save">' + PR.t("儲存修改") + '</button></div>', { sticky: true, wide: true });
+    PR.popover(card, '<div class="hd">' + PR.t("修改 AI 标注") + '</div>' +
+      '<label class="smart-edit-field">' + PR.t("译文定位文字") + '<textarea id="smartEditQuote" rows="3">' + PR.esc(a.quote || "") + '</textarea></label>' +
+      '<label class="smart-edit-field">' + PR.t("AI 注记") + '<textarea id="smartEditNote" rows="3">' + PR.esc(a.note || "") + '</textarea></label>' +
+      '<label class="smart-edit-field">' + PR.t("标注原因") + '<textarea id="smartEditReason" rows="2">' + PR.esc(a.reason || "") + '</textarea></label>' +
+      '<div class="smart-edit-actions"><button class="btn sm" data-smart-edit="cancel">' + PR.t("取消") + '</button><button class="btn sm primary" data-smart-edit="save">' + PR.t("储存修改") + '</button></div>', { sticky: true, wide: true });
     PR.$("#popover").onclick = (event) => {
       const b = event.target.closest("[data-smart-edit]");
       if (!b) return;
@@ -338,11 +338,11 @@
     const list = smartItems();
     const count = list.length;
     const msg = count > 0
-      ? PR.t("AI 標註分析完成，已產生 {count} 筆待確認標註。", { count })
-      : PR.t("AI 標註分析完成，未發現高價值標註。");
+      ? PR.t("AI 标注分析完成，已产生 {count} 笔待确认标注。", { count })
+      : PR.t("AI 标注分析完成，未发现高价值标注。");
 
     PR.toast(PR.esc(msg), count > 0 ? {
-      label: PR.t("查看標註"),
+      label: PR.t("查看标注"),
       fn: () => {
         PR.openAnnotations();
         setTimeout(() => {
@@ -354,7 +354,7 @@
 
     if (document.hidden && "Notification" in window && Notification.permission === "granted") {
       try {
-        new Notification(PR.t("EasyRead 智慧標註完成"), {
+        new Notification(PR.t("EasyRead 智慧标注完成"), {
           body: msg,
           icon: "/web/favicon.svg",
         });
@@ -391,7 +391,7 @@
         if (found.state === "done") {
           notifySmartComplete(found);
         } else if (found.state === "error") {
-          PR.toast(PR.t("AI 標註分析失敗：{message}", { message: PR.esc(found.message || "") }));
+          PR.toast(PR.t("AI 标注分析失败：{message}", { message: PR.esc(found.message || "") }));
         }
       } catch (_) { /* 下一次輪詢再試 */ }
     }, 1200);
@@ -452,7 +452,7 @@
       await waitSmartJob(job);
     } catch (error) {
       start.disabled = false;
-      start.textContent = PR.t("開始分析");
+      start.textContent = PR.t("开始分析");
       PR.toast(PR.errorText(error));
     }
   });

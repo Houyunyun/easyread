@@ -83,8 +83,8 @@ def submit(kind: str, runner, retry_failed: bool = False, *, scope: str = "", on
 
     def work():
         with _LOCK:
-            task.update(state="running", phase="starting", message=tr("背景工作開始"),
-                        stage_label=task.get("stage_label") or tr("背景工作開始"), updated=time.time())
+            task.update(state="running", phase="starting", message=tr("背景工作开始"),
+                        stage_label=task.get("stage_label") or tr("背景工作开始"), updated=time.time())
             snapshot = _public(task)
         _notify(on_update, snapshot)
         try:

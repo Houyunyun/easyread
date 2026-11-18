@@ -14,6 +14,7 @@ from ..library import library as library_module
 from ..app.i18n import tr
 from ..library.store import dir_lock, read_json, write_json_atomic
 from . import workflows
+from .language import ui_target, ui_text
 from .markdown import FRONTMATTER, metadata, new_note
 from .store import contained_path, atomic_replace, markdown_path, sha256_text, state_dir, vault_path
 
@@ -31,7 +32,7 @@ def _relative(root: Path, path: Path) -> str:
 
 def _proposal_file(identity: str) -> Path:
     if not re.fullmatch(r"[0-9a-f-]{36}", identity or ""):
-        raise ValueError(tr("提案編號格式不正確。"))
+        raise ValueError(tr("提案编号格式不正确。"))
     return contained_path(state_dir(), Path("proposals") / f"{identity}.json")
 
 
@@ -47,16 +48,16 @@ def _belongs_to_vault(proposal: dict) -> bool:
 
 def _require_vault(proposal: dict) -> Path:
     if not proposal.get("vault_root"):
-        raise ValueError("This legacy proposal has no originating Vault; regenerate the proposal before reviewing it.")
+        raise ValueError(tr("旧提案没有来源 Vault，请重新生成后再审阅。"))
     if not _belongs_to_vault(proposal):
-        raise ValueError("This proposal belongs to a different Vault; select its originating Vault or regenerate it.")
+        raise ValueError(tr("此提案属于其他 Vault，请选择来源 Vault 或重新生成。"))
     return Path(proposal["vault_root"])
 
 
 def _destination(root: Path, target: str) -> Path:
     path = contained_path(root, Path(target))
     if path.suffix.lower() != ".md":
-        raise ValueError("Proposal destination must be a Markdown note inside its originating Vault")
+        raise ValueError(tr("提案目标必须是来源 Vault 内的 Markdown 笔记"))
     return path
 
 
@@ -84,11 +85,11 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
            target: str = "", limit: int = 10, source_context=None) -> dict:
     root = vault_path()
     if root is None:
-        raise ValueError(tr("請先設定 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))
     if not task.strip():
-        raise ValueError(tr("請描述要整理的研究內容。"))
+        raise ValueError(tr("请描述要整理的研究内容。"))
     if kind not in workflows.KIND_GUIDANCE:
-        raise ValueError(tr("不支援的研究筆記類型。"))
+        raise ValueError(tr("不支援的研究笔记类型。"))
     title = re.sub(r"[\r\n\t]", " ", title or "").strip()[:180] or task.strip()[:100]
     found = workflows.gather(task, library, paper_id, block_id, limit)
     sources = list(found["sources"])
@@ -105,7 +106,7 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
             continue
         sources.insert(0, {
             "title": context_title,
-            "section": re.sub(r"[\r\n\t]", " ", str(context.get("label") or "外部研究資料（非論文原文）")).strip()[:120],
+            "section": re.sub(r"[\r\n\t]", " ", str(context.get("label") or tr("外部研究资料（非论文原文）"))).strip()[:120],
             "path": "provided-context/" + re.sub(r"[^\w.-]+", "-", str(context.get("id") or context_title))[:120],
             "kind": "provided-context", "quote": quote, "sha256": "", "content_sha256": sha256_text(quote),
             "block": "", "page": 0, "id": str(context.get("id") or "")[:180], "href": "",
@@ -116,13 +117,13 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
     if target:
         destination = _destination(root, target)
         if not destination.is_file():
-            raise ValueError(tr("找不到要更新的 Obsidian 筆記。"))
+            raise ValueError(tr("找不到要更新的 Obsidian 笔记。"))
         if destination.suffix.lower() != ".md":
-            raise ValueError(tr("只能更新 Markdown 筆記。"))
+            raise ValueError(tr("只能更新 Markdown 笔记。"))
         original = destination.read_text(encoding="utf-8-sig")
         meta, body = metadata(original)
         if not meta.get("research_id"):
-            raise ValueError(tr("只能更新由 Research OS 建立並具有 research_id 的筆記。"))
+            raise ValueError(tr("只能更新由 Research OS 建立并具有 research_id 的笔记。"))
         existing = body
         base_content = original
         target_path = _relative(root, destination)
@@ -130,15 +131,16 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
     from ..chat import chat_models
     cfg = config.load()
     engine_cfg, selected = chat_models.engine_cfg(cfg, model or (cfg.get("chat") or {}).get("default"))
-    prompt = workflows._prompt(task, kind, sources, existing)
+    output_target = ui_target()
+    prompt = workflows._prompt(task, kind, sources, existing, target=output_target)
     meter = usage.Meter(engine_cfg.get("engine", ""))
     output = engines.run(engines.for_translation(engine_cfg), prompt, root, [], None, meter).strip()
     if not output:
-        raise ValueError(tr("模型沒有產生筆記內容。"))
+        raise ValueError(tr("模型没有产生笔记内容。"))
     # Some models ignore the no-frontmatter instruction. Keep the existing user-owned
     # properties intact and use only the generated body.
     generated_meta, generated_body = metadata(output)
-    body = workflows._cite_body(generated_body if generated_meta else output, sources)
+    body = workflows._cite_body(generated_body if generated_meta else output, sources, output_target)
     if target_path:
         match = FRONTMATTER.match(base_content)
         prefix = match.group(0) if match else ""
@@ -159,10 +161,10 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
     before_hash = sha256_text(base_content) if target_path and base_content else ""
     proposal = {
         "id": str(uuid.uuid4()), "status": "pending", "kind": kind, "title": title,
-        "task": task[:3000], "target": target_path, "base_hash": before_hash,
+        "output_target": output_target, "task": task[:3000], "target": target_path, "base_hash": before_hash,
         "before": base_content, "after": next_content, "diff": "\n".join(difflib.unified_diff(
-            base_content.splitlines(), next_content.splitlines(), fromfile="Obsidian 現有內容" if base_content else "/dev/null",
-            tofile="Research OS 提案", lineterm="")),
+            base_content.splitlines(), next_content.splitlines(), fromfile=tr("Obsidian 现有内容") if base_content else "/dev/null",
+            tofile=tr("Research OS 提案"), lineterm="")),
         "sources": sources, "model": selected.get("name") or selected.get("id"),
         "model_id": selected.get("id"), "usage": meter.snapshot(), "created": time.time(),
         "vault_relative": _relative(root, destination),
@@ -174,21 +176,45 @@ def create(title: str, kind: str, task: str, library, model: str = "", paper_id:
     return _public_proposal(proposal)
 
 
-def from_comparison(title: str, body: str, papers: list[dict], model: str, model_usage: dict) -> dict:
+def _paper_note_paths(root: Path) -> list[Path]:
+    """Find exported notes across locales/moves without following paths outside the Vault."""
+    from . import obsidian_export
+
+    paths = set()
+    try:
+        index = obsidian_export._load_index(root)
+    except (OSError, UnicodeError, ValueError):
+        index = {}
+    for identity, entry in (index.get("documents") or {}).items():
+        if not isinstance(entry, dict) or entry.get("kind") not in ("analysis", "paper"):
+            continue
+        path = obsidian_export._contained_file(root, str(entry.get("path") or ""))
+        if path and path.is_file() and obsidian_export._read_research_id(path) == identity:
+            paths.add(path)
+    # Also retain discovery of pre-index Research OS and legacy exports.
+    folders = {"Papers", "01-论文分析", "01-論文分析"}  # i18n-ok: legacy folder names
+    folders.update(ui_text("01-论文分析", locale) for locale in ("zh", "en", "zh-Hant"))
+    for folder in folders:
+        try:
+            directory = contained_path(root, Path("Research") / folder)
+            if directory.is_dir():
+                paths.update(directory.rglob("*.md"))
+        except (OSError, ValueError):
+            continue
+    return sorted(paths)
+
+
+def from_comparison(title: str, body: str, papers: list[dict], model: str, model_usage: dict, target: str = "") -> dict:
     """Stage a new comparison note; only decide() may write it to the Vault."""
     root = vault_path()
     if root is None:
-        raise ValueError(tr("請先設定 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))
+    output_target = target or ui_target()
     paper_links = []
-    papers_dirs = [root / "Research" / "Papers", root / "Research" / "01-論文分析"]
     def normalize(value: str) -> str:
         return " ".join(value.casefold().split())
 
-    paper_notes = []
-    for papers_dir in papers_dirs:
-        if papers_dir.is_dir():
-            paper_notes.extend(papers_dir.rglob("*.md"))
-    for note in paper_notes:
+    for note in _paper_note_paths(root):
         try:
             note = contained_path(root, note)
             text = note.read_text(encoding="utf-8-sig")
@@ -197,17 +223,20 @@ def from_comparison(title: str, body: str, papers: list[dict], model: str, model
         meta, note_body = metadata(text)
         note_title = next((match.group(1).strip() for line in note_body.splitlines()
                            if (match := re.match(r"^#\s+(.+)$", line))), note.stem)
-        linked_by_hash = meta.get("type") == "paper" and any(
+        is_paper_note = meta.get("type") in ("paper", "analysis")
+        linked_by_id = is_paper_note and any(
+            item.get("id") and item["id"] == meta.get("paper_id") for item in papers)
+        linked_by_hash = is_paper_note and any(
             item.get("sha256") and item["sha256"] in text for item in papers)
         linked_by_title = any(normalize(note_title) in {
             normalize(item.get("title") or ""), normalize(item.get("title_en") or ""),
             normalize(item.get("title_zh") or ""),
         } - {""} for item in papers)
-        if linked_by_hash or linked_by_title:
+        if linked_by_id or linked_by_hash or linked_by_title:
             paper_links.append(f"- [[{Path(_relative(root, note)).with_suffix('').as_posix()}]]")
     if paper_links:
-        body = body.rstrip() + "\n\n## 相關單篇筆記\n\n" + "\n".join(sorted(set(paper_links)))
-    title = re.sub(r"[\r\n\t]", " ", title).strip()[:100] or "論文比較"
+        body = body.rstrip() + ui_text("\n\n## 相关单篇笔记\n\n", output_target) + "\n".join(sorted(set(paper_links)))
+    title = re.sub(r"[\r\n\t]", " ", title).strip()[:100] or tr("论文比较")
     extra = {"source_papers": [f"sha256:{item['sha256']}" for item in papers if item.get("sha256")],
              "comparison_model": model}
     content = new_note("comparison", title, body, extra)
@@ -215,9 +244,9 @@ def from_comparison(title: str, body: str, papers: list[dict], model: str, model
     destination = markdown_path(root, "comparison", title, identity)
     target = _relative(root, destination)
     proposal = {"id": str(uuid.uuid4()), "status": "pending", "kind": "comparison", "title": title,
-                "task": "比較指定的論文", "target": target, "base_hash": "", "before": "", "after": content,
+                "output_target": output_target, "task": tr("比较指定的论文"), "target": target, "base_hash": "", "before": "", "after": content,
                 "diff": "\n".join(difflib.unified_diff([], content.splitlines(), fromfile="/dev/null",
-                                                    tofile="Obsidian 比較筆記提案", lineterm="")),
+                                                    tofile=tr("Obsidian 比较笔记提案"), lineterm="")),
                 "sources": papers, "linked_paper_count": len(set(paper_links)), "model": model, "usage": model_usage, "created": time.time(),
                 "vault_relative": target}
     proposal["vault_root"] = str(root.resolve())
@@ -231,31 +260,31 @@ def from_topic_matrix(topic_path: str, row: dict, model: str, model_usage: dict)
     """Stage a single matrix-row patch while preserving every byte outside its managed region."""
     root = vault_path()
     if root is None:
-        raise ValueError(tr("請先設定 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))
     destination = _destination(root, topic_path)
     if not destination.is_file():
-        raise ValueError(tr("找不到要加入矩陣的主題筆記。"))
+        raise ValueError(tr("找不到要加入矩阵的主题笔记。"))
     before = destination.read_text(encoding="utf-8-sig")
     meta, body = metadata(before)
     if meta.get("type") != "topic" or not meta.get("research_id"):
-        raise ValueError(tr("只能更新 Research OS 建立的 Topic 筆記。"))
+        raise ValueError(tr("只能更新 Research OS 建立的 Topic 笔记。"))
 
     start = "<!-- research-os:topic-matrix:start -->"
     end = "<!-- research-os:topic-matrix:end -->"
     has_start, has_end = start in body, end in body
     if has_start != has_end:
-        raise ValueError(tr("主題矩陣標記不完整，請先修復或移除標記後再試。"))
-    headers = ["論文", "研究問題", "方法與核心機制", "輸入與輸出", "實驗證據與條件", "限制", "我的判斷"]
+        raise ValueError(tr("主题矩阵标记不完整，请先修复或移除标记后再试。"))
+    headers = [tr(x) for x in ("论文", "研究问题", "方法与核心机制", "输入与输出", "实验证据与条件", "限制", "我的判断")]
     row_cells = row.get("cells") or {}
     paper_hash = str(row.get("sha256") or "")
     if not re.fullmatch(r"[0-9a-f]{64}", paper_hash):
-        raise ValueError(tr("矩陣列缺少有效的論文 SHA-256。"))
+        raise ValueError(tr("矩阵列缺少有效的论文 SHA-256。"))
 
     def render_row(judgment: str | None = None) -> str:
-        values = [row_cells.get("title", ""), row_cells.get("problem", "未報告"), row_cells.get("method", "未報告"),
-                  row_cells.get("io", "未報告"), row_cells.get("evidence", "未報告"), row_cells.get("limitations", "未報告"),
-                  judgment if judgment is not None else row_cells.get("judgment", "待自行補充")]
-        values[-1] = (values[-1] or "待自行補充") + f" <!-- research-os:paper-sha256:{paper_hash} -->"
+        values = [row_cells.get("title", ""), row_cells.get("problem", tr("未报告")), row_cells.get("method", tr("未报告")),
+                  row_cells.get("io", tr("未报告")), row_cells.get("evidence", tr("未报告")), row_cells.get("limitations", tr("未报告")),
+                  judgment if judgment is not None else row_cells.get("judgment", tr("待自行补充"))]
+        values[-1] = (values[-1] or tr("待自行补充")) + f" <!-- research-os:paper-sha256:{paper_hash} -->"
         return "| " + " | ".join(str(value).replace("\r", " ").replace("\n", " ") for value in values) + " |"
 
     candidate_row = render_row()
@@ -266,9 +295,9 @@ def from_topic_matrix(topic_path: str, row: dict, model: str, model_usage: dict)
                              if f"research-os:paper-sha256:{paper_hash}" in line), "")
         if existing_row:
             cells = re.split(r"(?<!\\)\|", existing_row.strip().strip("|"))
-            previous_judgment = cells[6].strip() if len(cells) >= 7 else "待自行補充"
+            previous_judgment = cells[6].strip() if len(cells) >= 7 else tr("待自行补充")
             previous_judgment = re.sub(r"\s*<!--\s*research-os:paper-sha256:[0-9a-f]{64}\s*-->\s*", "", previous_judgment)
-            candidate_row = render_row(previous_judgment or "待自行補充")
+            candidate_row = render_row(previous_judgment or tr("待自行补充"))
             managed_lines = [line for line in managed.splitlines() if line != existing_row]
             managed = "\n".join(managed_lines).strip("\n")
         if not managed.strip():
@@ -277,7 +306,7 @@ def from_topic_matrix(topic_path: str, row: dict, model: str, model_usage: dict)
             managed = managed.rstrip() + "\n" + candidate_row
         after_body = left + start + "\n\n" + managed.strip("\r\n") + "\n\n" + end + right
     else:
-        table = ("\n\n## 主題研究矩陣\n\n" + start + "\n\n| " + " | ".join(headers) + " |\n| " +
+        table = (tr("\n\n## 主题研究矩阵\n\n") + start + "\n\n| " + " | ".join(headers) + " |\n| " +
                  " | ".join("---" for _ in headers) + " |\n" + candidate_row + "\n\n" + end + "\n")
         after_body = body.rstrip() + table
     match = FRONTMATTER.match(before)
@@ -287,11 +316,11 @@ def from_topic_matrix(topic_path: str, row: dict, model: str, model_usage: dict)
         after += "\n"
     relative = _relative(root, destination)
     proposal = {
-        "id": str(uuid.uuid4()), "status": "pending", "kind": "matrix", "title": row.get("title") or "主題研究矩陣",
-        "task": "將一篇論文加入主題研究矩陣", "target": relative, "base_hash": sha256_text(before),
+        "id": str(uuid.uuid4()), "status": "pending", "kind": "matrix", "title": row.get("title") or tr("主题研究矩阵"),
+        "task": tr("将一篇论文加入主题研究矩阵"), "target": relative, "base_hash": sha256_text(before),
         "before": before, "after": after,
         "diff": "\n".join(difflib.unified_diff(before.splitlines(), after.splitlines(),
-                                                   fromfile="Obsidian 主題筆記", tofile="主題矩陣提案", lineterm="")),
+                                                   fromfile=tr("Obsidian 主题笔记"), tofile=tr("主题矩阵提案"), lineterm="")),
         "sources": [{"title": row.get("title", ""), "sha256": paper_hash}], "model": model,
         "usage": model_usage, "created": time.time(), "vault_relative": relative,
     }
@@ -306,27 +335,26 @@ def create_topic(title: str) -> dict:
     """Stage an empty, user-editable topic note without inventing research claims."""
     root = vault_path()
     if root is None:
-        raise ValueError(tr("請先設定 Obsidian Vault 資料夾。"))
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))
     if latest_pending_topic():
-        raise ValueError(tr("請先審閱或捨棄目前的新 Topic 提案。"))
+        raise ValueError(tr("请先审阅或舍弃目前的新 Topic 提案。"))
     title = re.sub(r"[\r\n\t]", " ", str(title or "")).strip()[:120]
     if not title:
-        raise ValueError(tr("請輸入主題名稱。"))
-    body = ("## 主題範圍\n\n待補充。\n\n## 研究方法族群\n\n待補充。\n\n"
-            "## 代表論文\n\n待補充。\n\n## 共識與爭議\n\n待補充。\n\n"
-            "## 開放問題\n\n待補充。\n\n## 主題研究矩陣\n\n"
-            "<!-- research-os:topic-matrix:start -->\n\n"
-            "| 論文 | 研究問題 | 方法與核心機制 | 輸入與輸出 | 實驗證據與條件 | 限制 | 我的判斷 |\n"
-            "| --- | --- | --- | --- | --- | --- | --- |\n"
-            "\n<!-- research-os:topic-matrix:end -->\n")
+        raise ValueError(tr("请输入主题名称。"))
+    sections = (tr("主题范围"), tr("研究方法族群"), tr("代表论文"), tr("共识与争议"), tr("开放问题"))
+    headers = [tr(x) for x in ("论文", "研究问题", "方法与核心机制", "输入与输出", "实验证据与条件", "限制", "我的判断")]
+    body = "".join(f"## {section}\n\n{tr('待补充。')}\n\n" for section in sections)
+    body += ("## " + tr("主题研究矩阵") + "\n\n<!-- research-os:topic-matrix:start -->\n\n| "
+             + " | ".join(headers) + " |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+             "\n<!-- research-os:topic-matrix:end -->\n")
     content = new_note("topic", title, body)
     identity = re.search(r'research_id: "([^\"]+)"', content).group(1)
     destination = markdown_path(root, "topic", title, identity)
     relative = _relative(root, destination)
     proposal = {"id": str(uuid.uuid4()), "status": "pending", "kind": "topic", "title": title,
-                "task": "建立空白 Topic 筆記範本", "target": relative, "base_hash": "", "before": "",
+                "task": tr("建立空白 Topic 笔记范本"), "target": relative, "base_hash": "", "before": "",
                 "after": content, "diff": "\n".join(difflib.unified_diff([], content.splitlines(),
-                    fromfile="/dev/null", tofile="Obsidian Topic 筆記提案", lineterm="")),
+                    fromfile="/dev/null", tofile=tr("Obsidian Topic 笔记提案"), lineterm="")),
                 "sources": [], "model": "", "usage": {}, "created": time.time(), "vault_relative": relative}
     proposal["vault_root"] = str(root.resolve())
     path = _proposal_file(proposal["id"])
@@ -336,13 +364,13 @@ def create_topic(title: str) -> dict:
 
 
 def _public_proposal(proposal: dict) -> dict:
-    result = {key: proposal.get(key) for key in ("id", "status", "kind", "title", "task", "target", "diff", "sources", "model", "usage", "conflict")}
+    result = {key: proposal.get(key) for key in ("id", "status", "kind", "title", "task", "target", "output_target", "diff", "sources", "model", "usage", "conflict")}
     if proposal.get("kind") == "comparison":
         sources = proposal.get("sources") or []
         linked = proposal.get("linked_paper_count")
         if not isinstance(linked, int):
             body = str(proposal.get("after") or "")
-            linked_section = body.split("## 相關單篇筆記", 1)[1] if "## 相關單篇筆記" in body else ""
+            linked_section = body.split("## 相关单篇笔记", 1)[1] if "## 相关单篇笔记" in body else ""
             linked = len(re.findall(r"(?m)^-\s+\[\[[^\]]+\]\]", linked_section))
         result["paper_count"] = len(sources)
         result["linked_paper_count"] = linked
@@ -354,7 +382,7 @@ def _public_proposal(proposal: dict) -> dict:
 def get(identity: str) -> dict:
     proposal = read_json(_proposal_file(identity), None)
     if not proposal:
-        raise ValueError(tr("找不到這個研究提案。"))
+        raise ValueError(tr("找不到这个研究提案。"))
     _require_vault(proposal)
     return _public_proposal(proposal)
 
@@ -376,7 +404,7 @@ def latest_comparison() -> dict | None:
     if not candidates:
         return None
     latest = max(candidates, key=lambda item: item.get("created", 0))
-    return {key: latest.get(key) for key in ("id", "status", "title", "created")}
+    return {key: latest.get(key) for key in ("id", "status", "title", "created", "output_target")}
 
 
 def list_comparisons() -> list[dict]:
@@ -395,8 +423,9 @@ def list_comparisons() -> list[dict]:
         results.append({
             "id": proposal.get("id"),
             "kind": "comparison",
+            "output_target": proposal.get("output_target", ""),
             "status": proposal.get("status"),
-            "title": proposal.get("title") or "論文比較",
+            "title": proposal.get("title") or tr("论文比较"),
             "model": proposal.get("model"),
             "created": proposal.get("created", 0),
             "paper_count": len(proposal.get("sources") or []),
@@ -429,14 +458,14 @@ def rename(identity: str, title: str) -> dict:
     path = _proposal_file(identity)
     proposal = read_json(path, None)
     if not proposal:
-        raise ValueError(tr("找不到這個研究提案。"))
+        raise ValueError(tr("找不到这个研究提案。"))
     _require_vault(proposal)
     if proposal.get("kind") != "comparison":
-        raise ValueError(tr("只有跨論文比較結果可以修改名稱。"))
+        raise ValueError(tr("只有跨论文比较结果可以修改名称。"))
     clean = re.sub(r"[\r\n\t]+", " ", str(title or ""))
     clean = re.sub(r"\s+", " ", clean).strip().strip("`*_#\"'『』「」")[:80]
     if not clean:
-        raise ValueError(tr("比較名稱不能為空白。"))
+        raise ValueError(tr("比较名称不能为空白。"))
     proposal["title"] = clean
     # Pending proposals have not been written to Obsidian yet, so keep their
     # Markdown heading and review diff in sync with the edited display name.
@@ -445,8 +474,8 @@ def rename(identity: str, title: str) -> dict:
         proposal["after"] = after
         proposal["diff"] = "\n".join(difflib.unified_diff(
             (proposal.get("before") or "").splitlines(), after.splitlines(),
-            fromfile="Obsidian 現有內容" if proposal.get("before") else "/dev/null",
-            tofile="Research OS 提案", lineterm=""))
+            fromfile=tr("Obsidian 现有内容") if proposal.get("before") else "/dev/null",
+            tofile=tr("Research OS 提案"), lineterm=""))
     write_json_atomic(path, proposal)
     return _public_proposal(proposal)
 
@@ -455,7 +484,7 @@ def decide(identity: str, accept: bool) -> dict:
     path = _proposal_file(identity)
     proposal = read_json(path, None)
     if not proposal:
-        raise ValueError(tr("找不到這個研究提案。"))
+        raise ValueError(tr("找不到这个研究提案。"))
     # Legacy proposals may be discarded explicitly, but never rebound on accept.
     root = _require_vault(proposal) if accept or proposal.get("vault_root") else None
     if proposal.get("status") != "pending":
@@ -476,10 +505,10 @@ def decide(identity: str, accept: bool) -> dict:
             proposal["status"] = "conflict"
             proposal["conflict"] = True
             proposal["latest_diff"] = "\n".join(difflib.unified_diff(
-                proposal.get("before", "").splitlines(), current.splitlines(), fromfile="審閱時的基準", tofile="Obsidian 目前內容", lineterm=""))
+                proposal.get("before", "").splitlines(), current.splitlines(), fromfile=tr("审阅时的基准"), tofile=tr("Obsidian 目前内容"), lineterm=""))
             write_json_atomic(path, proposal)
             return {**_public_proposal(proposal), "conflict": True,
-                    "error": tr("審閱期間筆記已變更，沒有套用這份提案。請重新建立提案，再檢查新的差異。")}
+                    "error": tr("审阅期间笔记已变更，没有套用这份提案。请重新建立提案，再检查新的差异。")}
 
         if exists:
             backup_dir = contained_path(state_dir(), Path("backups") / identity)
@@ -497,7 +526,7 @@ def decide(identity: str, accept: bool) -> dict:
             proposal["conflict"] = True
             write_json_atomic(path, proposal)
             return {**_public_proposal(proposal), "conflict": True,
-                    "error": tr("Obsidian 筆記在儲存前又有變更，請重新檢查差異。")}
+                    "error": tr("Obsidian 笔记在储存前又有变更，请重新检查差异。")}
         _require_vault(proposal)
         atomic_replace(_destination(root, str(destination)), proposal["after"].encode("utf-8"), overwrite=exists)
         proposal["status"] = "accepted"

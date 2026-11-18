@@ -3,9 +3,9 @@
   "use strict";
   const S = PR.state;
   const KINDS = [
-    ["paper", PR.t("论文笔记（整篇的感悟）")], ["note", PR.t("我的筆記")], ["highlight", PR.t("我的劃線")], ["question", PR.t("我的問題")],
-    ["ai", PR.t("AI 的回答和解释（页边）")], ["chat", PR.t("问 AI 的对话记录")], ["mindmap", PR.t("論文心智圖")],
-    ["deep_analysis", PR.t("論文深度剖析")],
+    ["paper", PR.t("论文笔记（整篇的感悟）")], ["note", PR.t("我的笔记")], ["highlight", PR.t("我的划线")], ["question", PR.t("我的问题")],
+    ["ai", PR.t("AI 的回答和解释（页边）")], ["chat", PR.t("问 AI 的对话记录")], ["mindmap", PR.t("论文心智图")],
+    ["deep_analysis", PR.t("论文深度剖析")],
     ["quote", PR.t("每条附上原文引用")],
   ];
   const EXPORT_ORDER = ["paper", "note", "highlight", "question", "ai", "chat", "mindmap", "deep_analysis"];
@@ -23,12 +23,12 @@
 
   function title() {
     const m = S.paper.meta || {};
-    return m.title_zh || m.title_en || PR.t("論文");
+    return m.title_zh || m.title_en || PR.t("论文");
   }
 
   function inkWarning() {
     const count = Object.values(S.reader.ink || {}).filter(stroke => !stroke.deleted).length;
-    return count ? PR.t("本次匯出未包含 {n} 筆手寫註記。", { n: count }) : "";
+    return count ? PR.t("本次汇出未包含 {n} 笔手写注记。", { n: count }) : "";
   }
 
   function shortFilename(value, fallback) {
@@ -39,7 +39,7 @@
 
   function englishTitle() {
     const m = S.paper.meta || {};
-    return m.title_en || m.title_zh || PR.t("論文");
+    return m.title_en || m.title_zh || PR.t("论文");
   }
 
   function filenameStem() {
@@ -50,7 +50,7 @@
     const encode = (value) => {
       if (typeof btoa === "function") return btoa(value);
       if (typeof Buffer === "function") return Buffer.from(value, "binary").toString("base64");
-      throw new Error(PR.t("目前環境不支援匯出編碼"));
+      throw new Error(PR.t("目前环境不支援汇出编码"));
     };
     if (typeof TextEncoder !== "function") return encode(unescape(encodeURIComponent(String(text))));
     const bytes = new TextEncoder().encode(String(text));
@@ -73,8 +73,8 @@
     const rows = EXPORT_ORDER.map((key) => '<div class="exp-row" data-exp-row="' + key + '"><label><input type="checkbox" data-exp="' + key + '"' + (saved[key] ? " checked" : "") + ">" + labels[key] +
       (c[key] != null ? '<span class="n">' + PR.t("{n} 条", { n: c[key] }) + "</span>" : "") + "</label></div>").join("");
     const quote = KINDS.find(([key]) => key === "quote");
-    dlg.querySelector(".dialog").innerHTML = "<h2>" + PR.t("匯出筆記") + "</h2><div class=\"exp-opts\">" + rows +
-      '<div class="exp-row exp-quote"><label><input type="checkbox" data-exp="quote"' + (saved.quote ? " checked" : "") + ">" + quote[1] + '</label></div></div><div class="actions"><button class="btn" data-exp-close>' + PR.t("關閉") + '</button><button class="btn" data-exp-download>' + PR.t("下載") + '</button><button class="btn primary" data-exp-vault>' + PR.t("匯出至 Obsidian Vault") + '</button></div>'; /* i18n-dom: shared DOM translator localizes rendered UI text. */
+    dlg.querySelector(".dialog").innerHTML = "<h2>" + PR.t("汇出笔记") + "</h2><div class=\"exp-opts\">" + rows +
+      '<div class="exp-row exp-quote"><label><input type="checkbox" data-exp="quote"' + (saved.quote ? " checked" : "") + ">" + quote[1] + '</label></div></div><div class="actions"><button class="btn" data-exp-close>' + PR.t("关闭") + '</button><button class="btn" data-exp-download>' + PR.t("下载") + '</button><button class="btn primary" data-exp-vault>' + PR.t("汇出至 Obsidian Vault") + '</button></div>';
     dlg.classList.add("open");
     if (PR.store.mode === "static") dlg.querySelector("[data-exp-vault]").hidden = true;
   };
@@ -97,13 +97,13 @@
       let result = PR.store.mode === "static" ? S.mindmap || {} : await PR.api(endpoint);
       if (PR.mindmapEdits) result = PR.mindmapEdits.current(result);
       if (!result.mermaid && PR.store.mode === "server") result = await PR.api(endpoint, { method: "POST", body: {} });
-      if (!result.mermaid) throw new Error(PR.t("沒有取得心智圖內容。"));
+      if (!result.mermaid) throw new Error(PR.t("没有取得心智图内容。"));
       mindmap = result.mermaid;
       if (PR.mindmap && typeof PR.mindmap.exportPngBase64 === "function") {
         try {
           mindmapPngBase64 = await PR.mindmap.exportPngBase64(mindmap, { title: title() });
         } catch (e) {
-          console.error("[Export] 心智圖 PNG 產生失敗:", e); // i18n-ok
+          console.error("[Export] 心智图 PNG 产生失败:", e); // i18n-ok
         }
       }
     }
@@ -112,7 +112,7 @@
       const endpoint = "/api/research/v2/paper/" + encodeURIComponent(PR.pid) + "/deep-analysis";
       const result = PR.store.mode === "static" ? S.deep_analysis || {} : await PR.api(endpoint);
       deepAnalysis = (result?.report || result)?.markdown || "";
-      if (!deepAnalysis) throw new Error(PR.t("尚未產生深度剖析報告，請先在「研究脈絡」中產生報告。"));
+      if (!deepAnalysis) throw new Error(PR.t("尚未产生深度剖析报告，请先在「研究脉络」中产生报告。"));
     }
     const warning = inkWarning();
     const text = PR.notesMarkdown(pick, chat, { order, chat, mindmap, deepAnalysis });
@@ -123,12 +123,12 @@
     const { pick, order, chat, mindmap } = prepared, m = S.paper.meta || {}, paperId = PR.pid;
     const analysisId = "paper:" + paperId + ":analysis", mindmapId = "paper:" + paperId + ":mindmap";
     const notesId = "paper:" + paperId + ":notes", highlightsId = "paper:" + paperId + ":highlights", chatAllId = "paper:" + paperId + ":chat_all";
-    const bibliography = ["## 書目資料", "", m.title_en ? "- English title: " + m.title_en : "", m.authors ? "- " + PR.t("作者") + "：" + m.authors : "", m.date ? "- " + PR.t("年份") + "：" + m.date : "", m.doi ? "- DOI: " + m.doi : "", m.url ? "- URL: " + m.url : ""].filter(Boolean).join("\n"); // i18n-ok: exported Markdown content headings are data, not interface copy.
+    const bibliography = ["## " + PR.t("书目资料"), "", m.title_en ? "- " + PR.t("英文标题：{title}", { title: m.title_en }) : "", m.authors ? "- " + PR.t("作者：{authors}", { authors: m.authors }) : "", m.date ? "- " + PR.t("年份：{year}", { year: m.date }) : "", m.doi ? "- DOI: " + m.doi : "", m.url ? "- URL: " + m.url : ""].filter(Boolean).join("\n");
     const note = (S.reader.paper_note || {}).body;
-    const analysis = [bibliography, pick.paper && note ? "## " + PR.t("論文筆記") + "\n\n" + note : "", prepared.warning].filter(Boolean).join("\n\n");
+    const analysis = [bibliography, pick.paper && note ? "## " + PR.t("论文笔记") + "\n\n" + note : "", prepared.warning].filter(Boolean).join("\n\n");
     const result = [];
     const stem = filenameStem();
-    const paperFolder = shortFilename(m.title_zh || m.title_en || PR.t("論文"), "EasyRead");
+    const paperFolder = shortFilename(m.title_zh || m.title_en || PR.t("论文"), "EasyRead");
 
     const deepAnalysisId = "paper:" + paperId + ":deep_analysis";
 
@@ -137,7 +137,7 @@
         id: analysisId,
         kind: "analysis",
         paper_id: paperId,
-        title: title() + " - " + PR.t("論文分析"),
+        title: title() + " - " + PR.t("论文分析"),
         filename: stem + "-analysis",
         body: analysis,
         links: [mindmapId, deepAnalysisId, notesId, highlightsId, chatAllId],
@@ -150,9 +150,9 @@
         id: mindmapId,
         kind: "mindmap",
         paper_id: paperId,
-        title: title() + " - " + PR.t("心智圖"),
+        title: title() + " - " + PR.t("心智图"),
         filename: stem + "-mind-map",
-        body: "## " + PR.t("論文心智圖") + "\n\n" + (prepared.mindmapPngBase64 ? "![[" + imgName + "]]\n\n" : "") + "```mermaid\n" + mindmap + "\n```",
+        body: "## " + PR.t("论文心智图") + "\n\n" + (prepared.mindmapPngBase64 ? "![[" + imgName + "]]\n\n" : "") + "```mermaid\n" + mindmap + "\n```",
         links: [analysisId, notesId],
       };
       if (prepared.mindmapPngBase64) {
@@ -193,9 +193,9 @@
           id: notesId,
           kind: "annotations",
           paper_id: paperId,
-          title: title() + " - " + PR.t("我的筆記"),
+          title: title() + " - " + PR.t("我的笔记"),
           filename: stem + "-notes",
-          subfolder: paperFolder + "/" + PR.t("我的筆記"),
+          subfolder: paperFolder + "/" + PR.t("我的笔记"),
           body: myNotes.trim(),
           links: [analysisId, mindmapId, highlightsId],
         });
@@ -217,9 +217,9 @@
           id: highlightsId,
           kind: "annotations",
           paper_id: paperId,
-          title: title() + " - " + PR.t("我的劃線"),
+          title: title() + " - " + PR.t("我的划线"),
           filename: stem + "-highlights",
-          subfolder: paperFolder + "/" + PR.t("我的劃線"),
+          subfolder: paperFolder + "/" + PR.t("我的划线"),
           body: highlights.trim(),
           links: [analysisId, notesId],
         });
@@ -241,9 +241,9 @@
           id: chatAllId,
           kind: "annotations",
           paper_id: paperId,
-          title: title() + " - " + PR.t("所有AI問答"),
+          title: title() + " - " + PR.t("所有AI问答"),
           filename: stem + "-all-ai-qa",
-          subfolder: paperFolder + "/" + PR.t("所有AI問答"),
+          subfolder: paperFolder + "/" + PR.t("所有AI问答"),
           body: allAiQa.trim(),
           links: [analysisId, notesId],
         });
@@ -261,7 +261,7 @@
     if (button.disabled) return;
     if (PR.store.mode !== "server" && mode === "vault") return;
     const label = button.innerHTML;
-    button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在準備匯出…"); /* i18n-dom: shared DOM translator localizes rendered UI text. */
+    button.disabled = true; button.innerHTML = '<i class="spin"></i> ' + PR.t("正在准备汇出…");
     try {
       if (mode === "vault") {
         const status = await PR.api("/api/research/v1/status");
@@ -270,31 +270,31 @@
             body: PR.t("填写运行 EasyRead 的机器上的可写目录。Docker 部署请填写容器内路径，例如 /vault。") });
           if (!path) { button.disabled = false; button.innerHTML = label; return; }
           await PR.api("/api/research/v1/setup", { method: "POST", body: { vault: path } });
-          PR.toast(PR.t("已連結 Obsidian Vault。"));
+          PR.toast(PR.t("已连结 Obsidian Vault。"));
         }
       }
       const prepared = await prepare();
       if (mode === "vault") {
         const result = await PR.api("/api/research/v2/export/obsidian", { method: "POST", body: { documents: documents(prepared) } });
-        if (result.conflicts?.length) throw new Error(PR.t("有檔案未能安全更新，請先檢查衝突。"));
-        PR.toast(PR.t("已匯出至 Obsidian Vault。"));
+        if (result.conflicts?.length) throw new Error(PR.t("有档案未能安全更新，请先检查冲突。"));
+        PR.toast(PR.t("已汇出至 Obsidian Vault。"));
       } else if (mode === "zip") {
         const result = await PR.api("/api/research/v2/export/zip", { method: "POST", body: { documents: documents(prepared) } });
         await saveBase64(filenameStem() + "-research.zip", result.content_base64, [{ name: "ZIP", extensions: ["zip"], mime: "application/zip" }]);
       } else {
         const selected = EXPORT_ORDER.filter((key) => prepared.pick[key]);
-        if (!selected.length) throw new Error(PR.t("請至少選擇一項匯出內容。"));
+        if (!selected.length) throw new Error(PR.t("请至少选择一项汇出内容。"));
         if (PR.store.mode === "static") {
           await saveBase64(filenameStem() + "-notes.md", null, [{ mime:"text/markdown" }], prepared.text);
         } else if (selected.length === 1 && selected[0] === "mindmap") {
           if (!prepared.mindmapPngBase64) {
-            throw new Error(PR.t("心智圖 PNG 產生失敗，請重試。"));
+            throw new Error(PR.t("心智图 PNG 产生失败，请重试。"));
           }
           await saveBase64(filenameStem() + "-mind-map.png", prepared.mindmapPngBase64, [{ name: "PNG", extensions: ["png"], mime: "image/png" }]);
         } else if (selected.length === 1 && selected[0] === "deep_analysis") {
           await saveBase64(filenameStem() + "-deep-analysis.md", null, [{ name: "Markdown", extensions: ["md"], mime: "text/markdown" }], prepared.deepAnalysis);
         } else if (selected.length === 1) {
-          await saveBase64(filenameStem() + "-notes.md", null, [{ name: "Markdown", extensions: ["md"], mime: "text/markdown" }], prepared.text); // i18n-ok: filename suffix is exported data, not UI copy.
+          await saveBase64(filenameStem() + "-notes.md", null, [{ name: "Markdown", extensions: ["md"], mime: "text/markdown" }], prepared.text);
         } else {
           const result = await PR.api("/api/research/v2/export/zip", { method: "POST", body: { documents: documents(prepared) } });
           await saveBase64(filenameStem() + "-research.zip", result.content_base64, [{ name: "ZIP", extensions: ["zip"], mime: "application/zip" }]);
@@ -303,7 +303,7 @@
       prepared.dlg.classList.remove("open");
     } catch (error) {
       const message = PR.errorText ? PR.errorText(error) : String(error && error.message || error);
-      if (PR.toast) PR.toast(PR.t("匯出失敗：{message}", { message: PR.esc ? PR.esc(message) : message }));
+      if (PR.toast) PR.toast(PR.t("汇出失败：{message}", { message: PR.esc ? PR.esc(message) : message }));
       button.disabled = false; button.innerHTML = label;
     }
   }

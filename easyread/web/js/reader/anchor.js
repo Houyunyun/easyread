@@ -220,6 +220,7 @@
   });
 
   function showSelbar() {
+    if (PR.readerInput?.suppressing()) return;
     pendingSel = readSelection();
     const bar = selbar();
     if (!pendingSel) { bar.classList.remove("open"); return; }
@@ -278,7 +279,7 @@
     if (kind === "paper-note") { PR.openPaperNote(); PR.paperNoteEditor.insertSources(parts || [{ anchor, quote, quoteContent }]); return; }
     if (kind === "translate") { PR.translateSelection({ anchor, quote, rect }); return; }
     if (kind === "en") { PR.toggleEn(anchor, true); return; }
-    if (kind === "copy") { navigator.clipboard.writeText(quote).then(() => PR.toast(PR.t("已复制"))); return; }
+    if (kind === "copy") { PR.copyText(quote).then(() => PR.toast(PR.t("已复制"))).catch(error => PR.toast(PR.errorText(error))); return; }
     if (kind === "chat") { PR.chatAsk({ anchor, quote, ...(parts ? { refs: parts.map(p => ({ anchor: p.anchor, quote: p.quote })) } : {}) }); return; }
     const pen = selectedPen || (PR.prefs.pen === "underline" ? "underline" : "marker");
     color = color || (PR.prefs.penColors || {})[pen] || "yellow";

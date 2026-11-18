@@ -1,6 +1,8 @@
 """Safe, repeatable multi-file exports for an Obsidian research vault."""
 from __future__ import annotations
 
+from ..app.i18n import tr
+
 import base64
 import io
 import hashlib
@@ -8,6 +10,7 @@ import json
 import os
 import re
 import time
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -16,12 +19,12 @@ from .store import atomic_replace, contained_path, sha256_text, vault_path
 
 
 EXPORT_FOLDERS = {
-    "analysis": "01-論文分析",
-    "mindmap": "02-心智圖",
-    "annotations": "03-閱讀標註",
-    "deep-analysis": "04-論文深度剖析",
-    "comparison": "05-跨論文比較",
-    "summary": "06-論文摘要",
+    "analysis": "01-论文分析",
+    "mindmap": "02-心智图",
+    "annotations": "03-阅读标注",
+    "deep-analysis": "04-论文深度剖析",
+    "comparison": "05-跨论文比较",
+    "summary": "06-论文摘要",
 }
 MANAGED_START = "<!-- paperread:managed:start -->"
 MANAGED_END = "<!-- paperread:managed:end -->"
@@ -40,7 +43,7 @@ def _load_index(root: Path) -> dict:
         return {"version": 1, "documents": {}}
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("documents"), dict):
-        raise ValueError("Existing research index is not a supported export index")
+        raise ValueError(tr("现有研究索引不是支持的导出索引"))
     return value
 
 
@@ -65,7 +68,7 @@ def _safe_subfolder(value: str) -> Path | None:
     parts = [p.strip() for p in re.split(r"[/\\]+", raw) if p.strip()]
     for p in parts:
         if p in {".", ".."} or not p:
-            raise ValueError("匯出資料夾名稱不受支援。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+            raise ValueError(tr("汇出资料夹名称不受支援。"))
     safe_parts = [_safe_title(p, "Folder") for p in parts]
     return Path(*safe_parts) if safe_parts else None
 
@@ -116,7 +119,7 @@ def _existing_path(root: Path, identity: str, index: dict) -> Path | None:
 def _identity(doc: dict) -> str:
     raw = str(doc.get("id") or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9:_-]{1,180}", raw):
-        raise ValueError("匯出資料缺少有效的穩定 ID。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+        raise ValueError(tr("汇出资料缺少有效的稳定 ID。"))
     return raw
 
 
@@ -131,20 +134,20 @@ def _links_for(doc: dict, paths: dict[str, str]) -> list[str]:
 
 def _managed_body(doc: dict, paths: dict[str, str]) -> str:
     body = str(doc.get("body") or "").strip()
-    title = re.sub(r"[\r\n]+", " ", str(doc.get("title") or "未命名研究筆記")).strip() or "未命名研究筆記"
+    title = re.sub(r"[\r\n]+", " ", str(doc.get("title") or tr("未命名研究笔记"))).strip() or tr("未命名研究笔记")
     links = _links_for(doc, paths)
     parts = [f"# {title}"]
     if body:
         parts.extend(["", body])
     if links:
-        parts.extend(["", "## 相關筆記", "", *[f"- {link}" for link in links]])
+        parts.extend(["", tr("## 相关笔记"), "", *[f"- {link}" for link in links]])
     return "\n".join(parts).rstrip()
 
 
 def _frontmatter(doc: dict, identity: str) -> str:
     kind = str(doc.get("kind") or "analysis")
     paper_id = str(doc.get("paper_id") or "")
-    title = re.sub(r"[\r\n]+", " ", str(doc.get("title") or "未命名研究筆記")).strip() or "未命名研究筆記"
+    title = re.sub(r"[\r\n]+", " ", str(doc.get("title") or tr("未命名研究笔记"))).strip() or tr("未命名研究笔记")
     def quote(value: str) -> str:
         return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
     lines = ["---", f"research_id: {quote(identity)}", f"type: {quote(kind)}", 'schema_version: "2"']
@@ -178,14 +181,14 @@ def _plan(root: Path, documents: list[dict], index: dict) -> tuple[list[dict], d
     for doc in documents:
         identity = _identity(doc)
         if identity in paths:
-            raise ValueError("Duplicate export document ID")
+            raise ValueError(tr("导出文档 ID 重复"))
         kind = str(doc.get("kind") or "")
         if kind not in EXPORT_FOLDERS:
-            raise ValueError("匯出資料類型不受支援。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+            raise ValueError(tr("汇出资料类型不受支援。"))
         body = str(doc.get("body") or "")
         if len(body.encode("utf-8")) > MAX_DOCUMENT_SIZE:
-            raise ValueError("單一匯出檔案過大，請拆分後再匯出。")  # i18n-ok: export validation message is fixed Traditional Chinese.
-        folder = root / "Research" / EXPORT_FOLDERS[kind]
+            raise ValueError(tr("单一汇出档案过大，请拆分后再汇出。"))
+        folder = root / "Research" / tr(EXPORT_FOLDERS[kind])
         subfolder = _safe_subfolder(doc.get("subfolder"))
         if subfolder:
             folder /= subfolder
@@ -205,7 +208,7 @@ def _plan(root: Path, documents: list[dict], index: dict) -> tuple[list[dict], d
                     desired.stem + "-" + identity.replace(":", "-")[-12:] + f"-{serial}" + desired.suffix))
             rel = _relative(root, candidate)
         if rel in used:
-            raise ValueError("同一匯出中出現重複的檔案位置。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+            raise ValueError(tr("同一汇出中出现重复的档案位置。"))
         used.add(rel)
         paths[identity] = rel
         planned.append({"doc": doc, "id": identity, "path": rel, "existing": existing})
@@ -256,10 +259,10 @@ def _register_document(root, identity, kind, title, safe_path):
 
 def _validate_documents(value) -> list[dict]:
     if not isinstance(value, list) or not value or len(value) > MAX_DOCUMENTS:
-        raise ValueError("請至少選擇一項匯出內容。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+        raise ValueError(tr("请至少选择一项汇出内容。"))
     documents = [item for item in value if isinstance(item, dict)]
     if not documents:
-        raise ValueError("請至少選擇一項匯出內容。")  # i18n-ok: export validation message is fixed Traditional Chinese.
+        raise ValueError(tr("请至少选择一项汇出内容。"))
     return documents
 
 
@@ -276,17 +279,17 @@ def _attachments(item: dict, root: Path) -> dict[Path, bytes]:
         name = str(att.get("filename") or "image.png").replace("\\", "/")
         parts = name.split("/")
         if any(p in ("", ".", "..") for p in parts) or re.match(r"^[A-Za-z]:", name):
-            raise ValueError("Attachment must use a relative file path")
+            raise ValueError(tr("附件必须使用相对文件路径"))
         dest = contained_path(root, Path(item["path"]).parent / Path(*[_safe_title(p, "attachment") for p in parts]))
         # Attachments cannot overwrite notes or the shared export index.
         if dest.suffix.lower() in (".md", ".json") or dest == _index_path(root):
-            raise ValueError("Attachment cannot replace a research note or index")
+            raise ValueError(tr("附件不能替换研究笔记或索引"))
         raw_data = str(att["content_base64"])
         if len(raw_data) > MAX_DOCUMENT_SIZE * 4:
-            raise ValueError("Attachment too large")
+            raise ValueError(tr("附件过大"))
         data = base64.b64decode(raw_data, validate=True)
         if dest in result and result[dest] != data:
-            raise ValueError("Duplicate attachment path")
+            raise ValueError(tr("附件路径重复"))
         result[dest] = data
     return result
 
@@ -294,7 +297,7 @@ def _attachments(item: dict, root: Path) -> dict[Path, bytes]:
 def export_to_vault(documents: list[dict]) -> dict:
     root = vault_path()
     if root is None:
-        raise ValueError("請先設定 Obsidian Vault 資料夾。")  # i18n-ok
+        raise ValueError(tr("请先设定 Obsidian Vault 资料夹。"))  # i18n-ok
     root = Path(root).resolve()
     docs = _validate_documents(documents)
     # Preflight the index before creating even a lock in the vault.
@@ -320,7 +323,7 @@ def _export_locked(root: Path, docs: list[dict]) -> dict:
             relative = _relative(root, dest)
             digest = hashlib.sha256(data).hexdigest()
             if dest in attachments and attachments[dest] != data:
-                raise ValueError("Duplicate attachment path")
+                raise ValueError(tr("附件路径重复"))
             originals[dest] = dest.read_bytes() if dest.is_file() else None
             if dest.exists() and originals[dest] != data:
                 if originals[dest] is None or hashlib.sha256(originals[dest]).hexdigest() != old_hashes.get(relative):
@@ -335,7 +338,7 @@ def _export_locked(root: Path, docs: list[dict]) -> dict:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination = contained_path(root, destination)
         if item["existing"] and destination.read_text(encoding="utf-8-sig") != item["current"]:
-            raise ValueError("Research note changed during export; retry")
+            raise ValueError(tr("研究笔记在导出期间已变更，请重试"))
         atomic_replace(destination, item["content"].encode("utf-8"), overwrite=bool(item["existing"]))
         (updated if item["existing"] else written).append(item["path"])
     for dest, data in attachments.items():
@@ -343,22 +346,28 @@ def _export_locked(root: Path, docs: list[dict]) -> dict:
         dest.parent.mkdir(parents=True, exist_ok=True)
         current = dest.read_bytes() if dest.exists() else None
         if current != originals[dest]:
-            raise ValueError("Attachment changed during export; retry")
+            raise ValueError(tr("附件在导出期间已变更，请重试"))
         if current != data:
             atomic_replace(contained_path(root, dest), data, overwrite=originals[dest] is not None)
     index_path = _index_path(root)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     if (index_path.read_bytes() if index_path.exists() else None) != original_index:
-        raise ValueError("Research index changed during export; retry")
+        raise ValueError(tr("研究索引在导出期间已变更，请重试"))
     atomic_replace(index_path, (json.dumps(_index_payload(index, rendered), ensure_ascii=False, indent=2) + "\n").encode("utf-8"), overwrite=original_index is not None)
     return {"written": written, "updated": updated, "conflicts": [], "index": _relative(root, index_path)}
 
 
 def export_zip(documents: list[dict]) -> dict:
+    docs = _validate_documents(documents)
     root = vault_path()
     if root is None:
-        raise ValueError("請先設定 Obsidian Vault 資料夾。")  # i18n-ok: export validation message is fixed Traditional Chinese.
-    docs = _validate_documents(documents)
+        # The planner needs a root for containment checks, not a persistent Vault.
+        with tempfile.TemporaryDirectory(prefix="paperread-export-") as temporary:
+            return _export_zip(Path(temporary), docs)
+    return _export_zip(root, docs)
+
+
+def _export_zip(root: Path, docs: list[dict]) -> dict:
     index = _load_index(root)
     planned, paths = _plan(root, docs, index)
     rendered = _render(planned, paths)

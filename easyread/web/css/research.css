@@ -3,10 +3,6 @@
 .fig-placeholder:hover { color: var(--ink); border-color: var(--ink-3); }
 img.mark { object-fit: contain; }
 html[data-theme="dark"] img.mark { filter: invert(1); }
-html[lang="zh-TW"] .blk-heading.appendix-start::after { content: "附錄"; }
-html[lang="zh-TW"] .card .q::before { content: "問　"; }
-html[lang="zh-TW"] .card .quote.lost::after { content: "（譯文已改，未找到這段話）"; }
-html[lang="zh-TW"] #chatpanel.drop-ok .ch-compose::after { content: "放開滑鼠以引用此段"; }
 body.rp-open #researchpanel { transform: none; }
 .research-v2-head { display:flex; align-items:center; height:50px; gap:8px; padding:0 12px 0 16px; border-bottom:1px solid var(--rule); color:var(--ink); background:var(--surface); }
 .research-v2-head b { font-size:13px; font-weight:600; }

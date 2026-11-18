@@ -151,7 +151,7 @@
   function statusPill(i) {
     const status = (L.statuses || []).find((s) => s.id === (i.status || "unread"));
     const state = i.status === "paused" ? "unread" : (i.status || "unread");
-    const m = { unread: PR.t("待閱讀"), reading: PR.t("閱讀中"), organizing: PR.t("待整理"), done: PR.t("已完成") };
+    const m = { unread: PR.t("待阅读"), reading: PR.t("阅读中"), organizing: PR.t("待整理"), done: PR.t("已完成") };
     const basePill = '<span class="pill ' + state + '">' + PR.esc(status && status.id !== "paused" ? PR.t(status.label) : PR.t(m[state] || m.unread)) + "</span>";
     if (i.archived) return '<span class="pill archived">' + PR.t("已封存") + "</span>" + basePill;
     return basePill;
@@ -207,7 +207,7 @@
     return '<span class="spin"></span> ' + (L.items.length ? PR.t("正在更新文献库…") : PR.t("正在加载文献库…"));
   }
   function emptyHtml() {
-    if (L.view === "archived") return '<div class="empty-state"><div class="big">' + PR.t("封存区是空的") + "</div>" + PR.t("可以將已看完或暫不需要的論文拖曳到左側「已封存」，或在選單中封存。") + "</div>";
+    if (L.view === "archived") return '<div class="empty-state"><div class="big">' + PR.t("封存区是空的") + "</div>" + PR.t("可以将已看完或暂不需要的论文拖曳到左侧「已封存」，或在选单中封存。") + "</div>";
     if (!L.items.length && L.loadStatus !== "ready") return '<div class="empty-state" role="status">' + loadHtml() + "</div>";
     if (L.items.length) return '<div class="empty-state"><div class="big">' + PR.t("没有符合条件的论文") + "</div>" + PR.t("换个关键词或筛选试试。") + "</div>";
     const ok = L.engineReady;

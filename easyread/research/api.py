@@ -6,7 +6,7 @@ from ..chat import chat_models
 from ..app import config
 from ..app import prefs
 from ..app.i18n import tr
-from . import comparison, proposals, tasks
+from . import comparison, comparison_store, proposals, tasks
 from .store import normalize_folders, set_vault, settings, vault_path
 
 PREFIX = "/api/research/v1"
@@ -31,18 +31,20 @@ def get(app, request_path: str):
         return {"vault": str(vault) if vault else "", "configured": bool(vault), "model": settings().get("model") or (cfg.get("chat") or {}).get("default", ""),
                 "models": models, "papers": len(app.lib.all()), "scope_id": scope,
                 "tasks": tasks.list_tasks(scope=scope),
-                "pending_comparison": proposals.latest_pending_comparison(),
-                "latest_comparison": proposals.latest_comparison()}
+                "pending_comparison": comparison_store.latest(app.lib.root, pending=True) or proposals.latest_pending_comparison(),
+                "latest_comparison": comparison_store.latest(app.lib.root) or proposals.latest_comparison()}
     if endpoint == "/comparisons":
-        return {"comparisons": proposals.list_comparisons()}
+        return {"comparisons": sorted(comparison_store.list_comparisons(app.lib.root) + proposals.list_comparisons(),
+                                      key=lambda item: item.get("created", 0), reverse=True)}
     if endpoint.startswith("/tasks/"):
         task = tasks.get(endpoint.rsplit("/", 1)[1], scope=tasks.scope_id(app.lib.root))
         if task is None:
-            raise ValueError(tr("找不到這個研究工作。"))
+            raise ValueError(tr("找不到这个研究工作。"))
         return task
     if endpoint.startswith("/proposals/") and not endpoint.endswith("/review") and not endpoint.endswith("/title"):
-        return proposals.get(endpoint.rsplit("/", 1)[1])
-    raise ValueError(tr("找不到這個 Research API 路徑。"))
+        identity = endpoint.rsplit("/", 1)[1]
+        return comparison_store.get(app.lib.root, identity) or proposals.get(identity)
+    raise ValueError(tr("找不到这个 Research API 路径。"))
 
 
 def post(app, endpoint: str, body: dict):
@@ -76,20 +78,26 @@ def post(app, endpoint: str, body: dict):
     if endpoint.startswith("/tasks/") and endpoint.endswith("/cancel"):
         task = tasks.cancel(endpoint.split("/")[-2], scope=tasks.scope_id(app.lib.root))
         if task is None:
-            raise ValueError(tr("找不到這個研究工作。"))
+            raise ValueError(tr("找不到这个研究工作。"))
         return task
     if endpoint.startswith("/tasks/") and endpoint.endswith("/ack"):
         task = tasks.acknowledge(endpoint.split("/")[-2], scope=tasks.scope_id(app.lib.root))
         if task is None:
-            raise ValueError(tr("找不到這個研究工作。"))
+            raise ValueError(tr("找不到这个研究工作。"))
         return task
     if endpoint == "/comparison":
         return comparison.start(app.lib, body.get("paper_ids"), body.get("dimensions"),
                                 str(body.get("focus") or ""), str(body.get("model") or ""))
+    if endpoint.startswith("/comparisons/") and endpoint.endswith("/export"):
+        return comparison_store.export(app.lib.root, endpoint.split("/")[-2])
     if endpoint.startswith("/proposals/") and endpoint.endswith("/title"):
         identity = endpoint.split("/")[-2]
+        if comparison_store.get(app.lib.root, identity) is not None:
+            return comparison_store.rename(app.lib.root, identity, str(body.get("title") or ""))
         return proposals.rename(identity, str(body.get("title") or ""))
     if endpoint.startswith("/proposals/") and endpoint.endswith("/review"):
         identity = endpoint.split("/")[-2]
+        if comparison_store.get(app.lib.root, identity) is not None:
+            return comparison_store.decide(app.lib.root, identity, str(body.get("decision") or "") == "accept")
         return proposals.decide(identity, str(body.get("decision") or "") == "accept")
-    raise ValueError(tr("找不到這個 Research API 路徑。"))
+    raise ValueError(tr("找不到这个 Research API 路径。"))

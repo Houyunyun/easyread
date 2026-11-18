@@ -93,7 +93,7 @@
       { label: PR.t("复制段落链接（贴进笔记软件）"), icon: "link", fn: () => {
         const sec = PR.sectionOf ? PR.sectionOf(id) : "";  // 用“论文 · 章节 · 页码”当链接文字，正文里可能有公式，不好截
         const title = [(S.paper.meta || {}).short_zh || (S.paper.meta || {}).title_zh || PR.t("论文"), sec, b && b.page ? "p." + b.page : ""].filter(Boolean).join(" · ");
-        navigator.clipboard.writeText("[" + title.replace(/[[\]]/g, "") + "](" + location.origin + location.pathname + "#b-" + id + ")").then(() => PR.toast(PR.t("已复制 Markdown 链接，贴进笔记里点开就回到这一段")));
+        PR.copyText("[" + title.replace(/[[\]]/g, "") + "](" + location.origin + location.pathname + "#b-" + id + ")").then(() => PR.toast(PR.t("已复制 Markdown 链接，贴进笔记里点开就回到这一段"))).catch(error => PR.toast(PR.errorText(error)));
       } });
     if (b && PR.blockKeys(b).some((k) => PR.editOf(k))) items.push("-", { label: PR.t("恢复译者稿"), icon: "redo", fn: () => { PR.blockKeys(b).forEach((k) => PR.editOf(k) && PR.commit({ op: "edit", block: k, zh: null })); PR.renderBlock(id); PR.applyMarks(id); } });
     PR.menu(where, items);
@@ -102,7 +102,7 @@
   function copyBlock(id, lang) {
     const b = PR.blockById[id];
     const t = lang === "en" ? ([b.en, b.caption_en, b.image_en, ...(b.items || []).map((i) => i.en)].filter(Boolean).join("\n")) : PR.blockKeys(b).map(PR.textFor).join("\n");
-    navigator.clipboard.writeText(PR.plain(t || (b.tex ? "$$" + b.tex + "$$" : ""))).then(() => PR.toast(PR.t("已复制")));
+    PR.copyText(PR.plain(t || (b.tex ? "$$" + b.tex + "$$" : ""))).then(() => PR.toast(PR.t("已复制"))).catch(error => PR.toast(PR.errorText(error)));
   }
 
   /* 点击段落 = 设为当前段并出操作条；再点一次收起 */

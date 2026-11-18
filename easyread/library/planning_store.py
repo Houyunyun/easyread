@@ -17,11 +17,11 @@ from uuid import uuid4
 from ..app.i18n import tr
 
 DEFAULT_STATUSES = [
-    {"id": "unread", "label": "待閱讀", "color": "#8b8b8b", "position": 0, "builtin": True},  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-    {"id": "reading", "label": "閱讀中", "color": "#6b9eb1", "position": 1, "builtin": True},  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-    {"id": "organizing", "label": "待整理", "color": "#b68a54", "position": 2, "builtin": True},  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-    {"id": "done", "label": "已完成", "color": "#719879", "position": 3, "builtin": True},  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
-    {"id": "paused", "label": "暫停", "color": "#9a819e", "position": 4, "builtin": True},  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+    {"id": "unread", "label": "待阅读", "color": "#8b8b8b", "position": 0, "builtin": True},
+    {"id": "reading", "label": "阅读中", "color": "#6b9eb1", "position": 1, "builtin": True},
+    {"id": "organizing", "label": "待整理", "color": "#b68a54", "position": 2, "builtin": True},
+    {"id": "done", "label": "已完成", "color": "#719879", "position": 3, "builtin": True},
+    {"id": "paused", "label": "暂停", "color": "#9a819e", "position": 4, "builtin": True},
 ]
 
 
@@ -119,6 +119,9 @@ def _connect(root: Path):
     for name, declaration in (("summary_markdown", "TEXT NOT NULL DEFAULT ''"), ("summary_model", "TEXT NOT NULL DEFAULT ''"), ("summary_updated", "TEXT NOT NULL DEFAULT ''"), ("summary_status", "TEXT NOT NULL DEFAULT ''"), ("summary_error", "TEXT NOT NULL DEFAULT ''"), ("summary_claim", "TEXT NOT NULL DEFAULT ''")):
         if name not in candidate_columns:
             db.execute(f"ALTER TABLE candidates ADD COLUMN {name} {declaration}")
+    for table in ("paper_summaries", "paper_summary_trash"):
+        if "summary_target" not in {r[1] for r in db.execute(f"PRAGMA table_info({table})")}:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN summary_target TEXT NOT NULL DEFAULT ''")
     existing = db.execute("SELECT count(*) FROM statuses").fetchone()[0]
     if not existing:
         db.executemany("INSERT INTO statuses(id,label,color,position,builtin) VALUES(?,?,?,?,?)",
@@ -155,7 +158,8 @@ def _read_db(root: Path):
 
 def recover_interrupted(root: Path):
     with _db(root) as db:
-        db.execute("UPDATE saved_papers SET pdf_state='failed', pdf_error='上次下載中斷，可重新嘗試', updated=? WHERE pdf_state='running'", (_now(),))  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        db.execute("UPDATE saved_papers SET pdf_state='failed', pdf_error=?, updated=? WHERE pdf_state='running'",
+                   (tr("上次下载中断，可重新尝试"), _now()))
         db.commit()
 
 
@@ -184,14 +188,14 @@ def keyword_upsert(root: Path, name: str, match_text: str, *, replace_match: boo
     """
     name, match_text = str(name).strip()[:120], str(match_text).strip()[:180]
     if not name or not match_text:
-        raise ValueError(tr("請填寫關鍵字名稱與原文比對詞"))
+        raise ValueError(tr("请填写关键字名称与原文比对词"))
     now = _now()
     with _db(root) as db:
         row = next((r for r in db.execute("SELECT * FROM keywords") if _keyword_key(r["name"]) == _keyword_key(name)), None)
         if row:
             if _keyword_key(row["match_text"]) != _keyword_key(match_text):
                 if not replace_match:
-                    raise ValueError(tr("已有同名關鍵字，但原文比對詞不同"))
+                    raise ValueError(tr("已有同名关键字，但原文比对词不同"))
                 db.execute("UPDATE keywords SET match_text=?, updated=? WHERE id=?", (match_text, now, row["id"]))
             if row["archived"]:
                 db.execute("UPDATE keywords SET archived=0, updated=? WHERE id=?", (now, row["id"]))
@@ -207,13 +211,13 @@ def keyword_update(root: Path, keyword_id: str, name: str, match_text: str) -> t
     """Rename a keyword and/or change its match text. Returns (keyword, match_text_changed)."""
     name, match_text = str(name).strip()[:120], str(match_text).strip()[:180]
     if not name or not match_text:
-        raise ValueError(tr("請填寫關鍵字名稱與原文比對詞"))
+        raise ValueError(tr("请填写关键字名称与原文比对词"))
     with _db(root) as db:
         row = db.execute("SELECT * FROM keywords WHERE id=?", (keyword_id,)).fetchone()
         if not row:
-            raise ValueError(tr("找不到關鍵字"))
+            raise ValueError(tr("找不到关键字"))
         if any(r["id"] != keyword_id and _keyword_key(r["name"]) == _keyword_key(name) for r in db.execute("SELECT id,name FROM keywords")):
-            raise ValueError(tr("已有同名關鍵字"))
+            raise ValueError(tr("已有同名关键字"))
         changed = _keyword_key(row["match_text"]) != _keyword_key(match_text)
         db.execute("UPDATE keywords SET name=?, match_text=?, updated=? WHERE id=?", (name, match_text, _now(), keyword_id))
         db.commit()
@@ -311,7 +315,7 @@ def keyword_archive(root: Path, keyword_ids: str | list[str], archived: bool) ->
     marks = ",".join("?" for _ in ids)
     with _db(root) as db:
         if len(ids) == 1 and not db.execute(f"SELECT 1 FROM keywords WHERE id IN ({marks})", ids).fetchone():
-            raise ValueError(tr("找不到關鍵字"))
+            raise ValueError(tr("找不到关键字"))
         cur = db.execute(f"UPDATE keywords SET archived=?, updated=? WHERE id IN ({marks})", (int(archived), _now(), *ids))
         db.commit()
         return cur.rowcount
@@ -334,35 +338,39 @@ def keyword_delete(root: Path, keyword_ids: str | list[str]) -> int:
 
 def statuses(root: Path) -> list[dict]:
     with _read_db(root) as db:
-        if db is None:
-            return [dict(item) for item in DEFAULT_STATUSES]
-        return [dict(r) for r in db.execute("SELECT * FROM statuses ORDER BY position,id")]
+        values = ([dict(item) for item in DEFAULT_STATUSES] if db is None else
+                  [dict(r) for r in db.execute("SELECT * FROM statuses ORDER BY position,id")])
+    defaults = {item["id"]: item["label"] for item in DEFAULT_STATUSES}
+    for item in values:
+        if item.get("builtin") and item["label"] == defaults.get(item["id"]):
+            item["label"] = tr(item["label"])
+    return values
 
 
 def validate_statuses(values: list[dict]) -> list[tuple[str, str, str, int, int]]:
     visible_builtins = {s["id"] for s in DEFAULT_STATUSES if s["id"] != "paused"}
     if not isinstance(values, list) or len(values) < len(visible_builtins) or len(values) > 30:
-        raise ValueError("狀態欄設定不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("状态栏设定不正确"))
     known = visible_builtins
     ids = set()
     rows = []
     for pos, item in enumerate(values):
         if not isinstance(item, dict):
-            raise ValueError("狀態欄設定不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("状态栏设定不正确"))
         sid = str(item.get("id", ""))[:40]
         label = str(item.get("label", "")).strip()[:32]
         if not sid or sid in ids or not label:
-            raise ValueError("每個狀態都需要不重複的識別碼與名稱")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("每个状态都需要不重复的识别码与名称"))
         ids.add(sid)
         builtin = sid in known or sid == "paused"
         if not builtin and not sid.startswith("custom-"):
-            raise ValueError("自訂狀態識別碼格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("自订状态识别码格式不正确"))
         color = str(item.get("color") or "#8b8b8b")[:16]
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
-            raise ValueError("狀態色彩格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("状态色彩格式不正确"))
         rows.append((sid, label, color, pos, 1 if builtin else 0))
     if not known.issubset(ids):
-        raise ValueError("內建狀態不能刪除")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("内建状态不能删除"))
     return rows
 
 
@@ -372,6 +380,12 @@ def save_statuses(root: Path, values: list[dict], moves: dict | None = None) -> 
     moves = moves or {}
     with _db(root) as db:
         old = {r["id"]: dict(r) for r in db.execute("SELECT * FROM statuses")}
+        defaults = {item["id"]: item["label"] for item in DEFAULT_STATUSES}
+        # A settings round-trip must not persist translated default labels. Real
+        # user renames (including renames of builtin statuses) remain untouched.
+        rows = [(sid, defaults[sid] if sid in defaults and old.get(sid, {}).get("label") == defaults[sid]
+                 and label == tr(defaults[sid]) else label, color, pos, builtin)
+                for sid, label, color, pos, builtin in rows]
         # Preserve the old paused status row and any associated item values as
         # hidden legacy data. It no longer appears in the UI or accepts new moves.
         if "paused" in old and "paused" not in ids:
@@ -382,7 +396,7 @@ def save_statuses(root: Path, values: list[dict], moves: dict | None = None) -> 
         for sid in removed:
             target = str(moves.get(sid) or "")
             if not target or target not in ids:
-                raise ValueError("刪除狀態前，請指定論文要移到哪一欄")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+                raise ValueError(tr("删除状态前，请指定论文要移到哪一栏"))
         db.execute("BEGIN IMMEDIATE")
         db.execute("DELETE FROM statuses")
         db.executemany("INSERT INTO statuses(id,label,color,position,builtin) VALUES(?,?,?,?,?)", rows)
@@ -482,8 +496,10 @@ def candidate_remove(root: Path, paper_key: str) -> bool:
         return cur.rowcount > 0
 
 
-def candidate_save_summary(root: Path, paper_key: str, markdown: str, model: str = "", *, expected_claim: str | None = None) -> dict | None:
+def candidate_save_summary(root: Path, paper_key: str, markdown: str, model: str = "", *, expected_claim: str | None = None, target: str = "") -> dict | None:
     """Manual saves supersede jobs; automatic saves require their current claim."""
+    from ..translate.langs import normalize
+    target = normalize(target)
     with _db(root) as db:
         db.execute("BEGIN IMMEDIATE")
         now = _now()
@@ -493,6 +509,7 @@ def candidate_save_summary(root: Path, paper_key: str, markdown: str, model: str
         db.execute("INSERT INTO paper_summaries(paper_key,metadata_json,summary_markdown,summary_model,created,updated) VALUES(?,?,?,?,?,?)"
                    " ON CONFLICT(paper_key) DO UPDATE SET metadata_json=excluded.metadata_json,summary_markdown=excluded.summary_markdown,summary_model=excluded.summary_model,updated=excluded.updated",
                    (paper_key, row["metadata_json"], markdown[:100000], model[:200], now, now))
+        db.execute("UPDATE paper_summaries SET summary_target=? WHERE paper_key=?", (target, paper_key))
         db.execute("UPDATE candidates SET summary_status='ready',summary_error='',summary_claim='',summary_updated=?,summary_model=?,updated=? WHERE paper_key=?",
                    (now, model[:200], now, paper_key))
         db.commit()
@@ -502,7 +519,7 @@ def candidate_save_summary(root: Path, paper_key: str, markdown: str, model: str
 
 def candidate_summary_status(root: Path, paper_key: str, status: str, error: str = "", *, expected_claim: str | None = None) -> bool:
     if status not in ("queued", "running", "failed", "ready"):
-         raise ValueError(tr("摘要狀態不正確"))
+         raise ValueError(tr("摘要状态不正确"))
     with _db(root) as db:
         condition = " AND summary_status='running' AND summary_claim=?" if expected_claim is not None else ""
         values = [status, error[:1000], _now(), paper_key]
@@ -519,7 +536,7 @@ def candidate_summary_status(root: Path, paper_key: str, status: str, error: str
 def recover_candidate_summaries(root: Path) -> int:
     """Requeue jobs interrupted by an application shutdown."""
     with _db(root) as db:
-        cur = db.execute("UPDATE candidates SET summary_status='queued',summary_error='上次整理中斷，已重新排入佇列。',updated=? WHERE summary_status='running'", # i18n-dom: 固定保存繁中，前端顯示時翻譯。
+        cur = db.execute("UPDATE candidates SET summary_status='queued',summary_error='上次整理中断，已重新排入伫列。',updated=? WHERE summary_status='running'", # i18n-dom: 固定保存繁中，前端显示时翻译。
                          (_now(),))
         db.commit()
         return cur.rowcount
@@ -557,6 +574,35 @@ def summary(root: Path, paper_key: str) -> dict | None:
     return _summary(row) if row else None
 
 
+def summary_save(root: Path, paper_key: str, markdown: str, *, expected_updated: str | None = None,
+                 expected_markdown: str | None = None) -> dict:
+    """Edit an existing summary atomically; never resurrect a deleted summary."""
+    if not isinstance(paper_key, str) or not paper_key.strip():
+        raise ValueError(tr("论文识别资料不正确。"))
+    if not isinstance(markdown, str) or not markdown.strip():
+        raise ValueError(tr("摘要内容是空的，没有可储存的内容。"))
+    if len(markdown) > 100000:
+        raise ValueError(tr("摘要内容过长，请缩短后再保存。"))
+    if any(value is not None and not isinstance(value, str) for value in (expected_updated, expected_markdown)):
+        raise ValueError(tr("摘要编辑基准格式不正确。"))
+    with _db(root) as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM paper_summaries WHERE paper_key=?", (paper_key,)).fetchone()
+        if not row:
+            raise ValueError(tr("找不到这篇论文的摘要。"))
+        if ((expected_updated is not None and row["updated"] != expected_updated)
+                or (expected_markdown is not None and row["summary_markdown"] != expected_markdown)):
+            raise ValueError(tr("摘要已变更，请重新打开后再编辑。"))
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        db.execute("UPDATE paper_summaries SET summary_markdown=?,summary_model='',summary_target='',updated=? WHERE paper_key=?",
+                   (markdown, now, paper_key))
+        db.execute("UPDATE candidates SET summary_markdown='',summary_model='',summary_status='ready',summary_error='',summary_claim='',summary_updated=?,updated=? WHERE paper_key=?",
+                   (now, now, paper_key))
+        saved = db.execute("SELECT * FROM paper_summaries WHERE paper_key=?", (paper_key,)).fetchone()
+        db.commit()
+    return _summary(saved)
+
+
 def summaries_list(root: Path) -> list[dict]:
     with _db(root) as db:
         return [_summary(row) for row in db.execute("SELECT * FROM paper_summaries ORDER BY updated DESC")]
@@ -574,6 +620,7 @@ def summary_move_to_trash(root: Path, paper_key: str) -> dict | None:
         deleted_at = _now()
         db.execute("INSERT INTO paper_summary_trash(trash_id,paper_key,metadata_json,summary_markdown,summary_model,created,updated,deleted_at) VALUES(?,?,?,?,?,?,?,?)",
                    (trash_id, row["paper_key"], row["metadata_json"], row["summary_markdown"], row["summary_model"], row["created"], row["updated"], deleted_at))
+        db.execute("UPDATE paper_summary_trash SET summary_target=? WHERE trash_id=?", (row["summary_target"], trash_id))
         db.execute("DELETE FROM paper_summaries WHERE paper_key=?", (paper_key,))
         db.execute("UPDATE candidates SET summary_markdown='',summary_model='',summary_updated='',summary_status='',summary_error='',updated=? WHERE paper_key=?",
                    (deleted_at, paper_key))
@@ -594,11 +641,12 @@ def summary_trash_restore(root: Path, trash_id: str) -> bool:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT * FROM paper_summary_trash WHERE trash_id=?", (trash_id,)).fetchone()
         if not row:
-            raise ValueError(tr("回收站裡沒有這份摘要"))
+            raise ValueError(tr("回收站里没有这份摘要"))
         if db.execute("SELECT 1 FROM paper_summaries WHERE paper_key=?", (row["paper_key"],)).fetchone():
-            raise ValueError(tr("這篇論文已有摘要；請先移除目前的摘要，再還原這份摘要。"))
+            raise ValueError(tr("这篇论文已有摘要；请先移除目前的摘要，再还原这份摘要。"))
         db.execute("INSERT INTO paper_summaries(paper_key,metadata_json,summary_markdown,summary_model,created,updated) VALUES(?,?,?,?,?,?)",
                    (row["paper_key"], row["metadata_json"], row["summary_markdown"], row["summary_model"], row["created"], row["updated"]))
+        db.execute("UPDATE paper_summaries SET summary_target=? WHERE paper_key=?", (row["summary_target"], row["paper_key"]))
         db.execute("DELETE FROM paper_summary_trash WHERE trash_id=?", (trash_id,))
         now = _now()
         db.execute("UPDATE candidates SET summary_markdown=?,summary_model=?,summary_updated=?,summary_status='ready',summary_error='',updated=? WHERE paper_key=?",
@@ -661,30 +709,30 @@ def add_milestone(root: Path, data: dict) -> dict:
     title = str(data.get("title", "")).strip()[:160]
     start = str(data.get("start_date", ""))
     if not title or len(start) != 10:
-        raise ValueError("請填寫里程碑名稱與日期")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("请填写里程碑名称与日期"))
     end = str(data.get("end_date") or start)
     try:
         start = date.fromisoformat(start).isoformat()
         end = date.fromisoformat(end).isoformat()
     except ValueError as exc:
-        raise ValueError("里程碑日期格式不正確") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("里程碑日期格式不正确")) from exc
     if end < start:
-        raise ValueError("里程碑結束日期不能早於開始日期")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("里程碑结束日期不能早于开始日期"))
     recurrence = data.get("recurrence", "once")
     if recurrence not in ("once", "weekly"):
-        raise ValueError("目前只支援單次或每週重複")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("目前只支援单次或每周重复"))
     linked = data.get("linked") or []
     if not isinstance(linked, list) or len(linked) > 200 or any(not isinstance(x, str) or len(x) > 120 for x in linked):
-        raise ValueError("關聯論文格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("关联论文格式不正确"))
     exceptions = data.get("exceptions") or {}
     if not isinstance(exceptions, dict):
-        raise ValueError("重複場次設定格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("重复场次设定格式不正确"))
     if len(json.dumps(exceptions, ensure_ascii=False)) > 30000:
-        raise ValueError("重複場次設定內容過多")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("重复场次设定内容过多"))
     cancelled = exceptions.get("cancelled") or []
     overrides = exceptions.get("overrides") or {}
     if not isinstance(cancelled, list) or not isinstance(overrides, dict) or len(cancelled) > 500 or len(overrides) > 500:
-        raise ValueError("重複場次設定格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("重复场次设定格式不正确"))
     try:
         for occurrence in cancelled:
             date.fromisoformat(str(occurrence))
@@ -697,14 +745,14 @@ def add_milestone(root: Path, data: dict) -> dict:
             if moved_end < moved_start or not isinstance(override.get("linked", []), list) or len(override.get("linked", [])) > 200:
                 raise ValueError
     except (TypeError, ValueError) as exc:
-        raise ValueError("重複場次日期或關聯論文格式不正確") from exc  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("重复场次日期或关联论文格式不正确")) from exc
     color = str(data.get("color") or "#6b9eb1")
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
-        raise ValueError("里程碑色彩格式不正確")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("里程碑色彩格式不正确"))
     mid = str(data.get("id") or "m-" + uuid4().hex)
     series = str(data.get("series_id") or mid)
     if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value) for value in (mid, series)):
-        raise ValueError("Invalid milestone ID")
+        raise ValueError(tr("里程碑 ID 无效"))
     now = _now()
     with _db(root) as db:
         db.execute("""INSERT INTO milestones(id,series_id,title,start_date,end_date,recurrence,color,linked_json,exceptions_json,created,updated)
@@ -731,11 +779,11 @@ def delete_milestone(root: Path, mid: str, whole_series: bool = False):
 
 def add_follow(root: Path, kind: str, value: str, label: str = "") -> dict:
     if kind not in ("topic", "author") or not value.strip():
-        raise ValueError("追蹤項目需要主題或作者資料")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+        raise ValueError(tr("追踪项目需要主题或作者资料"))
     if kind == "author":
         value = value.rstrip("/").split("/")[-1]
         if not re.fullmatch(r"A\d+", value):
-            raise ValueError("請先從作者搜尋結果選定 OpenAlex 作者，避免追蹤到同名作者。")  # i18n-ok: Research 工作區訊息依產品規格固定使用繁體中文。
+            raise ValueError(tr("请先从作者搜寻结果选定 OpenAlex 作者，避免追踪到同名作者。"))
     fid = "f-" + uuid4().hex
     with _db(root) as db:
         db.execute("INSERT OR IGNORE INTO follows(id,kind,value,label,created) VALUES(?,?,?,?,?)",
@@ -776,21 +824,27 @@ def cache_put(root: Path, key: str, payload: dict):
 
 
 # The reading-path map is intentionally a single, versioned snapshot per
-# library.  Keeping it in the existing cache table avoids a second migration
+# library and output locale. Keeping it in the existing cache table avoids a second migration
 # for a small piece of workspace state, while the dedicated key means normal
 # discovery-cache expiry rules never apply to it.
 READING_PATH_CACHE_KEY = "reading-path:latest"
 
 
+def reading_path_cache_key(target: str = "") -> str:
+    from ..app import i18n
+    from ..translate import langs
+    return READING_PATH_CACHE_KEY + ":" + langs.valid(target or i18n.lang())
+
+
 def latest_reading_path(root: Path) -> dict | None:
-    value, _ = cache_get(root, READING_PATH_CACHE_KEY)
+    value, _ = cache_get(root, reading_path_cache_key())
     return value if isinstance(value, dict) else None
 
 
 def _validate_reading_path_steps(steps: list[dict]) -> list[str]:
     keys = [str(step.get("paper_key") or "").strip() for step in steps if isinstance(step, dict)]
     if not keys or len(keys) != len(steps) or len(set(keys)) != len(keys):
-        raise ValueError(tr("閱讀路徑資料不完整，請重新產生。"))
+        raise ValueError(tr("阅读路径资料不完整，请重新产生。"))
     return keys
 
 
@@ -798,14 +852,17 @@ def replace_reading_path(root: Path, snapshot: dict) -> dict:
     steps = list(snapshot.get("results") or [])
     _validate_reading_path_steps(steps)
     now = _now()
-    record = {**snapshot, "path_id": "rp-" + uuid4().hex, "revision": 1,
+    from ..app import i18n
+    from ..translate import langs
+    target = langs.valid(snapshot.get("target") or i18n.lang())
+    record = {**snapshot, "target": target, "path_id": "rp-" + uuid4().hex, "revision": 1,
               "created_at": now, "updated_at": now, "relations": [],
               "relations_checked_at": "", "relations_error": ""}
     with _db(root) as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute("INSERT INTO cache(cache_key,payload_json,updated) VALUES(?,?,?) "
                    "ON CONFLICT(cache_key) DO UPDATE SET payload_json=excluded.payload_json,updated=excluded.updated",
-                   (READING_PATH_CACHE_KEY, json.dumps(record, ensure_ascii=False), now))
+                   (reading_path_cache_key(target), json.dumps(record, ensure_ascii=False), now))
         db.commit()
     return record
 
@@ -813,23 +870,23 @@ def replace_reading_path(root: Path, snapshot: dict) -> dict:
 def reorder_reading_path(root: Path, path_id: str, revision: int, paper_keys: list[str]) -> dict:
     with _db(root) as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT payload_json FROM cache WHERE cache_key=?", (READING_PATH_CACHE_KEY,)).fetchone()
+        row = db.execute("SELECT payload_json FROM cache WHERE cache_key=?", (reading_path_cache_key(),)).fetchone()
         record = json.loads(row[0]) if row else None
         if not isinstance(record, dict) or record.get("path_id") != path_id:
-            raise ValueError(tr("這份閱讀路徑已被較新的結果取代，請重新載入。"))
+            raise ValueError(tr("这份阅读路径已被较新的结果取代，请重新载入。"))
         if int(record.get("revision") or 0) != int(revision):
-            raise ValueError(tr("閱讀路徑已在其他頁面更新，請重新載入後再調整。"))
+            raise ValueError(tr("阅读路径已在其他页面更新，请重新载入后再调整。"))
         current = _validate_reading_path_steps(list(record.get("results") or []))
         order = [str(key or "").strip() for key in paper_keys]
         if len(order) != len(current) or len(set(order)) != len(order) or set(order) != set(current):
-            raise ValueError(tr("閱讀順序必須包含目前路徑中的每一篇論文，且不能重複。"))
+            raise ValueError(tr("阅读顺序必须包含目前路径中的每一篇论文，且不能重复。"))
         by_key = {step["paper_key"]: step for step in record["results"]}
         record["results"] = [{**by_key[key], "priority": index + 1} for index, key in enumerate(order)]
         record["manual_order"] = True
         record["revision"] = int(record["revision"]) + 1
         record["updated_at"] = _now()
         db.execute("UPDATE cache SET payload_json=?,updated=? WHERE cache_key=?",
-                   (json.dumps(record, ensure_ascii=False), record["updated_at"], READING_PATH_CACHE_KEY))
+                   (json.dumps(record, ensure_ascii=False), record["updated_at"], reading_path_cache_key()))
         db.commit()
     return record
 
@@ -837,12 +894,12 @@ def reorder_reading_path(root: Path, path_id: str, revision: int, paper_keys: li
 def save_reading_path_relations(root: Path, path_id: str, revision: int, relations: list[dict], *, checked_at: str = "", error: str = "") -> dict:
     with _db(root) as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT payload_json FROM cache WHERE cache_key=?", (READING_PATH_CACHE_KEY,)).fetchone()
+        row = db.execute("SELECT payload_json FROM cache WHERE cache_key=?", (reading_path_cache_key(),)).fetchone()
         record = json.loads(row[0]) if row else None
         if not isinstance(record, dict) or record.get("path_id") != path_id:
-            raise ValueError(tr("這份閱讀路徑已被較新的結果取代，請重新載入。"))
+            raise ValueError(tr("这份阅读路径已被较新的结果取代，请重新载入。"))
         if int(record.get("revision") or 0) != int(revision):
-            raise ValueError(tr("閱讀路徑已在其他頁面更新，請重新載入後再更新引用資料。"))
+            raise ValueError(tr("阅读路径已在其他页面更新，请重新载入后再更新引用资料。"))
         valid_keys = set(_validate_reading_path_steps(list(record.get("results") or [])))
         clean, seen = [], set()
         for relation in relations or []:
@@ -861,7 +918,7 @@ def save_reading_path_relations(root: Path, path_id: str, revision: int, relatio
         record["revision"] = int(record["revision"]) + 1
         record["updated_at"] = _now()
         db.execute("UPDATE cache SET payload_json=?,updated=? WHERE cache_key=?",
-                   (json.dumps(record, ensure_ascii=False), record["updated_at"], READING_PATH_CACHE_KEY))
+                   (json.dumps(record, ensure_ascii=False), record["updated_at"], reading_path_cache_key()))
         db.commit()
     return record
 
@@ -901,16 +958,16 @@ def keyword_maps(root: Path, identity: str = "") -> list[dict]:
 def keyword_map_save(root: Path, name: str, data: dict, identity: str = "", revision: int = 0) -> dict:
     name = str(name or "").strip()
     if not name or len(name) > 200 or not isinstance(data, dict):
-        raise ValueError("Invalid keyword map")
+        raise ValueError(tr("关键词图谱无效"))
     now = _now()
     with _db(root) as db:
         db.execute("BEGIN IMMEDIATE")
         old = db.execute("SELECT payload_json FROM keyword_maps WHERE id=?", (identity,)).fetchone() if identity else None
         previous = json.loads(old[0]) if old else None
         if identity and not previous:
-            raise ValueError("Keyword map not found")
+            raise ValueError(tr("找不到关键词图谱"))
         if previous and previous["revision"] != revision:
-            raise ValueError("Keyword map changed; reload before saving")
+            raise ValueError(tr("关键词图谱已变更，请重新载入后保存"))
         identity = identity or "km-" + uuid4().hex
         record = {"id": identity, "name": name, "data": data, "revision": revision + 1,
                   "created_at": previous["created_at"] if previous else now, "updated_at": now}
@@ -935,7 +992,7 @@ def save_mindmap(root: Path, cache_key: str, result: dict, revision: int | None 
         previous = json.loads(row[0]) if row else {}
         current = int(previous.get("revision") or 0)
         if revision is not None and revision != current:
-            raise ValueError("Mindmap changed; reload before saving")
+            raise ValueError(tr("心智图已变更，请重新载入后保存"))
         record = {**previous, **result, "revision": current + 1, "updated_at": _now()}
         db.execute("INSERT INTO cache(cache_key,payload_json,updated) VALUES(?,?,?) "
                    "ON CONFLICT(cache_key) DO UPDATE SET payload_json=excluded.payload_json,updated=excluded.updated",

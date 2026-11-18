@@ -93,7 +93,7 @@
     } else {
       const chips = [["all", PR.t("全部")], ["mine", PR.t("我的笔记")], ["hl", PR.t("划线")], ["agent", "AI"], ["open", PR.t("待回答")]]
         .map(([k, l]) => '<button data-nf="' + k + '" class="' + (filter === k ? "on" : "") + '">' + l + "</button>").join("");
-      h += '<div class="np-filters">' + chips + '</div>' + (PR.store.mode === "server" && PR.feature("chat") && PR.smartAnnotations ? '<div class="np-add"><button class="btn sm line" data-np-act="smart">' + PR.icon("sparkle", "sm") + PR.t("智慧標註") + '</button></div>' + PR.smartAnnotations.html() : '') + '<div class="np-list">';
+      h += '<div class="np-filters">' + chips + '</div>' + (PR.store.mode === "server" && PR.feature("chat") && PR.smartAnnotations ? '<div class="np-add"><button class="btn sm line" data-np-act="smart">' + PR.icon("sparkle", "sm") + PR.t("智慧标注") + '</button></div>' + PR.smartAnnotations.html() : '') + '<div class="np-list">';
       let lastSec = null;
       for (const it of list) {
         const sec = it.anchor === "head" ? PR.t("论文开头") : PR.t("第 {page} 页", { page: (PR.blockById[it.anchor] || {}).page }) + " · " + sectionOf(it.anchor);

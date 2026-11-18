@@ -45,8 +45,8 @@ test("export includes Chinese quote for accepted smart highlights and legacy Eng
   const markdown = PR.notesMarkdown({ paper: false, note: false, highlight: true, question: false, ai: false, chat: false, quote: true }, [], { order: ["highlight"], chat: [] });
   assert.match(markdown, /「我們提出一個方法。」/);
   assert.match(markdown, /「它很快。」/);
-  assert.match(markdown, /引用（中文譯文）/);
-  assert.match(markdown, /我的注記：\*\* 提出可介接不同前端的解碼器/);
+  assert.match(markdown, /引用（中文译文）/);
+  assert.match(markdown, /我的注记：\*\* 提出可介接不同前端的解碼器/);
 });
 
 test("page-side AI explanations do not gain a quote from the export checkbox", () => {
@@ -140,6 +140,32 @@ test("Obsidian export warns about handwritten strokes but excludes deleted strok
   } });
   await app.click();
   const docs = app.requests.find(request => request.path === "/api/research/v2/export/obsidian").options.body.documents;
-  assert.ok(docs.every(doc => doc.body.includes("本次匯出未包含 2 筆手寫註記。")));
+  assert.ok(docs.every(doc => doc.body.includes("本次汇出未包含 2 笔手写注记。")));
 });
 
+
+test('export headings and metadata labels follow UI language, never paper titles or authored notes', () => {
+  const readDictionary = lang => lang === 'zh' ? {} : JSON.parse(fs.readFileSync(path.join(__dirname, '../../easyread/web/i18n/' + lang + '.json'), 'utf8'));
+  for (const lang of ['zh','en','zh-Hant']) {
+    const dict = readDictionary(lang);
+    const t = (text, values) => (dict[text] || text).replace(/\{(\w+)\}/g, (match, key) => values?.[key] ?? match);
+    const PR = loadReader({blocks:[{id:'p1', type:'para', en:'An original sentence.', zh:'不可轉換的論文。'}], notes:{
+      note:{id:'note', anchor:'p1', key:'p1', quote:'不可轉換的論文。', side:'zh', kind:'note', body:'我寫的繁體筆記。'},
+    }});
+    PR.t = t;
+    PR.state.paper.meta = {title_zh:'原始論文標題', title_en:'Original title', authors:'作者姓名', date:'2026'};
+    PR.state.reader.paper_note = {body:'我寫的繁體筆記。'};
+    const markdown = PR.notesMarkdown({paper:true, note:true, quote:true}, [], {order:['paper','note'], chat:[]});
+    assert.ok(markdown.includes(t('论文笔记')));
+    assert.ok(markdown.includes(t('我的笔记')));
+    assert.ok(markdown.includes('我寫的繁體筆記。'));
+    assert.ok(markdown.includes('不可轉換的論文。'));
+    vm.runInNewContext(exportSource, {window:{PR}});
+    const [doc] = PR.researchExport.documents({pick:{paper:true}, order:['paper'], chat:[], mindmap:''});
+    assert.ok(doc.body.includes('## ' + t('书目资料')));
+    assert.ok(doc.body.includes(t('英文标题：{title}', {title:'Original title'})));
+    assert.ok(doc.body.includes(t('作者：{authors}', {authors:'作者姓名'})));
+    assert.ok(doc.body.includes('我寫的繁體筆記。'));
+    assert.ok(doc.title.startsWith('原始論文標題'));
+  }
+});
