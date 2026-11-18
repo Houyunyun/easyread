@@ -24,6 +24,8 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 ## 问答 CLI 设置（内部接口）
 
+`GET /api/engines` 的 `models.codex` 为翻译和问答提供模型名单：优先使用用户 Codex 配置中的 `model_catalog_json`，仅在未配置时读取 `models_cache.json`；模型仍按 `visibility=list` 过滤、按 `priority` 排序，并保留 `reasoning_levels` 和 `default_reasoning`。`?fresh=1` 重新检测时会重读目录，不调用模型。响应不包含原生配置全文或凭证。
+
 `GET /api/chat/cli/{claude|codex}` 返回问答能力配置、Skill 元数据和原生配置路径；`POST` 保存该 CLI 的独立问答配置。`POST /api/chat/cli/{engine}/skills/import` 接受 `filename` 与 `content_b64`，仅导入问答专用目录。写操作需要正常访问授权、`X-Token` 和同源 `Origin`。不会返回 CLI 原生配置内容或凭证。详见 [问答 CLI 设置](qa-cli.md)。
 
 ## 论文怎么标识
