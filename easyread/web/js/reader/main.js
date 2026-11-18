@@ -19,7 +19,9 @@
     const line = PR.readingLine();
     let best = null;
     for (const el of PR.$$("#paper > .blk, #paper > .paper-head")) {
-      if (el.getBoundingClientRect().top <= line) best = el; else break;
+      const rect = el.getBoundingClientRect();
+      if (rect.height <= 0) continue;  // Hidden projections are not reading positions.
+      if (rect.top <= line) best = el; else break;
     }
     return best ? best.dataset.id : "head";
   };

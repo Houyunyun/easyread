@@ -90,6 +90,14 @@ test("mixed papers save the latest translated block or original page above the r
   assert.equal(r.PR.progressOp().block, "p2");
 });
 
+test("hidden original-page placeholders cannot replace a visible reading block", () => {
+  const r = reader({ scrollY: 1400 });
+  r.block("p2", 1000, 2000); r.read("p2");
+  r.page(9, 1400, 0);
+  assert.equal(r.PR.progressOp().block, "p2");
+  assert.equal(r.PR.progressOp().off, 0.32);
+});
+
 test("an original page below the reading line does not replace the header", () => {
   const r = reader();
   r.page(1, 300, 1000);

@@ -20,7 +20,8 @@
     let el = element(block);
     // 未整理的 PDF 原页没有正文块，也需要记住页码和页内位置。
     for (const page of PR.$$("#paper .orig-page")) {
-      const top = page.getBoundingClientRect().top;
+      const rect = page.getBoundingClientRect(), top = rect.top;
+      if (rect.height <= 0) continue;
       if (top > PR.readingLine()) break;
       if (!el || top >= rectOf(el).top) { block = page.id; el = page; }
     }

@@ -5,6 +5,7 @@
   const S = PR.state;
   const isWeb = () => S.paper?.meta?.source_type === "web";
   let frame, layout, nativeMode = true, pendingPosition, loaded = false, dirty = false, resizing = false, lastView, lastOrder;
+  let layoutVersion = 0;
   const runs = new Map(), hosts = new Map(), editors = new Map(), codeRoots = new Map();
   const doc = () => loaded ? frame.contentDocument : null;
   const selection = () => doc()?.getSelection();
@@ -286,6 +287,10 @@
 
   // Do not overwrite or restore a saved position against the hidden PDF-style projection
   // while the actual web document is still loading.
+  const originalPosition = PR.progressOp;
+  PR.progressOp = (...args) => isWeb() && nativeMode && !loaded
+    ? { ...(pendingPosition || { op: "progress", block: "head", off: 0, ratio: 0 }) }
+    : originalPosition(...args);
   const originalRestore = PR.restoreProgress, originalSave = PR.saveProgress, originalCapture = PR.captureProgress;
   PR.restoreProgress = (...args) => isWeb() && nativeMode && !loaded ? false : originalRestore(...args);
   PR.saveProgress = (...args) => { if (!isWeb() || !nativeMode || loaded) return originalSave(...args); };
@@ -335,7 +340,8 @@
     if (next) PR.setInkActive?.(false);
     PR.finishPanelNote?.();
     if (PR.editingNote) PR.closeNoteEditor();
-    const position = PR.progressOp();
+    const position = PR.progressOp(), version = ++layoutVersion;
+    pendingPosition = null;
     PR.webClearSelection(); window.getSelection()?.removeAllRanges();
     PR.setCurrent(null); PR.hidePopover(); PR.$("#selbar").classList.remove("open");
     nativeMode = next;
@@ -346,7 +352,10 @@
     syncLayout();
     PR.applyReadingLanguage(); PR.applyMarks(); PR.renderMargin();
     if (nativeMode && !loaded) pendingPosition = position;
-    else { alignPosition(position); requestAnimationFrame(() => alignPosition(position)); }
+    else {
+      alignPosition(position);
+      requestAnimationFrame(() => { if (version === layoutVersion) alignPosition(position); });
+    }
     PR.saveProgress();
     window.dispatchEvent(new Event("resize"));
   }
@@ -356,6 +365,17 @@
     if (isWeb() && nativeMode) setLayout("reader");
     return !isWeb() || !nativeMode;
   };
+
+  function blockAtLine(blocks, line, boxFor) {
+    let found = "head", closest = -Infinity;
+    for (const block of blocks) {
+      const box = boxFor(block.id);
+      if (box?.height > 0 && box.top <= line && box.top > closest) {
+        found = block.id; closest = box.top;
+      }
+    }
+    return found;
+  }
 
   function setup() {
     if (!isWeb()) return;
@@ -384,12 +404,12 @@
       const originalReadingBlock = PR.readingBlock;
       PR.readingBlock = () => {
         if (!nativeMode || !loaded) return originalReadingBlock();
-        let found = "head";
-        for (const b of S.paper.blocks || []) {
-          const host = hosts.get(b.id), r = host && PR.webRect(host);
-          if (r?.height && r.top <= PR.readingLine()) found = b.id;
-        }
-        return found;
+        // Archived image/code blocks can be indexed out of DOM order. Choose
+        // the nearest visible anchor, not the last matching block in the data.
+        return blockAtLine(S.paper.blocks || [], PR.readingLine(), id => {
+          const host = hosts.get(id);
+          return host && PR.webRect(host);
+        });
       };
       const sideObserver = new MutationObserver(() => { requestAnimationFrame(() => resize(true)); });
       sideObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
