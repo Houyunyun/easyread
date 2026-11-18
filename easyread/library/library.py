@@ -40,7 +40,7 @@ class Library:
         return [Workspace(p) for p in sorted(self.root.iterdir()) if p.is_dir() and not p.name.startswith(".") and (p / "paper.json").exists()]
 
     # ---------- 列表摘要 ----------
-    def summary(self, ws: Workspace) -> dict:
+    def summary(self, ws: Workspace, *, repair: bool = True) -> dict:
         paper = ws.load("paper") or {}
         meta = dict(paper.get("meta", {}))
         item = ws.load("item") or {}
@@ -49,7 +49,7 @@ class Library:
         disc = ws.load("discussion") or {}
         job = ws.load("job") or {}
         tr = paper.get("translation", {})
-        if tr.get("done_pages") and not tr.get("gaps_checked"):  # 旧版本误记成已译的空页改回没译（#55），每篇只查一次
+        if repair and tr.get("done_pages") and not tr.get("gaps_checked"):  # 旧版本误记成已译的空页改回没译（#55），每篇只查一次
             try:
                 if page_check.repair_done(ws):
                     tr = (ws.load("paper") or {}).get("translation", {})

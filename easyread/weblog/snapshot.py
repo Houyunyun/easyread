@@ -38,6 +38,9 @@ def browser_path():
 
 
 def render(url: str) -> str:
+    from ..server import public_network
+    if public_network.active():
+        raise ValueError("Public API imports do not execute webpage JavaScript; upload a PDF instead")
     browser = browser_path()
     if not browser:
         raise ValueError('这个网页需要 JavaScript 加载正文。请安装 Chrome 或 Edge 后重新导入。')

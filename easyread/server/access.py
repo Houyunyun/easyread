@@ -25,6 +25,8 @@ class Access:
         self.lock = threading.RLock()
         self.sessions = {}
         self.attempts = {}
+        self._verification_key = secrets.token_bytes(32)
+        self._verified = {}
         self.changed = lambda: None
         missing = object()
         self.state = read_json(path, missing)
@@ -108,18 +110,32 @@ class Access:
         # A lookup is atomic; do not invert the access/terminal lock order.
         return self.sessions.get(sid, 0) > time.time()
 
-    def login(self, code, ip):
+    def check_code(self, code, ip):
+        """Shared browser/API rate limit; no session is created for Bearer calls."""
         with self.lock:
+            if not self.enabled:
+                return 200
             now = time.monotonic()
             self.attempts = {k: v for k, v in self.attempts.items() if now - v[0] < 60}
             start, count = self.attempts.get(ip, (now, 0))
             if count >= 8 or sum(v[1] for v in self.attempts.values()) >= 80:
-                return "", 429
-            if self.enabled and not self.verify(code):
-                self.attempts[ip] = (start, count + 1)
-                return "", 401
+                return 429
+            # The same machine credential is sent on every API/MCP request.
+            # Cache only successful checks, under a process-keyed digest, so the
+            # expensive KDF does not serialize normal browser/API traffic.
+            key = hmac.digest(self._verification_key, code.encode(), "sha256") if isinstance(code, str) and len(code) <= 256 else b""
+            if self._verified.get(key, 0) <= now:
+                if not self.verify(code):
+                    self.attempts[ip] = (start, count + 1)
+                    return 401
+                self._verified = {key: now + 30}
             self.attempts.pop(ip, None)
-            return self.issue(), 200
+            return 200
+
+    def login(self, code, ip):
+        with self.lock:
+            status = self.check_code(code, ip)
+            return (self.issue() if status == 200 else ""), status
 
     def update(self, body):
         with self.lock:
@@ -130,6 +146,7 @@ class Access:
             candidate = self._record(body.get("code", "")) if body["enabled"] else {"enabled": False}
             self._save(candidate)
             self.state = candidate
+            self._verified.clear()
             self.sessions.clear()
             self.changed()
             return self.issue()

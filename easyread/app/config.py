@@ -27,6 +27,7 @@ SAVE_LOCK = threading.RLock()
 DEFAULTS = {
     "library_dir": str(HOME / "library"),
     "port": 8765,
+    "open_api": {"enabled": False, "mcp_enabled": False, "public_url": ""},
     "system_proxy": None,  # None inherits process environment; explicit settings can disable it.
     "engine": "claude",          # claude | codex | codebuddy | grok | agy | cursor（本机 CLI 无头）| openai（任意 OpenAI 兼容接口）| none
     "auto_translate": True,      # 导入后自动开始翻译

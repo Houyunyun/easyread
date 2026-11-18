@@ -43,6 +43,9 @@ class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def urlopen(url, *args, **kwargs):
+    from . import public_network
+    if public_network.active():
+        return public_network.urlopen(url, *args, **kwargs)
     # Always use the redirect guard, including calls with an explicit context.
     target = url.full_url if isinstance(url, urllib.request.Request) else url
     parsed = urlsplit(target)

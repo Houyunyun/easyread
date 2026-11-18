@@ -4,6 +4,8 @@ Zotero 插件、脚本等外部工具接入 EasyRead 时，只依赖本页列出
 
 当前 API 版本：**1**（EasyRead 1.3.1 起）。
 
+新增可选的版本化 `/api/v1` 与 `/mcp` 接入见[开放 API 与 MCP](open-api.md)。它们复用访问授权码（Bearer），默认关闭；下述旧接口及 Cookie / X-Token 约定保持兼容。
+
 ## 找到服务
 
 EasyRead 运行时把地址写在数据目录的 `.server.json`（默认 `~/EasyRead/.server.json`，设置了 `EASYREAD_HOME` 时在那个目录下）：

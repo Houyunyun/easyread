@@ -64,9 +64,10 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     authority = f"[{local_host}]" if ":" in local_host else local_host
     url = f"http://{authority}:{httpd.server_address[1]}"
     log.info("startup http-bound +%.0fms", (time.monotonic() - started) * 1000)
+    app.public_api.base_url = app.public_api.base_url or url
     app.shutdown = httpd.shutdown
     app.location.marker.start()
-    app.presence = Presence(lambda: activity.model_work(app) or reader_files.busy(), httpd.shutdown, exit_on_close)
+    app.presence = Presence(lambda: activity.model_work(app) or reader_files.busy() or app.location.active > 0, httpd.shutdown, exit_on_close)
     if not config.temp_library():
         write_json_atomic(config.SERVER_INFO, {"url": url, "pid": os.getpid(), "started": now_iso()})
     log.info("EasyRead %s 已启动：%s  文献库：%s", __version__, url, app.lib.root)
@@ -85,6 +86,7 @@ def serve(port: int | None = None, open_browser: bool = False, path: str = "/", 
     finally:
         if main_thread:
             signal.signal(signal.SIGTERM, previous_term)
+        app.public_api.close()
         app.terminals.close()
         app.location.marker.close()
         httpd.server_close()
