@@ -27,7 +27,7 @@ function page(url = "http://127.0.0.1:8765/", storage = new Map(), state = null,
       addEventListener(name, fn) { this[name] = fn; },
       getAttribute(name) { return this[name] ?? null; },
       appendChild() {}, contains() { return false; }, matches() { return false; },
-      focus(options) { this.focused = options || true; },
+      focus(options) { this.focused = options || true; }, select() {},
       getBoundingClientRect() { return { top: 50, bottom: 650, height: 600 }; },
     });
     return nodes.get(selector);
@@ -46,6 +46,8 @@ function page(url = "http://127.0.0.1:8765/", storage = new Map(), state = null,
   });
   const PR = {
     t: (s, values = {}) => s.replace(/\{(\w+)\}/g, (m, key) => values[key] ?? m),
+    researchStatusLabel: s => s.label,
+    libraryViewLabel: (id, label) => label,
     titles: i => ({ main: i.title_zh || i.title_en || "" }),
     uid: prefix => prefix + (++seq), $: node, $$: () => rows,
     ls: { get: (key, fallback) => key === "easyread-lib-side" ? { cats: categories, hidden: [], pinned: [] } : fallback, set() {} },
@@ -85,9 +87,11 @@ function page(url = "http://127.0.0.1:8765/", storage = new Map(), state = null,
       vm.runInNewContext(source("library/cat-tree.js"), context);
       vm.runInNewContext(source("library/categories.js"), context);
       vm.runInNewContext(source("library/sidebar.js"), context);
+      this.renderSidebar = PR.renderSide;
       PR.renderSide = () => {};
       return this;
     },
+    run(file) { vm.runInNewContext(source(file), context); return this; },
     reader(load) {
       PR.pid = location.pathname.split("/").pop();
       PR.state = { paper: null, reader: {}, discussion: { entries: [] } };

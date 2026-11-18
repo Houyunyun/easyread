@@ -1209,14 +1209,14 @@
   }
   function statusManager() {
     let values = S.statuses.map((x) => ({ ...x }));
-    const draw = () => '<p class="rw-source">' + PR.t("拖曳左侧把手调整顺序。内建状态可改名称与颜色；删除自订状态时，该栏论文会移至指定状态。") + '</p><div class="rw-list">' + values.map((s) => '<div class="rw-follow rw-status-row" data-status-row="' + escAttr(s.id) + '"><span class="rw-status-grip" draggable="true" data-status-drag="' + escAttr(s.id) + '" title="' + escAttr(PR.t("拖曳调整顺序")) + '" aria-label="' + escAttr(PR.t("拖曳调整状态顺序")) + '">⠿</span><span class="rw-chip" style="border-color:' + escAttr(s.color) + '">●</span><input data-status-label="' + escAttr(s.id) + '" value="' + escAttr(s.label) + '" maxlength="32"><input type="color" data-status-color="' + escAttr(s.id) + '" value="' + (/^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8b8b8b") + '">' + (!s.builtin ? '<select data-status-move="' + escAttr(s.id) + '">' + values.filter((x) => x.id !== s.id).map((x) => '<option value="' + escAttr(x.id) + '">' + PR.t("删除后移至 {status}", { status: esc(displayStatus(x)) }) + '</option>').join("") + '</select><button class="btn sm" data-status-remove="' + escAttr(s.id) + '">' + PR.t("删除") + '</button>' : '<span class="rw-source">' + PR.t("内建") + '</span>') + '</div>').join("") + '</div><button class="btn sm line" data-status-add>' + PR.t("＋ 新增自订状态") + '</button>';
+    const draw = () => '<p class="rw-source">' + PR.t("拖曳左侧把手调整顺序。内建状态可改名称与颜色；删除自订状态时，该栏论文会移至指定状态。") + '</p><div class="rw-list">' + values.map((s) => '<div class="rw-follow rw-status-row" data-status-row="' + escAttr(s.id) + '"><span class="rw-status-grip" draggable="true" data-status-drag="' + escAttr(s.id) + '" title="' + escAttr(PR.t("拖曳调整顺序")) + '" aria-label="' + escAttr(PR.t("拖曳调整状态顺序")) + '">⠿</span><span class="rw-chip" style="border-color:' + escAttr(s.color) + '">●</span><input data-status-label="' + escAttr(s.id) + '" value="' + escAttr(displayStatus(s)) + '" maxlength="32"><input type="color" data-status-color="' + escAttr(s.id) + '" value="' + (/^#[0-9a-f]{6}$/i.test(s.color) ? s.color : "#8b8b8b") + '">' + (!s.builtin ? '<select data-status-move="' + escAttr(s.id) + '">' + values.filter((x) => x.id !== s.id).map((x) => '<option value="' + escAttr(x.id) + '">' + PR.t("删除后移至 {status}", { status: esc(displayStatus(x)) }) + '</option>').join("") + '</select><button class="btn sm" data-status-remove="' + escAttr(s.id) + '">' + PR.t("删除") + '</button>' : '<span class="rw-source">' + PR.t("内建") + '</span>') + '</div>').join("") + '</div><button class="btn sm line" data-status-add>' + PR.t("＋ 新增自订状态") + '</button>';
     const moves = {};
     let draggedId = null;
     const modal = $("#rw-modal");
     const captureDraft = () => {
       values = values.map((s) => ({
         ...s,
-        label: $('[data-status-label="' + CSS.escape(s.id) + '"]', modal)?.value ?? s.label,
+        label: PR.captureStatusLabel(s, $('[data-status-label="' + CSS.escape(s.id) + '"]', modal)?.value),
         color: $('[data-status-color="' + CSS.escape(s.id) + '"]', modal)?.value ?? s.color,
       }));
     };

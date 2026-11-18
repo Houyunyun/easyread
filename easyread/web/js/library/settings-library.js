@@ -4,8 +4,7 @@
 (function (PR) {
   "use strict";
   const L = PR.lib;
-  const BUILTIN = [["reading", PR.t("在读")], ["unread", PR.t("未读")], ["done", PR.t("已读")], ["starred", PR.t("星标")],
-    ["questions", PR.t("有待回答的问题"), PR.t("有问题没回答时才出现")], ["translating", PR.t("翻译中"), PR.t("有论文在翻译时才出现")]];
+  const autoHint = id => id === "questions" ? PR.t("有问题没回答时才出现") : id === "translating" ? PR.t("有论文在翻译时才出现") : "";
 
   function row(o) {  // o: {name, label, depth, sub, pinKey, hideKey, custom, fixed}；自建分类的 name 是完整路径，改名时可以改成别的路径来移动
     const pinned = o.pinKey && L.side.pinned.includes(o.pinKey);
@@ -23,7 +22,7 @@
       return '<p class="set-lead">' + PR.t("文献库左侧栏里显示哪些分类。开关控制显示或隐藏，图钉是置顶。一篇论文可以放进好几个分类：在论文上右键，或者把它拖到侧栏的分类上。改动立刻生效。") + "</p>" +
         '<h4 class="set-h">' + PR.t("内置分类") + '</h4><div class="sb-list">' +
         row({ name: PR.t("全部"), sub: PR.t("始终显示"), fixed: true }) +
-        BUILTIN.map(([k, name, note]) => row({ name, sub: note || PR.t("{n} 篇", { n: count((L.VIEWS.find((v) => v[0] === k) || [])[3] || (() => false)) }), pinKey: "v:" + k, hideKey: k })).join("") + "</div>" +
+        L.VIEWS.filter(([k]) => k !== "all" && k !== "archived").map(([k, name, , filter]) => row({ name, sub: autoHint(k) || PR.t("{n} 篇", { n: count(filter) }), pinKey: "v:" + k, hideKey: k })).join("") + "</div>" +
         '<h4 class="set-h">' + PR.t("我的分类") + '</h4><div class="sb-list">' +
         (cats.map((c) => row({ name: c, label: PR.catTree.leaf(c), depth: PR.catTree.depth(c), sub: PR.t("{n} 篇", { n: count((x) => !x.archived && L.inCat(x, c)) }), pinKey: "c:" + c, hideKey: "c:" + c, custom: true, renaming: s.libRename === c })).join("") || '<p class="hint">' + PR.t("还没有自建分类。") + "</p>") +
         '</div><div class="cm-form-acts" style="margin-top:10px"><input class="input" id="libNewInput" placeholder="' + PR.t("新分类的名字，“父/子”建子分类") + '" maxlength="' + PR.catTree.MAX_PATH + '" style="max-width:280px"><button class="btn sm line" data-lib="add">' + PR.icon("plus", "sm") + PR.t("新建分类") + "</button></div>";

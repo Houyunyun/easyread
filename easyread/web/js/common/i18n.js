@@ -15,15 +15,27 @@ window.PR = window.PR || {};
 
   // Built-in labels can be renamed. Only known defaults are UI copy; never translate custom names.
   const statusDefaults = {
-    unread: { aliases: ["待阅读", "待閱讀", "To read"], label: () => PR.t("待阅读") },
-    reading: { aliases: ["阅读中", "閱讀中", "Reading"], label: () => PR.t("阅读中") },
+    unread: { aliases: ["待阅读", "待閱讀", "未读", "未讀", "To read", "Unread"], label: () => PR.t("待阅读") },
+    reading: { aliases: ["阅读中", "閱讀中", "在读", "在讀", "Reading"], label: () => PR.t("阅读中") },
     organizing: { aliases: ["待整理", "To organize"], label: () => PR.t("待整理") },
-    done: { aliases: ["已完成", "Completed"], label: () => PR.t("已完成") },
+    done: { aliases: ["已完成", "已读", "已讀", "Completed", "Read"], label: () => PR.t("已完成") },
     paused: { aliases: ["暂停", "暫停", "Paused"], label: () => PR.t("暂停") },
   };
   PR.researchStatusLabel = function (status) {
     const entry = statusDefaults[status.id];
     return status.builtin && entry?.aliases.includes(status.label) ? entry.label() : status.label;
+  };
+  PR.captureStatusLabel = (status, displayed) => displayed == null || displayed === PR.researchStatusLabel(status) ? status.label : displayed;
+  const viewDefaults = {
+    all: { aliases: ["全部", "All"], label: () => PR.t("全部") },
+    starred: { aliases: ["星标", "星標", "Starred"], label: () => PR.t("星标") },
+    archived: { aliases: ["已封存", "Archived"], label: () => PR.t("已封存") },
+    questions: { aliases: ["有待回答的问题", "有待回答的問題", "Open questions"], label: () => PR.t("有待回答的问题") },
+    translating: { aliases: ["翻译中", "翻譯中", "Translating"], label: () => PR.t("翻译中") },
+  };
+  PR.libraryViewLabel = (id, label) => {
+    const entry = viewDefaults[id];
+    return entry?.aliases.includes(label) ? entry.label() : PR.researchStatusLabel({ id, label, builtin: true });
   };
 
   // CSS-generated labels share the same dictionaries as buttons and dialogs.
@@ -35,7 +47,7 @@ window.PR = window.PR || {};
   /* Only static interface text is translated here. Dynamic UI must use PR.t at its source. */
   const CJK = /[一-鿿]/;
   const ATTRS = ["placeholder", "title", "aria-label", "alt"];
-  const CONTENT = 'script, style, [contenteditable], [translate="no"], [data-i18n-skip], #paper, #list, .bar-titles, .card, .cm, .ch-thread, .ch-title, .pn-rich, .pn-mindmap, .rw-paper, .rw-summary, .rw-quick-peek-title, .rp-current, .rp-deep-preview, .deep-modal-body, .mm-modal-sub, .smart-note, .smart-reason, .smart-quote, .np-ai-body, .kwm-node, me-tpc';
+  const CONTENT = 'script, style, [contenteditable], [translate="no"], [data-i18n-skip], #paper, #list, #side, .bar-titles, .card, .cm, .ch-thread, .ch-title, .pn-rich, .pn-mindmap, .rw-paper, .rw-summary, .rw-quick-peek-title, .rp-current, .rp-deep-preview, .deep-modal-body, .mm-modal-sub, .smart-note, .smart-reason, .smart-quote, .np-ai-body, .kwm-node, me-tpc';
   const isContent = (el) => el?.closest(CONTENT);
   PR.translateDom = function (root) {
     if (PR.lang === "zh") return;

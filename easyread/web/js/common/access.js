@@ -1,31 +1,53 @@
 (() => {
   "use strict";
-  let english = (navigator.language || "").startsWith("en");
-  const input = document.querySelector("#accessCode"), error = document.querySelector("#accessError"), submit = document.querySelector("#accessSubmit");
-  function language() {
-    document.documentElement.lang = english ? "en" : "zh-CN";
-    document.querySelectorAll("[data-zh]").forEach(el => { el.textContent = el.dataset[english ? "en" : "zh"]; });
-    document.querySelector("#accessLang").textContent = english ? "简体中文" : "English"; // i18n-ok
-    input.placeholder = english ? "Enter your access code" : "输入访问授权码"; // i18n-ok standalone login page
-    document.querySelector("#toggleCode").ariaLabel = english ? "Show or hide code" : "显示或隐藏授权码"; // i18n-ok
-    document.title = english ? "EasyRead · Access" : "EasyRead · 访问授权"; // i18n-ok
+  const PR = window.PR = window.PR || {};
+  const initial = document.documentElement.lang;
+  let lang = ["en", "zh-Hant"].includes(initial) ? initial : "zh";
+  const dictionaries = { zh: {} };
+  try { dictionaries[lang] = JSON.parse(document.getElementById("pr-i18n")?.textContent || "{}"); } catch (_) { dictionaries[lang] = {}; }
+  PR.t = text => dictionaries[lang]?.[text] || text;
+  const input = document.querySelector("#accessCode"), error = document.querySelector("#accessError"), submit = document.querySelector("#accessSubmit"), picker = document.querySelector("#accessLang");
+  function renderLanguage() {
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+    document.querySelectorAll("[data-zh]").forEach(el => { el.textContent = PR.t(el.dataset.zh); });
+    picker.value = lang;
+    document.querySelector('#accessLang option[value="zh"]').textContent = PR.t("简体中文");
+    document.querySelector('#accessLang option[value="zh-Hant"]').textContent = PR.t("繁体中文");
+    picker.setAttribute("aria-label", PR.t("界面语言"));
+    input.placeholder = PR.t("输入访问授权码");
+    document.querySelector("#toggleCode").setAttribute("aria-label", PR.t("显示或隐藏授权码"));
+    document.title = PR.t("EasyRead · 访问授权");
   }
-  document.querySelector("#accessLang").onclick = () => { english = !english; language(); };
+  let languageRequest = 0;
+  picker.onchange = async () => {
+    const next = picker.value, request = ++languageRequest;
+    if (!["zh", "zh-Hant", "en"].includes(next)) return;
+    error.textContent = "";
+    try {
+      if (!dictionaries[next]) {
+        const response = await fetch("/web/i18n/" + next + ".json", { cache: "no-store" });
+        if (!response.ok) throw new Error("locale");
+        dictionaries[next] = await response.json();
+      }
+      if (request !== languageRequest) return;
+      lang = next; renderLanguage();
+    } catch (_) { picker.value = lang; error.textContent = PR.t("连接失败，请重试。"); }
+  };
   document.querySelector("#toggleCode").onclick = () => { input.type = input.type === "password" ? "text" : "password"; };
   document.querySelector("#accessForm").onsubmit = async e => {
     e.preventDefault(); error.textContent = ""; submit.disabled = true;
     try {
       const r = await fetch("/api/access/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: input.value }) });
       if (!r.ok) {
-        error.textContent = english ? (r.status === 429 ? "Too many attempts. Try again in a minute." : "That access code is not correct.") : (r.status === 429 ? "尝试过于频繁，请一分钟后重试" : "访问授权码不正确"); // i18n-ok
+        error.textContent = r.status === 429 ? PR.t("尝试过于频繁，请一分钟后重试") : PR.t("访问授权码不正确");
         input.focus(); return;
       }
       let next = new URLSearchParams(location.search).get("next") || "/";
       const url = new URL(next, location.origin);
       if (url.origin !== location.origin || url.pathname === "/login") next = "/";
       location.replace(next);
-    } catch (_) { error.textContent = english ? "Connection failed. Please try again." : "连接失败，请重试。"; } // i18n-ok
+    } catch (_) { error.textContent = PR.t("连接失败，请重试。"); }
     finally { submit.disabled = false; }
   };
-  language();
+  renderLanguage();
 })();

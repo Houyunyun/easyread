@@ -78,7 +78,7 @@
       const back = PR.$("#backBtn");
       if (!back) return;
       back.href = "/?" + PARAM + "=" + encodeURIComponent(token);
-      back.title = PR.t("返回“{name}”", { name: value.tag || value.label || PR.t("文献库") });
+      back.title = PR.t("返回“{name}”", { name: value.tag || PR.libraryViewLabel(value.view, value.label) || PR.t("文献库") });
     },
   };
 })(window.PR);

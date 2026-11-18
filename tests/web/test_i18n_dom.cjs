@@ -53,7 +53,7 @@ test('static UI and CSS labels follow zh/en/zh-Hant without translating stored c
       element('article', {id:'paper'}, '设置', [element('img', {alt:'设置'})]),
       element('div', {class:'card'}, '设置'), element('h1', {class:'rw-quick-peek-title'}, '设置'),
       element('div', {class:'cm'}, '设置'), element('div', {class:'pn-rich'}, '设置'),
-      element('div', {id:'list'}, '设置'), element('span', {class:'bar-titles'}, '设置'),
+      element('div', {id:'list'}, '设置'), element('nav', {id:'side'}, '设置'), element('span', {class:'bar-titles'}, '设置'),
       element('div', {contenteditable:'true'}, '设置'), element('div', {'data-i18n-skip':''}, '设置')];
     const native = element('option', {translate:'no'}, '繁體中文');
     const body = element('body', {}, '', [button, input, textarea, ...contents, native]);

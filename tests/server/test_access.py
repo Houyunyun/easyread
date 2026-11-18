@@ -116,6 +116,11 @@ class AccessHTTPTest(unittest.TestCase):
                      '/api/research/v1/status','/api/research/v2/init'):
             self.assertEqual(self.request('GET',path)[0],401)
         self.assertEqual(self.request('GET','/healthz')[0],200)
+        for locale in ('en', 'zh-Hant'):
+            status, _, data = self.request('GET', '/web/i18n/' + locale + '.json')
+            self.assertEqual(status, 200)
+            self.assertIn('设置', json.loads(data))
+        self.assertEqual(self.request('GET', '/api/config')[0], 401)
         self.assertIn(b'accessForm',self.request('GET','/login')[2])
         self.assertEqual(self.request('POST','/api/access/login',{'code':'alpha-code'},origin=False)[0],403)
         cookie=self.login()

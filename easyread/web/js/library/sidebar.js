@@ -24,10 +24,10 @@
   L.VIEWS = BUILTIN.concat(AUTO, [ARCHIVED]);
   L.updateStatusViews = function (statuses) {
     const states = (statuses && statuses.length ? statuses : DEFAULT_STATUS).filter((s) => s.id !== "paused");
-    BUILTIN = [ALL].concat(states.map((s) => [s.id, PR.t(s.label), s.id === "done" ? "check" : "book", (i) => !i.archived && (i.status || "unread") === s.id]), [STARRED]);
+    BUILTIN = [ALL].concat(states.map((s) => [s.id, PR.researchStatusLabel(s), s.id === "done" ? "check" : "book", (i) => !i.archived && (i.status || "unread") === s.id]), [STARRED]);
     L.VIEWS = BUILTIN.concat(AUTO, [ARCHIVED]);
   };
-  const statusMap = () => Object.fromEntries((L.statuses && L.statuses.length ? L.statuses : DEFAULT_STATUS).map((s) => [s.id, PR.t(s.label)]));
+  const statusMap = () => Object.fromEntries((L.statuses && L.statuses.length ? L.statuses : DEFAULT_STATUS).map((s) => [s.id, PR.researchStatusLabel(s)]));
   const RECENT_SHORT = 5, RECENT_MAX = 10;
   const ui = { adding: false, addUnder: "", renaming: null, recentOpen: false };
   const T = PR.catTree || {
@@ -50,7 +50,7 @@
   function viewRow(v, pinnedRow) {
     const [k, label, icon, fn] = v;
     const statusAttr = (L.statuses || []).some((s) => s.id === k) ? " data-status-view" : "";
-    return '<div class="srow' + (pinnedRow ? "" : " tree") + (L.view === k && !L.tag ? " on" : "") + '" data-view="' + k + '"' + statusAttr + (pinnedRow ? " data-pinrow" : "") + ">" + (pinnedRow ? "" : foldSlot(false)) + PR.icon(icon, "sm") + "<span class=\"t\">" + label +
+    return '<div class="srow' + (pinnedRow ? "" : " tree") + (L.view === k && !L.tag ? " on" : "") + '" data-view="' + k + '"' + statusAttr + (pinnedRow ? " data-pinrow" : "") + ">" + (pinnedRow ? "" : foldSlot(false)) + PR.icon(icon, "sm") + "<span class=\"t\">" + PR.esc(label) +
       '</span><span class="n">' + count(fn) + "</span>" + (k === "all" && !pinnedRow ? "" : more) + "</div>";
   }
   const lvl = (d) => (d ? ' style="--lvl:' + d + '"' : "");

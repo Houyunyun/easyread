@@ -152,7 +152,7 @@
     const status = (L.statuses || []).find((s) => s.id === (i.status || "unread"));
     const state = i.status === "paused" ? "unread" : (i.status || "unread");
     const m = { unread: PR.t("待阅读"), reading: PR.t("阅读中"), organizing: PR.t("待整理"), done: PR.t("已完成") };
-    const basePill = '<span class="pill ' + state + '">' + PR.esc(status && status.id !== "paused" ? PR.t(status.label) : PR.t(m[state] || m.unread)) + "</span>";
+    const basePill = '<span class="pill ' + state + '">' + PR.esc(status && status.id !== "paused" ? PR.researchStatusLabel(status) : (m[state] || m.unread)) + "</span>";
     if (i.archived) return '<span class="pill archived">' + PR.t("已封存") + "</span>" + basePill;
     return basePill;
   }
