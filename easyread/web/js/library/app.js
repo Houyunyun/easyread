@@ -56,6 +56,7 @@
   const validData = (d) => d && Array.isArray(d.items) && d.items.every((i) => i && typeof i.id === "string" && Array.isArray(i.tags));
   // Only this read request has a deadline; never retry an import or another write.
   L.load = async function () {
+    if (document.hidden) return false;
     const seq = ++loadSeq;
     clearTimeout(pollT);
     if (loadController) loadController.abort();
@@ -108,7 +109,7 @@
       // A response proves the server is reachable, even when its data is unreadable.
       L.loadErrorTitle = responded || timedOut ? PR.t("文献库加载失败") : PR.t("连不上本地服务");
       L.loadStatus = "error"; L.loadError = e.message || String(e); L.render();
-      pollT = setTimeout(() => L.load(), retryMs);
+      pollAfter(retryMs);
       retryMs = Math.min(retryMs * 2, 15000);
       return false;
     } finally {
@@ -140,11 +141,18 @@
     if (changed) L.render();
   }
 
-  function schedule() {
+  function pollAfter(ms) {
     clearTimeout(pollT);
-    const busy = L.items.some((i) => i.job && ["queued", "running"].includes(i.job.state));
-    pollT = setTimeout(() => L.load(), busy ? 2500 : 15000);
+    if (!document.hidden) pollT = setTimeout(() => L.load(), ms);
   }
+  function schedule() {
+    const busy = L.items.some((i) => i.job && ["queued", "running"].includes(i.job.state));
+    pollAfter(busy ? 2500 : 15000);
+  }
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(pollT);
+    if (!document.hidden && !loadController) L.load();
+  });
 
   function filtered() {
     const view = L.VIEWS.find((v) => v[0] === L.view) || L.VIEWS[0];
@@ -189,7 +197,7 @@
     const sub = tt.sub ? '<div class="t2" lang="' + tt.subLang + '">' + PR.titleHtml(tt.sub) + "</div>" : "";
     const bits = [i.authors && PR.esc(i.authors.split(",").slice(0, 3).join(",") + (i.authors.split(",").length > 3 ? PR.t(" 等") : "")), i.year, i.venue || i.arxiv].filter(Boolean);
     const tags = (i.tags || []).map((t) => '<span class="chip cat" title="' + PR.esc(PR.catTree.label(t)) + '">' + PR.icon("folder", "sm") + PR.esc(PR.catTree.leaf(t)) + "</span>").join("");
-    const thumb = i.thumb ? '<div class="thumb" style="background-image:url(' + i.thumb + ')"></div>' : '<div class="thumb blank">' + PR.icon("pdf") + "</div>";
+    const thumb = i.thumb ? '<img class="thumb" src="' + PR.esc(i.thumb) + '" alt="" width="52" height="68" loading="lazy" decoding="async" draggable="false">' : '<div class="thumb blank">' + PR.icon("pdf") + "</div>";
     const notes = i.notes + i.highlights ? '<span class="stat">' + PR.icon("note", "sm") + (i.notes + i.highlights) + (i.open_questions ? " · " + PR.t("{n} 问待答", { n: i.open_questions }) : "") + "</span>" : "";
     const prog = i.progress ? '<div class="meter" title="' + PR.t("阅读进度 {p}%", { p: Math.round(i.progress * 100) }) + '"><i style="width:' + Math.round(i.progress * 100) + '%"></i></div>' : "";
     const picked = L.picked.has(i.id);

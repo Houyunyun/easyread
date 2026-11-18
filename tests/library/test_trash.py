@@ -14,6 +14,29 @@ class TrashTest(unittest.TestCase):
         for name in ("aaaaaaaaaaaa-20261001120000", "bbbbbbbbbbbb-20261001130000"):
             (self.root / ".trash" / name).mkdir(parents=True)
 
+    def test_count_matches_items_without_reading_metadata(self):
+        folder = self.root / ".trash"
+        (folder / "aaaaaaaaaaaa-20261001120000" / "paper.json").write_bytes(b"\x89broken")
+        (folder / "not-a-trash-entry").mkdir()
+        (folder / "cccccccccccc-20261001140000").write_text("not a directory")
+        (folder / "dddddddddddd-20261001150000").mkdir()  # Missing metadata still counts.
+        expected = len(trash.items(self.root))
+        with mock.patch.object(trash, "read_json", side_effect=AssertionError("metadata read")):
+            self.assertEqual(trash.count(self.root), expected)
+            self.assertEqual(trash.count(self.root / "missing"), 0)
+        trash.restore(self.root, "dddddddddddd-20261001150000")
+        self.assertEqual(trash.count(self.root), expected - 1)
+        trash.purge(self.root, "aaaaaaaaaaaa-20261001120000")
+        self.assertEqual(trash.count(self.root), 1)
+        trash.empty(self.root)
+        self.assertEqual(trash.count(self.root), 0)
+
+    def test_count_preserves_invalid_timestamp_error(self):
+        (self.root / ".trash" / "cccccccccccc-20261399120000").mkdir()
+        for action in (trash.items, trash.count):
+            with self.assertRaises(ValueError):
+                action(self.root)
+
     def test_list_newest_first(self):
         self.assertEqual([t["id"] for t in trash.items(self.root)], ["bbbbbbbbbbbb", "aaaaaaaaaaaa"])
 

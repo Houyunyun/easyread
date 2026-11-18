@@ -15,8 +15,9 @@ from ..pdf import sources
 from ..translate import page_check
 from ..app.i18n import tr
 from ..app.log import log
-from .store import SCHEMA, DataReadError, Workspace, dir_lock, empty_discussion, empty_reader, now_iso, read_json, write_json_atomic
+from .store import SCHEMA, Workspace, dir_lock, empty_discussion, empty_reader, now_iso, read_json, write_json_atomic
 from .passage_search import PassageIndex
+from .summary_cache import SummaryCache
 
 
 
@@ -27,6 +28,7 @@ def sha256_bytes(data: bytes) -> str:
 class Library:
     def __init__(self, root: Path):
         self.passage_index = PassageIndex()
+        self._summary_cache = SummaryCache()
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
 
@@ -41,6 +43,11 @@ class Library:
 
     # ---------- 列表摘要 ----------
     def summary(self, ws: Workspace, *, repair: bool = True) -> dict:
+        return self._summary(ws, repair=repair)[0]
+
+    def _summary(self, ws: Workspace, *, repair: bool = True) -> tuple[dict, bool]:
+        """Return data and cache eligibility; failed legacy repairs must be retried."""
+        cacheable = True
         paper = ws.load("paper") or {}
         meta = dict(paper.get("meta", {}))
         item = ws.load("item") or {}
@@ -54,6 +61,7 @@ class Library:
                 if page_check.repair_done(ws):
                     tr = (ws.load("paper") or {}).get("translation", {})
             except OSError:
+                cacheable = False  # A later list must retry the failed repair.
                 log.exception("核对已译页失败 %s", ws.id)
         notes = [n for n in reader.get("notes", {}).values() if not n.get("deleted")]
         replied = {e.get("reply_to") for e in disc.get("entries", []) if e.get("reply_to")}
@@ -87,20 +95,10 @@ class Library:
             "has_paper_note": bool((reader.get("paper_note") or {}).get("body")),
             "job": {k: job.get(k) for k in ("type", "state", "message", "done", "total", "updated", "error", "failed", "scope", "read", "model", "target", "pages", "cap_check", "page_cap", "usage", "usage_total")} if job else None,
             "thumb": f"/p/{ws.id}/{thumb}" if (ws.root / thumb).exists() else "",
-        }
+        }, cacheable
 
     def list(self) -> list[dict]:
-        items = []
-        for ws in self.all():
-            try:
-                items.append(self.summary(ws))
-            except DataReadError as e:
-                # Keep the entry visible without treating unreadable notes as
-                # empty data, and without blocking unrelated papers.
-                items.append({"id": ws.id, "title_en": ws.id, "tags": [],
-                              "status": "unread", "load_error": tr(
-                                  "无法读取数据文件：{path}；原文件已保留，请从备份恢复或联系维护者", path=str(e.path))})
-        return items
+        return self._summary_cache.snapshot(self)
 
     # ---------- 导入 ----------
     def create_from_pdf(self, data: bytes, filename: str, meta: dict | None = None, *, keep_filename: bool = False) -> tuple[Workspace, bool]:
@@ -262,6 +260,7 @@ class Library:
         for attempt in range(20):
             try:
                 ws.root.rename(dest)
+                self._summary_cache.discard(ws.root)
                 return dest
             except PermissionError:
                 if attempt == 19:

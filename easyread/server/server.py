@@ -21,7 +21,7 @@ from ..translate import langs
 from ..library import citations, trash
 from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes, qa_cli_api
 from .access import Access
-from . import public_routes, pwa
+from . import public_routes, pwa, static_files
 from .public_api import PublicAPI
 from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
@@ -201,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/version":
             return self._json(200, open_link.version())
         if path.startswith("/web/"):
-            return self._file(_safe(WEB, path[5:]), cache=path.startswith("/web/vendor/"))
+            return static_files.send(self, _safe(WEB, path[5:]))
         if path == "/api/presence" and wsock.is_upgrade(self.headers):
             return self._presence()
         location = library_api.get(app, path)
@@ -215,7 +215,7 @@ class Handler(BaseHTTPRequestHandler):
                                     "library_status": app.location.status, "other_device": app.location.marker.other_device(),
                                     "engine": cfg.get("engine"), "engine_label": cli_models.engine_label(cfg),
                                     "research_statuses": research_api.statuses(lib.root),
-                                    "first_run": config.is_first_run(), "version": __version__, "trash": len(trash.items(lib.root)) + research_api.trash_count(lib.root)})
+                                    "first_run": config.is_first_run(), "version": __version__, "trash": trash.count(lib.root) + research_api.trash_count(lib.root)})
         if path == "/api/update":  # 有没有新版本（一天最多问一次 GitHub）
             return self._json(200, updates.check(force=parse_qs(url.query).get("force") == ["1"]))
         if path == "/api/trash":

@@ -48,6 +48,10 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 写操作（POST）都要带 `X-Token` 请求头，值从 `/api/library` 取；token 每次启动都会变。
 
+### 浏览器静态资源缓存
+
+`/web/*` 的静态文件返回弱 `ETag` 和 `Cache-Control: private, no-cache`：浏览器可以保存文件，但再次使用前须用 `If-None-Match` 核对，未变时返回无正文的 `304`。未带内容指纹的 vendor 文件同样需要核对，避免升级后混用新旧脚本。`HEAD` 返回对应响应头而不读取或发送文件正文。此策略不改变 API、论文文件、动态注入语言的页面（如 `/`、`/read/*`、`/web/tabs.html`）或流式响应；这些入口沿用原缓存策略。静态响应暂不压缩。
+
 ## 桌面版打开链接
 
 桌面版（1.3.1 起）注册了 `easyread://` 协议：

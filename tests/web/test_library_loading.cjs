@@ -220,3 +220,87 @@ test("return cache rejects stale, corrupted and invalid records", async () => {
   p.storage.set("easyread-library-list", original);
   assert.equal(page("http://127.0.0.1:8765/", p.storage).PR.libraryNav.cachedList(), null);
 });
+
+test("idle and busy polls pause while hidden and refresh immediately on return", async () => {
+  for (const job of [null, { state: "running", done: 1, total: 4 }]) {
+    const p = page().library([{ ...paper(), job }]); await p.boot();
+    const row = p.rows[0];
+    await p.setHidden(true);
+    await p.advance(60000);
+    assert.equal(p.requests.length, 1);
+    assert.equal(p.rows[0], row);
+    await p.setHidden(false);
+    assert.equal(p.requests.length, 2);
+    assert.equal(p.rows[0], row);
+    await p.advance(job ? 2500 : 15000);
+    assert.equal(p.requests.length, 3);
+  }
+});
+
+test("hidden retries pause and a hidden initial page waits for visibility", async () => {
+  const p = page().library([]);
+  await p.setHidden(true);
+  await p.boot();
+  await p.advance(60000);
+  assert.equal(p.requests.length, 0);
+  p.setLibraryRead(() => Promise.reject(new Error("offline")));
+  await p.setHidden(false);
+  assert.equal(p.requests.length, 1);
+  assert.equal(p.PR.lib.loadStatus, "error");
+  await p.setHidden(true);
+  await p.advance(60000);
+  assert.equal(p.requests.length, 1);
+  p.setLibraryRead(() => data());
+  await p.setHidden(false);
+  assert.equal(p.requests.length, 2);
+  assert.equal(p.PR.lib.loadStatus, "ready");
+});
+
+test("an in-flight response finishing hidden never schedules another poll", async () => {
+  const p = page().library([paper()]); await p.boot();
+  const pending = deferred(); p.setLibraryRead(() => pending.promise);
+  await p.advance(15000);
+  await p.setHidden(true);
+  pending.resolve(data()); await p.flush();
+  await p.advance(60000);
+  assert.equal(p.requests.length, 2);
+  await p.setHidden(false);
+  assert.equal(p.requests.length, 3);
+});
+
+test("returning visible during a request does not duplicate or cancel the active read", async () => {
+  const p = page().library([paper()]); await p.boot();
+  const pending = deferred(); p.setLibraryRead(() => pending.promise);
+  await p.advance(15000);
+  await p.setHidden(true);
+  await p.setHidden(false);
+  assert.equal(p.requests.length, 2);
+  assert.equal(p.requests[1].options.signal.aborted, false);
+  pending.resolve(data()); await p.flush();
+  await p.advance(15000);
+  assert.equal(p.requests.length, 3);
+});
+
+test("a request timing out while hidden waits until visible to retry", async () => {
+  const p = page().library([paper()]); await p.boot();
+  const pending = deferred(); p.setLibraryRead(() => pending.promise);
+  await p.advance(15000);
+  await p.setHidden(true);
+  await p.advance(60000);
+  assert.equal(p.requests.length, 2);
+  assert.equal(p.requests[1].options.signal.aborted, true);
+  p.setLibraryRead(() => data());
+  await p.setHidden(false);
+  assert.equal(p.requests.length, 3);
+  assert.equal(p.PR.lib.loadStatus, "ready");
+});
+
+test("row thumbnails are sized lazy non-draggable images without changing row selection", async () => {
+  const p = page().library([{ ...paper(), thumb: '/p/longpaper/pages/page-001.webp?test="' }]);
+  await p.boot();
+  const html = p.node("#list").innerHTML;
+  assert.match(html, /<img class="thumb" src="\/p\/longpaper\/pages\/page-001.webp\?test=&quot;" alt="" width="52" height="68" loading="lazy" decoding="async" draggable="false">/);
+  assert.match(html, /role="option" draggable="true"/);
+  p.node("#list").click({ target: { closest: selector => selector === ".row" ? p.rows[0] : null } });
+  assert.equal(p.PR.lib.selected, "longpaper");
+});
