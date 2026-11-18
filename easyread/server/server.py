@@ -21,7 +21,7 @@ from ..translate import langs
 from ..library import citations, trash
 from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes, qa_cli_api
 from .access import Access
-from . import public_routes
+from . import public_routes, pwa, static_files
 from .public_api import PublicAPI
 from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
@@ -87,6 +87,8 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, ctype: str, cache: bool = False):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        if ctype.startswith("text/html"):
+            self.send_header("X-EasyRead-Web-Build", pwa.build_id())
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "max-age=86400" if cache else "no-store")
         if self.close_connection:
@@ -181,7 +183,7 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = unquote(url.path)
         app, lib = self.app, self.app.lib
-        if access_routes.get(self, path) or qa_cli_api.handle(self):
+        if pwa.get(self, path) or access_routes.get(self, path) or qa_cli_api.handle(self):
             return
         research = research_api.get(app, path + ("?" + url.query if url.query else ""))
         if research is not None:
@@ -201,7 +203,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/version":
             return self._json(200, open_link.version())
         if path.startswith("/web/"):
-            return self._file(_safe(WEB, path[5:]), cache=path.startswith("/web/vendor/"))
+            return static_files.send(self, _safe(WEB, path[5:]))
         if path == "/api/presence" and wsock.is_upgrade(self.headers):
             return self._presence()
         location = library_api.get(app, path)
@@ -211,11 +213,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, bulk_api.get(app, path))
         if path == "/api/library":
             cfg = config.load()
-            return self._json(200, {"items": lib.list(), "token": app.token, "jobs": app.jobs.small_status(),
+            return self._json(200, {"items": lib.list(), "library_id": pwa.library_id(lib), "token": app.token, "jobs": app.jobs.small_status(),
                                     "library_status": app.location.status, "other_device": app.location.marker.other_device(),
                                     "engine": cfg.get("engine"), "engine_label": cli_models.engine_label(cfg),
                                     "research_statuses": research_api.statuses(lib.root),
-                                    "first_run": config.is_first_run(), "version": __version__, "trash": len(trash.items(lib.root)) + research_api.trash_count(lib.root)})
+                                    "first_run": config.is_first_run(), "version": __version__, "trash": trash.count(lib.root) + research_api.trash_count(lib.root)})
         if path == "/api/update":  # 有没有新版本（一天最多问一次 GitHub）
             return self._json(200, updates.check(force=parse_qs(url.query).get("force") == ["1"]))
         if path == "/api/trash":
@@ -260,7 +262,7 @@ class Handler(BaseHTTPRequestHandler):
                 versions = ws.versions()
                 cfg = config.load()
                 state = {**{n: ws.load(n) for n in ("paper", "discussion", "reader", "layout", "item", "job")},
-                         "versions": versions, "token": app.token, "id": ws.id, "library_status": app.location.status,
+                         "versions": versions, "library_id": pwa.library_id(lib), "token": app.token, "id": ws.id, "library_status": app.location.status,
                          "engine": cfg.get("engine"), "figure_images_enabled": (cfg.get("figure_images") or {}).get("enabled") is True}
                 self._json(200, state)
                 # Existing layout is usable immediately. Upgrade only after the
@@ -274,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
                         log.exception("启动阅读页准备失败 %s", ws.root)
                 return
             if action == "versions":
-                return self._json(200, {**ws.versions(), "library_status": app.location.status,
+                return self._json(200, {**ws.versions(), "library_id": pwa.library_id(lib), "library_status": app.location.status,
                                         "figure_images_enabled": (config.load().get("figure_images") or {}).get("enabled") is True})
             if action == "chat":
                 return self._json(200, {"threads": chat_store.threads(ws), **chat_models.listing(config.load()), "limits": usage.latest()})

@@ -300,6 +300,7 @@ window.PR = window.PR || {};
   /* 服务接口：写操作带页面加载时拿到的令牌 */
   PR.api = async function (path, opts) {
     opts = opts || {};
+    if (PR.pwa?.offline || PR.pwa?.blocked) throw new Error(PR.t("此操作需要连接服务器；离线笔记会自动暂存。"));
     const headers = Object.assign({}, opts.headers || {});
     let body = opts.body;
     if (body != null && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) { body = JSON.stringify(body); headers["Content-Type"] = "application/json"; }

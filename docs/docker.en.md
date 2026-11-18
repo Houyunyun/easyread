@@ -165,5 +165,5 @@ Use `docker compose down` to stop/remove containers. **Do not use `down -v` for 
 - Isolated BabelDOC includes the layout model; public font assets may download on first PDF generation. A working translation model is still required.
 - Folder/Zotero imports and linked PDFs use container paths, e.g. mount `./papers:/papers:ro` and enter `/papers`.
 - Image generation depends on Codex/image API capabilities; separately billed image APIs are not invoked automatically.
-- Electron OS integration, client-native folder dialogs and PWA offline installation are not included.
+- Electron OS integration and client-native folder dialogs are not included. [PWA and offline text/notes](guide.en.md#install-as-a-pwa-and-read-offline) require trusted HTTPS for mobile devices, deployed at the domain root. Proxy `/sw.js`, `/manifest.webmanifest`, `/pwa/` and `/web/` unchanged; never give `sw.js` a long cache lifetime.
 - Optional lite API image: `docker compose -f docker-compose.lite.yml up -d --build`, without an embedded terminal. Do not run both against the same port/data volume.

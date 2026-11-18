@@ -59,7 +59,7 @@ function page(url = "http://127.0.0.1:8765/", storage = new Map(), state = null,
   };
   const context = {
     window: { PR, addEventListener(name, fn) { windowEvents.set(name, fn); } },
-    document: { body: node("body"), activeElement: node("active"), addEventListener(name, fn, capture) { const key = (capture ? "capture:" : "") + name; if (!listeners.has(key)) listeners.set(key, []); listeners.get(key).push(fn); } },
+    document: { hidden: false, body: node("body"), activeElement: node("active"), addEventListener(name, fn, capture) { const key = (capture ? "capture:" : "") + name; if (!listeners.has(key)) listeners.set(key, []); listeners.get(key).push(fn); } },
     location, history, URL, URLSearchParams, AbortController,
     localStorage: { getItem: key => { if (blocked) throw new Error("storage blocked"); return storage.get(key) || null; },
       setItem: (key, value) => { if (blocked) throw new Error("storage blocked"); storage.set(key, value); },
@@ -81,6 +81,11 @@ function page(url = "http://127.0.0.1:8765/", storage = new Map(), state = null,
     get rows() { return rows; }, setItems(value) { items = value; },
     setPrefs(value) { prefsResult = value; }, setLibraryRead(fn) { libraryRead = fn; },
     preferColorScheme(matches) { scheme.matches = matches; scheme.listeners.forEach(fn => fn({ matches })); },
+    async setHidden(hidden) {
+      context.document.hidden = hidden;
+      for (const fn of listeners.get("visibilitychange") || []) fn();
+      await this.flush();
+    },
     library(value, cats = ["分类"]) {
       items = value; categories = cats;
       vm.runInNewContext(source("library/app.js"), context);

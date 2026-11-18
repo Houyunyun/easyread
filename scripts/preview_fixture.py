@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def serve_sample(home, port):
+def serve_sample(home, port, with_web=False):
     library = home / "library"
     folder = library / "sample-paper"
     folder.mkdir(parents=True)
@@ -35,6 +35,18 @@ def serve_sample(home, port):
     }
     for name, data in {"paper": paper, "reader": empty_reader(), "discussion": empty_discussion()}.items():
         (folder / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    if with_web:
+        from bs4 import BeautifulSoup
+        from easyread.weblog.snapshot import freeze
+        web = library / "sample-web"
+        (web / "figures").mkdir(parents=True)
+        text = "A saved web article stays readable offline. Notes and highlights remain attached to the original sentence. " * 3
+        html, meta, blocks = freeze(BeautifulSoup('<html><head><title>Offline web sample</title></head><body><article><h1>Offline web sample</h1><p>' + text + '</p></article></body></html>', 'html.parser'), 'https://example.test/article')
+        (web / "source.html").write_text(html, encoding="utf-8")
+        (web / "figures" / "sample.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="teal"/></svg>')
+        blocks.append({"id": "figure-sample", "type": "figure", "src": "figures/sample.svg", "page": 1})
+        for name, data in {"paper": {"schema": 2, "meta": meta, "blocks": blocks, "translation": {"done_pages": [1], "gaps_checked": True}}, "reader": empty_reader(), "discussion": empty_discussion()}.items():
+            (web / f"{name}.json").write_text(json.dumps(data), encoding="utf-8")
     (home / "config.json").write_text(json.dumps({"engine": "none", "auto_translate": False,
         "check_updates": False, "library_dir": str(library)}), encoding="utf-8")
     try:
@@ -47,6 +59,7 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--with-web", action="store_true", help="Include a network-free archived webpage for PWA regression tests")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="easyread-preview-") as tmp:
-        serve_sample(Path(tmp), args.port)
+        serve_sample(Path(tmp), args.port, args.with_web)

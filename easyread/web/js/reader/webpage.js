@@ -392,10 +392,12 @@
     if (!isWeb()) return;
     if (!frame) {
       document.body.classList.add("web-article");
-      nativeMode = (PR.prefs["web_layout_" + PR.pid] || PR.ls.get("easyread-web-layout-" + PR.pid, "native")) !== "reader";
+      const missingSnapshot = PR.pwa?.offline && !S.web_snapshot;
+      nativeMode = !missingSnapshot && (PR.prefs["web_layout_" + PR.pid] || PR.ls.get("easyread-web-layout-" + PR.pid, "native")) !== "reader";
       layout = PR.el("div", { class: "seg", id: "webLayoutToggle", role: "group", "aria-label": PR.t("阅读排版") });
       for (const [value, label] of [["native", PR.t("网页排版")], ["reader", PR.t("EasyRead 风格")]]) {
         const button = PR.el("button", { "data-web-layout": value, text: label });
+        button.disabled = missingSnapshot && value === "native";
         button.onclick = () => setLayout(value);
         layout.append(button);
       }
@@ -411,6 +413,7 @@
         else PR.restoreProgress();
       });
       if (S.web_snapshot) frame.srcdoc = S.web_snapshot;
+      else if (missingSnapshot) frame.srcdoc = "<!doctype html><html><body></body></html>";
       else frame.src = "/p/" + PR.pid + "/source.html";
       const originalReadingBlock = PR.readingBlock;
       PR.readingBlock = () => {

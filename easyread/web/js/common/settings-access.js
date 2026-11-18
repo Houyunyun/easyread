@@ -27,6 +27,7 @@
       const message = root.querySelector("#accessSettingsMessage");
       try {
         if (logout) {
+          await PR.pwa?.beforeLogout();
           await PR.api("/api/access/logout", { method: "POST", body: {} });
           location.assign("/login"); return false;
         }

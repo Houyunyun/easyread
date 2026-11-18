@@ -46,20 +46,29 @@ def _entry(root: Path, name: str) -> Path:
     return p
 
 
-def items(root: Path) -> list[dict]:
-    out = []
+def _entries(root: Path):
     for p in _dir(root).glob("*") if _dir(root).is_dir() else []:
         m = _NAME.match(p.name)
-        if not m or not p.is_dir():
-            continue
+        if m and p.is_dir():
+            yield p, m.group(1), datetime.strptime(m.group(2), "%Y%m%d%H%M%S").isoformat(timespec="seconds")
+
+
+def count(root: Path) -> int:
+    """Count restorable directories, including missing or damaged paper metadata."""
+    return sum(1 for _ in _entries(root))
+
+
+def items(root: Path) -> list[dict]:
+    out = []
+    for p, pid, deleted in _entries(root):
         try:
             meta = (read_json(p / "paper.json", {}) or {}).get("meta", {})
         except (UnicodeError, json.JSONDecodeError):
             # The library also counts these entries during startup. A damaged
             # deleted paper must not block the active library or restoration.
-            meta = {"title_en": m.group(1)}
-        out.append({"name": p.name, "id": m.group(1), "title_zh": meta.get("title_zh", ""), "title_en": meta.get("title_en", ""),
-                    "authors": meta.get("authors", ""), "deleted": datetime.strptime(m.group(2), "%Y%m%d%H%M%S").isoformat(timespec="seconds")})
+            meta = {"title_en": pid}
+        out.append({"name": p.name, "id": pid, "title_zh": meta.get("title_zh", ""), "title_en": meta.get("title_en", ""),
+                    "authors": meta.get("authors", ""), "deleted": deleted})
     return sorted(out, key=lambda x: x["deleted"], reverse=True)
 
 

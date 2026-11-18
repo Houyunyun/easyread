@@ -8,6 +8,21 @@ External scripts and agents: see [Open API and MCP](open-api.md#english-quick-st
 
 <p align="center"><img src="images/en/japanese.png" width="860" alt="Japanese abstract alongside the original English PDF"></p>
 
+## Install as a PWA and read offline
+
+Choose **Install / Offline** in the library or reader. Android Chrome and desktop Chrome/Edge offer browser installation. Android Edge behavior varies by version/device; a normal website shortcut is not a standalone app. On iOS 16.4+, use **Share → Add to Home Screen** in Safari/Chrome/Edge; use Safari on older systems or when the option is missing. The manifest uses `standalone`, not browser fullscreen.
+
+- Mobile connections require **trusted HTTPS**. Localhost HTTP is allowed for development, but ordinary LAN-IP HTTP is not.
+- Stay online until “The app is ready to start offline”. Recently opened text, existing translations and notes are saved automatically. This includes text extracted from PDFs, but **not original/bilingual PDFs, page images or PDF text layers**. New translations, AI, imports and research services need a connection.
+- Use **Save current document for offline reading** or **Complete and pin** to retain reading figures, note images and the archived webpage. Partial-resource status means images or original styling may be missing; text remains available in EasyRead layout. External resources that could not be archived are not guaranteed offline.
+- Text/resource budget defaults to 128 MB (64–512 MB selectable). Older unpinned copies can be evicted; pinned documents and pending notes are protected. Removing copies never deletes server documents. The app shell uses additional space; the manager also shows estimated total site usage.
+- Notes, highlights, handwriting and progress enter a durable device-local operation queue. They sync when the corresponding reader reconnects and is authorized; reopen a closed document to sync its pending changes. Operations are removed only after server acknowledgement and local snapshot persistence. If storage fails, export your changes before clearing browser data.
+- Cache is not a backup: browsers and the OS can remove it. An installed app may have separate storage, especially on iOS; check downloaded documents inside it. Offline copies cannot be instantly revoked by the server. Use trusted devices only.
+- Signing out clears the current library’s offline copies on this device. Pending edits block sign-out; sync first or retain an export. Observed authorization failures never fall back to private cached content.
+- To update safely, save notes, close all app windows and site tabs, then reopen. Updates never force a reload while you edit.
+
+Electron and single-file offline HTML keep their existing behavior.
+
 ## How it differs from "throw the PDF into a translator"
 
 - **Reads like a typeset book.** Serif body text, comfortable line length and spacing. Equations are re-rendered with KaTeX, tables become clean three-line tables, references stay in the original, and bold and italic in the original carry over to the translation. One click in the top bar for dark mode.
