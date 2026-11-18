@@ -48,7 +48,8 @@ def codex() -> dict:
               and isinstance(m.get("slug"), str) and m["slug"]] if isinstance(models, list) else []
         ms.sort(key=lambda m: m["priority"] if isinstance(m.get("priority"), int) else 99)
         out = [{"id": m["slug"], "name": m.get("display_name") or m["slug"], "desc": m.get("description") or "",
-                "reasoning_levels": [r["effort"] for r in m.get("supported_reasoning_levels") or [] if isinstance(r, dict) and r.get("effort")],
+                "reasoning_levels": [r["effort"] for r in (m.get("supported_reasoning_levels") if isinstance(m.get("supported_reasoning_levels"), list) else [])
+                                     if isinstance(r, dict) and isinstance(r.get("effort"), str) and r["effort"]],
                 "default_reasoning": m.get("default_reasoning_level") or ""} for m in ms]
     except (OSError, ValueError, TypeError, AttributeError):
         pass

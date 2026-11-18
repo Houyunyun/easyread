@@ -6,7 +6,7 @@ from urllib.parse import quote, urlsplit
 from ..app import config, i18n
 from ..app.i18n import tr
 from .access import Access
-from . import terminal, activity
+from . import terminal, activity, pwa
 
 PUBLIC = {"/login", "/web/css/access.css", "/web/js/common/access.js", "/web/favicon.svg",
           "/web/i18n/en.json", "/web/i18n/zh-Hant.json"}  # Static UI dictionaries contain no user data.
@@ -39,7 +39,7 @@ def guard(handler):
     if handler.command in ("GET", "HEAD") and path == "/healthz":
         handler._json(200, {"ok": True})
         return False
-    if handler.command in ("GET", "HEAD") and path in PUBLIC:
+    if handler.command in ("GET", "HEAD") and path in PUBLIC | pwa.PUBLIC:
         if path == "/login":
             handler._page(config.WEB / "access.html")
             return False

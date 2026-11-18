@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "EasyRead",
+  "short_name": "EasyRead",
+  "description": "Read, translate and annotate your documents.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#2d6173",
+  "icons": [
+    {
+      "src": "/web/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/web/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

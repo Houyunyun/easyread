@@ -1,5 +1,6 @@
 """Opt-in preparation completion policy; no production data or model calls."""
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -58,7 +59,7 @@ class AutoPrepareTranslationTest(unittest.TestCase):
         self.assertEqual([self.jobs.bulk.get_nowait(), self.jobs.bulk.get_nowait()], ["existing", ws.id])
         self.assertTrue(self.jobs.bulk.empty())
 
-    def test_legacy_pending_jobs_follow_opt_in_but_done_jobs_are_not_backfilled(self):
+    def test_legacy_pending_and_completed_jobs_never_gain_automatic_permission(self):
         pending = self.paper(legacy=True)
         done = self.paper("done1", legacy=True)
         self.prepared(done)
@@ -67,7 +68,8 @@ class AutoPrepareTranslationTest(unittest.TestCase):
             self.jobs = Jobs(self.lib)
         self.assertEqual(self.jobs.prepare.qsize(), 1)
         self.run_prepare(pending)
-        self.assertEqual(self.jobs.bulk.get_nowait(), pending.id)
+        self.assertTrue(self.jobs.bulk.empty())
+        self.assertEqual(pending.load("job")["state"], "done")
         self.assertEqual(done.load("job")["state"], "done")
 
     def test_explicit_prepare_only_and_public_import_do_not_translate(self):
@@ -138,7 +140,7 @@ class AutoPrepareTranslationTest(unittest.TestCase):
         self.assertEqual(ws.load("job")["state"], "cancelled")
         self.assertTrue(self.jobs.bulk.empty())
 
-    def test_failed_preparation_only_translates_after_successful_retry(self):
+    def test_explicit_prepare_retry_never_spends_model_quota(self):
         ws = self.paper()
         def fail(_):
             raise ValueError("controlled preparation failure")
@@ -147,6 +149,10 @@ class AutoPrepareTranslationTest(unittest.TestCase):
         self.assertTrue(self.jobs.bulk.empty())
         paper_api.post(SimpleNamespace(jobs=self.jobs), ws, ["", "api", "p", ws.id, "prepare"], {})
         self.run_prepare(ws)
+        self.assertFalse(ws.load("job")["allow_auto_translate"])
+        self.assertEqual(ws.load("job")["state"], "done")
+        self.assertTrue(self.jobs.bulk.empty())
+        self.jobs.enqueue(ws)  # Explicit translation remains available after preparation.
         self.assertEqual(self.jobs.bulk.get_nowait(), ws.id)
 
     def test_automatic_handoff_keeps_page_cap_confirmation(self):
@@ -165,11 +171,77 @@ class AutoPrepareTranslationTest(unittest.TestCase):
         with patch.object(self.lib, "list", return_value=items), \
                 patch("easyread.app.cli_models.engine_label", return_value="Codex"), \
                 patch("easyread.server.research_api.statuses", return_value=[]), \
-                patch("easyread.server.research_api.trash_count", return_value=0):
-            self.assertTrue(jobs_api.library_state(app)["items"][0]["job"]["auto_translate_pending"])
+                patch("easyread.server.research_api.trash_count", return_value=0), \
+                patch("easyread.library.trash.items", side_effect=AssertionError("Do not parse trash to count it")):
+            data = jobs_api.library_state(app)
+            self.assertRegex(data["library_id"], r"^[a-f0-9]{24}$")
+            self.assertTrue(data["items"][0]["job"]["auto_translate_pending"])
             self.cfg["auto_translate_after_prepare"] = False
             self.assertFalse(jobs_api.library_state(app)["items"][0]["job"]["auto_translate_pending"])
         self.assertNotIn("auto_translate_pending", items[0]["job"])
+
+    def test_stop_revokes_permission_even_with_global_switch_or_engine_disabled(self):
+        for i, cfg in enumerate(({"auto_translate_after_prepare": False}, {"engine": "none"})):
+            self.cfg.update(engine="codex", auto_translate_after_prepare=True)
+            ws = self.paper(f"stopped{i}")
+            self.cfg.update(cfg)
+            self.assertEqual(self.jobs.stop_model_work([ws.id]), 1)
+            self.cfg.update(engine="codex", auto_translate_after_prepare=True)
+            self.run_prepare(ws)
+            self.assertFalse(ws.load("job")["allow_auto_translate"])
+            self.assertTrue(self.jobs.bulk.empty())
+
+    def test_running_model_stop_survives_restart_before_worker_cleanup(self):
+        ws = self.paper()
+        self.run_prepare(ws)
+        self.jobs.bulk.get_nowait()
+        ws.update("job", lambda j: j.update(state="running"))
+        cancel = self.jobs.cancels[ws.id] = threading.Event()
+        self.assertEqual(self.jobs.stop_model_work(), 1)
+        self.assertTrue(cancel.is_set())
+        self.assertTrue(ws.load("job")["cancel_requested"])
+        self.assertFalse(ws.load("job")["allow_auto_translate"])
+        with patch("easyread.server.jobs.threading.Thread.start"):
+            resumed = Jobs(self.lib)
+        self.assertTrue(resumed.bulk.empty())
+        self.assertTrue(resumed.prepare.empty())
+        self.assertEqual(ws.load("job")["state"], "cancelled")
+        resumed.enqueue(ws)  # A new explicit request clears the old cancellation marker.
+        self.assertFalse(ws.load("job")["cancel_requested"])
+        self.assertEqual(resumed.bulk.get_nowait(), ws.id)
+
+    def test_running_preparation_cancel_survives_restart_before_worker_cleanup(self):
+        ws = self.paper()
+        self.jobs.prepare.get_nowait()
+        ws.update("job", lambda j: j.update(state="running"))
+        self.jobs.cancels[ws.id] = threading.Event()
+        self.jobs.cancel(ws.id)
+        with patch("easyread.server.jobs.threading.Thread.start"):
+            resumed = Jobs(self.lib)
+        self.assertFalse(resumed.busy())
+        self.assertEqual(ws.load("job")["state"], "cancelled")
+
+    def test_stop_does_not_undo_an_existing_full_preparation_cancel(self):
+        ws = self.paper()
+        self.jobs.enqueue(ws)  # Explicit translation reservation while preparing.
+        self.jobs.prepare.get_nowait()
+        ws.update("job", lambda j: j.update(state="running"))
+        self.jobs.cancels[ws.id] = threading.Event()
+        self.jobs.cancel(ws.id)
+        self.assertEqual(self.jobs.stop_model_work(), 1)
+        self.assertTrue(ws.load("job")["cancel_requested"])
+        with patch("easyread.server.jobs.threading.Thread.start"):
+            resumed = Jobs(self.lib)
+        self.assertFalse(resumed.busy())
+        self.assertEqual(ws.load("job")["state"], "cancelled")
+
+    def test_reader_policy_is_derived_without_mutating_persisted_job(self):
+        ws = self.paper()
+        job = ws.load("job")
+        self.assertTrue(jobs_api.job_state(job, self.cfg)["auto_translate_pending"])
+        self.assertFalse(jobs_api.job_state(job, {**self.cfg, "auto_translate_after_prepare": False})["auto_translate_pending"])
+        self.assertNotIn("auto_translate_pending", job)
+        self.assertNotIn("auto_translate_pending", ws.load("job"))
 
     def test_config_requires_boolean_and_defaults_off(self):
         self.assertFalse(config.DEFAULTS["auto_translate_after_prepare"])

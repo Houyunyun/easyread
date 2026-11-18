@@ -6,6 +6,12 @@ Zotero 插件、脚本等外部工具接入 EasyRead 时，只依赖本页列出
 
 新增可选的版本化 `/api/v1` 与 `/mcp` 接入见[开放 API 与 MCP](open-api.md)。它们复用访问授权码（Bearer），默认关闭；下述旧接口及 Cookie / X-Token 约定保持兼容。
 
+## PWA 浏览器内部约定
+
+`GET /manifest.webmanifest`、`/sw.js`、`/pwa/shell/library`、`/pwa/shell/reader` 及安装图标公开可读，仅含应用代码和界面文案，不含文献或令牌。`sw.js` 必须保持可更新，不配置长期代理缓存。HTML 的 `X-EasyRead-Web-Build` 用于避免旧 Service Worker 混用新 HTML；更新不强制替换正在编辑的窗口。
+
+界面内部 `/api/library`、`/api/p/<id>/state`、`/api/p/<id>/versions` 增加不透明 `library_id`，用于隔离设备缓存和待同步操作；其余 Cookie、X-Token 及 `/api/v1`、MCP 约定不变。Service Worker 不缓存 API 或重放写请求。
+
 ## 找到服务
 
 EasyRead 运行时把地址写在数据目录的 `.server.json`（默认 `~/EasyRead/.server.json`，设置了 `EASYREAD_HOME` 时在那个目录下）：
@@ -50,13 +56,17 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 写操作（POST）都要带 `X-Token` 请求头，值从 `/api/library` 取；token 每次启动都会变。
 
+### 浏览器静态资源缓存
+
+`/web/*` 的静态文件返回弱 `ETag` 和 `Cache-Control: private, no-cache`：浏览器可以保存文件，但再次使用前须用 `If-None-Match` 核对，未变时返回无正文的 `304`。未带内容指纹的 vendor 文件同样需要核对，避免升级后混用新旧脚本。`HEAD` 返回对应响应头而不读取或发送文件正文。此策略不改变 API、论文文件、动态注入语言的页面（如 `/`、`/read/*`、`/web/tabs.html`）或流式响应；这些入口沿用原缓存策略。静态响应暂不压缩。
+
 ### 预处理与翻译预约（内部接口）
 
 `POST /api/p/{id}/translate` 沿用原请求体和 `{"ok": true}` 返回。在纯预处理排队或运行时也可提交：保存翻译／原文整理的参数，优先准备这篇，准备完成后进入独立模型队列。已有翻译、原文整理或译图任务（含预约）时仍拒绝重复提交。准备失败不调用模型，修复原因后可重试。
 
 `GET /api/library` 的 `items[].job` 新增 `phase=prepare|model` 和 `translate`。状态仍用 `queued/running`，结合 `phase` 区分等待预处理、正在预处理、等待模型、执行模型；`type` 保留请求类型。预处理默认单 worker，模型沿用 `paper_concurrency`。`POST /api/p/{id}/cancel` 取消该篇全部任务与预约；`POST /api/jobs/stop` 只撤销模型工作（含准备中的预约），预处理继续。取消不删除已生成的数据。
 
-`POST /api/config` 接受布尔值 `auto_translate_after_prepare`（默认 false）：允许批量导入和未明确禁用自动翻译的旧准备任务在成功预处理后自动排队翻译；不扫描已完成历史任务，不覆盖明确 `translate=false` 的普通/公开导入。`items[].job.auto_translate_pending` 按当前配置计算，供“停止翻译”包含等待自动接续的任务；同一摘要还提供 `allow_auto_translate/public_import`。停止模型任务会持久保存 `allow_auto_translate=false`，即使预处理继续、重启或重新开启设置也不会自动重启该请求。
+`POST /api/config` 接受布尔值 `auto_translate_after_prepare`（默认 false）：仅允许带有 `allow_auto_translate=true` 的准备任务在成功预处理后自动排队翻译；不扫描已完成历史任务，不覆盖明确 `translate=false` 的普通/公开导入。`items[].job.auto_translate_pending` 按当前配置计算，供“停止翻译”包含等待自动接续的任务；阅读页 `/state` 与 `/part/job` 同样返回该字段，`/versions` 提供实时值以刷新配置变化；同一摘要还提供 `allow_auto_translate/public_import`。停止模型任务会持久保存 `allow_auto_translate=false`，即使预处理继续、重启或重新开启设置也不会自动重启该请求。运行中的取消通过 `cancel_requested` 先持久化，恢复队列时不再执行该任务。`POST /api/p/{id}/prepare` 是明确的仅预处理重试，不继承自动翻译许可；旧任务缺少许可字段时也不自动翻译。
 
 ## 桌面版打开链接
 

@@ -6,6 +6,7 @@
 
   /* [id, 名字, 默认开关, 说明] */
   PR.FEATURES = [
+    ["offline_reading", PR.t("自动保存离线正文"), true, PR.t("保存最近阅读的正文和笔记，不下载原 PDF；可在离线管理中清理")],
     ["research", PR.t("研究"), true, PR.t("阅读页的研究面板、侧栏入口和研究快捷键")],
     ["chat", PR.t("问 AI"), true, PR.t("阅读页右侧边读边问；段落操作条、选中文字、笔记卡片上的“问 AI”")],
     ["edit", PR.t("改译文"), true, PR.t("段落操作条里的“改译文”（也可以双击段落）")],
@@ -43,7 +44,7 @@
   PR.keysOn = ui.keys_on !== false;
   PR.keymap = avoidInkKeyConflicts(Object.assign({}, DEF_KEYS, PR.ls.get("easyread-keys", {})));
 
-  PR.feature = (id) => PR.features[id] !== false;
+  PR.feature = (id) => PR.features[id] !== false && !(id === "pages" && PR.pwa?.offline);
   const show = (k) => (!k ? "" : k === " " ? PR.t("空格") : k.length === 1 ? k.toUpperCase() : k);
   PR.keyName = show;
   PR.keyOf = (id) => (PR.keysOn ? show(PR.keymap[id]) : "");

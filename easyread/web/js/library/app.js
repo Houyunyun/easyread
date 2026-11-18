@@ -56,6 +56,7 @@
   const validData = (d) => d && Array.isArray(d.items) && d.items.every((i) => i && typeof i.id === "string" && Array.isArray(i.tags));
   // Only this read request has a deadline; never retry an import or another write.
   L.load = async function () {
+    if (document.hidden) return false;
     const seq = ++loadSeq;
     clearTimeout(pollT);
     if (loadController) loadController.abort();
@@ -74,7 +75,12 @@
           controller.abort();
         }, 10000);
       });
-      const request = Promise.resolve().then(() => fetch("/api/library", { cache: "no-store", signal: controller.signal })).then(async (r) => {
+      const request = PR.pwa ? PR.pwa.json("/api/library").then(d => {
+        responded = true;
+        if (!validData(d)) throw new Error(PR.t("文献库数据不完整，请重试"));
+        PR.pwa.rememberList(d).catch(() => {});
+        return d;
+      }) : Promise.resolve().then(() => fetch("/api/library", { cache: "no-store", signal: controller.signal })).then(async (r) => {
         responded = true;
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || PR.t("请求失败 {status}", { status: r.status }));
@@ -94,10 +100,16 @@
       return true;
     } catch (e) {
       if (seq !== loadSeq) return false;
+      if (PR.pwa?.offline && !e.http) {
+        const saved = await PR.pwa.cachedList().catch(() => null);
+        if (seq !== loadSeq) return false;
+        if (saved) { apply(saved); schedule(); return true; }
+      }
+      if (PR.pwa?.blocked) L.items = [];
       // A response proves the server is reachable, even when its data is unreadable.
       L.loadErrorTitle = responded || timedOut ? PR.t("文献库加载失败") : PR.t("连不上本地服务");
       L.loadStatus = "error"; L.loadError = e.message || String(e); L.render();
-      pollT = setTimeout(() => L.load(), retryMs);
+      pollAfter(retryMs);
       retryMs = Math.min(retryMs * 2, 15000);
       return false;
     } finally {
@@ -110,6 +122,7 @@
       JSON.stringify([L.items, L.engine, L.engineLabel, L.firstRun, L.version, L.trashCount, L.statuses]) !==
       JSON.stringify([d.items, d.engine, d.engine_label, d.first_run, d.version, d.trash || 0, d.research_statuses || []]);
     L.lastData = d;
+    L.offline = !!d.offline;
     L.statuses = d.research_statuses || L.statuses || [];
     if (L.updateStatusViews) L.updateStatusViews(L.statuses);
     L.loadStatus = cached ? "loading" : "ready"; L.loadError = "";
@@ -128,11 +141,18 @@
     if (changed) L.render();
   }
 
-  function schedule() {
+  function pollAfter(ms) {
     clearTimeout(pollT);
-    const busy = L.items.some((i) => i.job && ["queued", "running"].includes(i.job.state));
-    pollT = setTimeout(() => L.load(), busy ? 2500 : 15000);
+    if (!document.hidden) pollT = setTimeout(() => L.load(), ms);
   }
+  function schedule() {
+    const busy = L.items.some((i) => i.job && ["queued", "running"].includes(i.job.state));
+    pollAfter(busy ? 2500 : 15000);
+  }
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(pollT);
+    if (!document.hidden && !loadController) L.load();
+  });
 
   function filtered() {
     const view = L.VIEWS.find((v) => v[0] === L.view) || L.VIEWS[0];
@@ -177,7 +197,7 @@
     const sub = tt.sub ? '<div class="t2" lang="' + tt.subLang + '">' + PR.titleHtml(tt.sub) + "</div>" : "";
     const bits = [i.authors && PR.esc(i.authors.split(",").slice(0, 3).join(",") + (i.authors.split(",").length > 3 ? PR.t(" 等") : "")), i.year, i.venue || i.arxiv].filter(Boolean);
     const tags = (i.tags || []).map((t) => '<span class="chip cat" title="' + PR.esc(PR.catTree.label(t)) + '">' + PR.icon("folder", "sm") + PR.esc(PR.catTree.leaf(t)) + "</span>").join("");
-    const thumb = i.thumb ? '<div class="thumb" style="background-image:url(' + i.thumb + ')"></div>' : '<div class="thumb blank">' + PR.icon("pdf") + "</div>";
+    const thumb = i.thumb ? '<img class="thumb" src="' + PR.esc(i.thumb) + '" alt="" width="52" height="68" loading="lazy" decoding="async" draggable="false">' : '<div class="thumb blank">' + PR.icon("pdf") + "</div>";
     const notes = i.notes + i.highlights ? '<span class="stat">' + PR.icon("note", "sm") + (i.notes + i.highlights) + (i.open_questions ? " · " + PR.t("{n} 问待答", { n: i.open_questions }) : "") + "</span>" : "";
     const prog = i.progress ? '<div class="meter" title="' + PR.t("阅读进度 {p}%", { p: Math.round(i.progress * 100) }) + '"><i style="width:' + Math.round(i.progress * 100) + '%"></i></div>' : "";
     const picked = L.picked.has(i.id);
@@ -196,7 +216,7 @@
     PR.$("#count").textContent = PR.t("{n} 篇", { n: list.length });
     PR.renderBatch && PR.renderBatch(list);
     PR.renderStopAll && PR.renderStopAll();
-    const status = L.loadStatus !== "ready" && L.items.length ? '<div class="up-status" role="status">' + loadHtml() + "</div>" : "";
+    const status = L.offline ? '<div class="up-status" role="status">' + PR.t("离线文献：仅显示本设备已保存的正文") + '</div>' : L.loadStatus !== "ready" && L.items.length ? '<div class="up-status" role="status">' + loadHtml() + "</div>" : "";
     PR.$("#list").innerHTML = status + (list.length ? list.map(rowHtml).join("") : emptyHtml());
     if (L.selected && !L.byId(L.selected)) L.select(null);
     else PR.renderDetail && PR.renderDetail();
@@ -207,6 +227,7 @@
     return '<span class="spin"></span> ' + (L.items.length ? PR.t("正在更新文献库…") : PR.t("正在加载文献库…"));
   }
   function emptyHtml() {
+    if (L.offline && !L.items.length) return '<div class="empty-state">' + PR.t("还没有离线文献。联网打开正文即可自动保存。") + '</div>';
     if (L.view === "archived") return '<div class="empty-state"><div class="big">' + PR.t("封存区是空的") + "</div>" + PR.t("可以将已看完或暂不需要的论文拖曳到左侧「已封存」，或在选单中封存。") + "</div>";
     if (!L.items.length && L.loadStatus !== "ready") return '<div class="empty-state" role="status">' + loadHtml() + "</div>";
     if (L.items.length) return '<div class="empty-state"><div class="big">' + PR.t("没有符合条件的论文") + "</div>" + PR.t("换个关键词或筛选试试。") + "</div>";

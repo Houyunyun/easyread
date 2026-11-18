@@ -44,6 +44,8 @@ def build(ws: Workspace, out: Path | None = None, assets: Path | None = None, ex
     if mobile:
         page = page.replace("</head>", '<link rel="stylesheet" href="/web/css/reader-mobile.css">\n</head>', 1)
         page = page.replace('<script src="/web/js/reader/main.js">', '<script src="/web/js/reader/mobile.js"></script>\n<script src="/web/js/reader/main.js">', 1)
+    # An exported file is self-contained, not an installable server application.
+    page = re.sub(r'<link rel="(?:manifest|apple-touch-icon)"[^>]*>\n?', '', page)
     page = _LINK.sub(lambda m: _inline_css(m.group(1)), page)
     page = _SCRIPT.sub(lambda m: _script(m.group(1)), page)
     page = page.replace('<link rel="icon" href="/web/favicon.svg">', f'<link rel="icon" href="{_data_uri(WEB / "favicon.svg", "image/svg+xml")}">')

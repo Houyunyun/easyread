@@ -1,5 +1,11 @@
 # 数据格式
 
+## 浏览器离线副本
+
+服务器仍以现有文献目录和 JSON 为正本，不迁移数据库。库根目录 `.pwa-id` 是随机身份标记，结合库路径生成不透明缓存标识；只读库不能创建标记时使用当前服务进程的临时身份，不阻塞正常读取。
+
+启用 PWA 后，IndexedDB `easyread-offline` 保存正文/已确认笔记快照、文献摘要和缓存元数据；Cache Storage 保存版本化应用壳及按库隔离的相关阅读资源，不自动下载原 PDF。未提交修改使用 `pr-outbox-<library_id>-<paper_id>-<operation_id>` 独立 localStorage 记录，避免标签页间互相覆盖；服务端确认及本机快照落盘后才清除。清理浏览器数据仍可能丢失未同步修改，请保留服务端备份并留意存储告警。
+
 ## paper.json
 
 ```json
@@ -112,7 +118,7 @@ JSON 里 TeX 的反斜杠要写两个（`\\frac`）。`\f` `\b` `\t` `\n` `\r` �
 
 新增 `phase: "prepare" | "model"` 表示当前阶段；`type` 仍为用户请求的 `prepare / translate / read / figure-images`。因此 `type=translate, phase=prepare` 表示已预约翻译、但还在准备 PDF。`state=queued/running` 分别表示该阶段的等待/执行，其他状态仍沿用原有含义；需要页数确认时为 `confirm`。`translate=true` 表示准备完成后有模型任务，`read=true` 表示只整理原文。文献库摘要也返回 `phase/translate`。
 
-`allow_auto_translate` 为单任务自动接续许可：批量导入为 true，明确只导入、公开 API 或研究导入为 false；停止或取消任务也写 false。旧任务缺字段时，可在用户显式开启全局 `auto_translate_after_prepare` 后接续（公开导入和只读原文除外）。全局开关默认 false，仅在成功预处理结束时检查，禁用引擎时不自动排队，不追补已完成历史任务。成功交接一次性写入 `type=translate, translate=true, phase=model, state=queued`。API 的 `auto_translate_pending` 是按当前配置计算的界面字段，不写入 job.json。
+`allow_auto_translate` 为单任务自动接续许可：批量导入为 true，明确只导入、公开 API 或研究导入为 false；停止或取消任务也写 false。旧任务缺字段时视为未授权，即使开启全局 `auto_translate_after_prepare` 也不自动接续。明确的 `/prepare` 重试也写 false，以保持仅预处理、不消耗模型额度的约定。全局开关默认 false，仅在成功预处理结束时检查，禁用引擎时不自动排队，不追补已完成历史任务。成功交接一次性写入 `type=translate, translate=true, phase=model, state=queued`。API 的 `auto_translate_pending` 是按当前配置计算的界面字段，不写入 job.json。运行任务取消时先保存 `cancel_requested=true` 再通知 worker；重启后将此类未完成任务置为取消，不恢复模型调用。新的明确请求重置该标记。
 
 PDF 预处理独立单 worker；模型阶段沿用 `paper_concurrency`。预约优先于普通预处理，同优先级在当前进程内 FIFO，不抢占执行中的任务。请求参数（页码、范围、模型、语言、额外要求）与预约一同落盘；交接和取消在调度锁下完成。同一篇没有两个并行阶段。老版没有 `phase` 的未完成任务，启动时按是否需要模型及已保存的 `meta.pages` 分队列恢复，不自动启用翻译。预处理时间另存 `prepare_timing`；模型阶段的 `timing` 不包含排队时间。
 

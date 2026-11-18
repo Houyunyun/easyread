@@ -84,6 +84,17 @@ class CodexCatalogTest(unittest.TestCase):
         self.use_catalog(path)
         self.assertEqual([m["id"] for m in cli_models.codex()["models"]], ["valid"])
 
+    def test_malformed_reasoning_metadata_does_not_hide_other_models(self):
+        path = self.write_catalog("mixed.json", [
+            self.model("bad-levels", supported_reasoning_levels=42),
+            self.model("good", supported_reasoning_levels=[{"effort": "ultra"}, {"effort": 42}, None]),
+        ])
+        self.use_catalog(path)
+        models = cli_models.codex()["models"]
+        self.assertEqual([m["id"] for m in models], ["bad-levels", "good"])
+        self.assertEqual(models[0]["reasoning_levels"], [])
+        self.assertEqual(models[1]["reasoning_levels"], ["ultra"])
+
     def test_rereads_catalog_without_restarting(self):
         path = self.write_catalog("gateway.json", [self.model("before")])
         self.use_catalog(path)
