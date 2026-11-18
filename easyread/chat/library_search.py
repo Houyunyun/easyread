@@ -1,6 +1,7 @@
 """Search query expansion and source-grounded answers using the configured chat model."""
 import json
 import tempfile
+import threading
 from pathlib import Path
 
 from ..app import config
@@ -8,7 +9,7 @@ from ..app.i18n import tr
 from ..app.log import log
 from ..engines import engines, usage
 from ..library.passage_search import rank
-from . import chat_models
+from . import chat_models, chat
 
 
 def answer(library, index, body):
@@ -38,7 +39,14 @@ def answer(library, index, body):
                               "If these sources are insufficient say so. Do not browse or use tools.\n"
                               + json.dumps(dict(question=query, excerpts=evidence), ensure_ascii=False))
                     result["sent"] = len(evidence)
-                    result["answer"] = engines.run(cfg, prompt, cwd, meter=meter)
+                    from ..engines import qa_capabilities
+                    expanded = cfg["engine"] in qa_capabilities.ENGINES and qa_capabilities.policy(cfg, cfg["engine"])["mode"] != "default"
+                    if expanded:
+                        prompt = prompt.replace("based only on these excerpts", "using these excerpts as primary evidence")
+                        prompt = prompt.replace("Do not browse or use tools.", "Additional research is allowed if needed; cite external sources by URL, never invent excerpt numbers.")
+                        result["answer"] = "".join(chat.stream(cfg, prompt, library.root, threading.Event(), meter=meter, qa=True))
+                    else:
+                        result["answer"] = engines.run(cfg, prompt, cwd, meter=meter)
             except engines.EngineError as exc:
                 result["error"] = str(exc)[:500]
                 if not result["sources"]:

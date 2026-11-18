@@ -272,9 +272,13 @@ def image_paths(ws: Workspace, messages: list[dict]) -> list[Path]:
     return paths[-4:]
 
 
-def stream(ecfg: dict, text: str, cwd: Path, cancel: threading.Event, on_model=None, meter=None, images: list[Path] | None = None) -> Iterator[str]:
+def stream(ecfg: dict, text: str, cwd: Path, cancel: threading.Event, on_model=None, meter=None, images: list[Path] | None = None, *, qa: bool = False) -> Iterator[str]:
     """on_model(实际模型名)：Claude Code 开头会报它实际用的模型。meter：传了就记下这次回答的 token 用量。"""
+    from ..engines import qa_capabilities
+    if qa:
+        ecfg = qa_capabilities.prepare(ecfg)
     e = ecfg.get("engine")
+    selected = ecfg.get(e, {}).get("_qa_policy") if qa else None
     bad = netcheck.problem(ecfg)
     if bad:
         raise engines.EngineError(bad)
@@ -287,13 +291,13 @@ def stream(ecfg: dict, text: str, cwd: Path, cancel: threading.Event, on_model=N
         text += "\n\n读者附上的图片，请用读图工具查看这些本地文件：\n" + "\n".join(str(path) for path in images)  # i18n-ok
     try:
         if e in engines.CLI_ENGINES:
-            text += chat_tools.RESEARCH_PROMPT
+            text += qa_capabilities.prompt_guidance(selected) if selected else chat_tools.RESEARCH_PROMPT
         if e == "claude":
             yield from _stream_claude(ecfg["claude"], text, cwd, cancel, on_model, meter)
         elif e == "openai":
             yield from openai_api.stream(ecfg["openai"], text, cancel, meter, images=images)
         else:  # codex 没有逐字输出，整段给；不拉起用户的 MCP 和用不到的功能（见 codex_lean）
-            options = chat_tools.for_chat(ecfg)
+            options = qa_capabilities.prepare(ecfg) if selected else chat_tools.for_chat(ecfg)
             if e in engines.agent_cli.ENGINES and on_model:
                 options[e]["_report_model"] = on_model
             yield engines.run(options, text, cwd, images, cancel, meter)
@@ -306,6 +310,18 @@ def _stream_claude(c: dict, text: str, cwd: Path, cancel, on_model=None, meter=N
     exe = engines.claude_path(c)
     if not exe:
         raise engines.EngineError(tr("找不到 Claude Code 命令（先装好并登录 Claude Code）"))
+    if c.get("_qa_policy"):
+        from ..engines import qa_capabilities
+        selected = c["_qa_policy"]
+        with qa_capabilities.invocation("claude", selected, text) as (skill_args, qa_text):
+            args = [exe, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--no-session-persistence"]
+            args += qa_capabilities.claude_args(selected) + skill_args
+            if c.get("model"):
+                args += ["--model", c["model"]]
+            if c.get("reasoning_effort"):
+                args += ["--effort", c["reasoning_effort"]]
+            yield from _stream_once(args, qa_text, cwd, cancel, on_model, meter)
+        return
     args = [exe, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--allowedTools", chat_tools.READ_TOOLS, "--disallowedTools", chat_tools.DENIED_TOOLS,
             "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"]

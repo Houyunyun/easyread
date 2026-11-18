@@ -100,6 +100,10 @@ Your browser opens `http://127.0.0.1:8765`. By default, the server listens only 
 
 **Docker / server deployment:** One container and port include Claude Code, Codex CLI, Chromium and BabelDOC. Use **Settings → CLI & terminal** for embedded login/updates, **Access protection** for an optional access code, and **Network & proxy** for global proxies. No browser username/password dialog or second terminal URL. See the [full Docker guide](docker.en.md).
 
+## CLI capabilities for AI Q&A
+
+In Settings → Models, open a Claude Code / Codex card menu and choose **AI Q&A · CLI capabilities**. Default lean behavior is unchanged; choose native full mode or customize tools, Skills and MCP, with Q&A-only Skill imports. The two CLIs are configured independently; translation and other automatic processing are unchanged. See [Q&A CLI settings](qa-cli.en.md).
+
 ## Usage
 
 **Read the PDF beside your notes.** Open the sidebar and use **+** to add Notes. Drag the outer edge all the way left to cover the reading area. Choose **Split side by side** under **+**, or drop the Notes tab on the right edge. Drag the divider to resize the panes. Drop a tab near the top or bottom to stack panes. Close the sidebar to resume reading.

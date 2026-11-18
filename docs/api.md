@@ -20,6 +20,10 @@ Docker / 远程部署可通过 `--host` / `--port` 或 `EASYREAD_HOST` / `EASYRE
 
 网页“设置 → 网络与代理”可配置持久化全局 HTTP/HTTPS 代理。保存经 `/api/system-proxy`，连通性测试经 `/api/system-proxy/test`；这些属于内部接口。配置影响新请求和新 CLI 调用，不会中断已运行任务。
 
+## 问答 CLI 设置（内部接口）
+
+`GET /api/chat/cli/{claude|codex}` 返回问答能力配置、Skill 元数据和原生配置路径；`POST` 保存该 CLI 的独立问答配置。`POST /api/chat/cli/{engine}/skills/import` 接受 `filename` 与 `content_b64`，仅导入问答专用目录。写操作需要正常访问授权、`X-Token` 和同源 `Origin`。不会返回 CLI 原生配置内容或凭证。详见 [问答 CLI 设置](qa-cli.md)。
+
 ## 论文怎么标识
 
 - **论文 id** = 原 PDF 完整 SHA-256 的前 12 位（小写十六进制）。同一个 PDF 重复导入得到同一个 id，不会建第二篇。

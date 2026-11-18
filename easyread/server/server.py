@@ -19,7 +19,7 @@ from ..app import cli_models, config, i18n, open_link, prefs, updates
 from ..engines import detect, engines, usage
 from ..translate import langs
 from ..library import citations, trash
-from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes
+from . import settings_api, library_api, jobs_api, paper_api, research_api, wsock, network, access_routes, qa_cli_api
 from .access import Access
 from .terminal import Terminals
 from .babeldoc_api import BabelDocJobs
@@ -176,7 +176,7 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = unquote(url.path)
         app, lib = self.app, self.app.lib
-        if access_routes.get(self, path):
+        if access_routes.get(self, path) or qa_cli_api.handle(self):
             return
         research = research_api.get(app, path + ("?" + url.query if url.query else ""))
         if research is not None:
@@ -347,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         app, lib = self.app, self.app.lib
 
-        if access_routes.post(self, path):
+        if access_routes.post(self, path) or qa_cli_api.handle(self):
             return
         if research_api.matches(path):
             result = research_api.post(app, path, q, self._body())

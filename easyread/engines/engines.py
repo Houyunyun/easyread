@@ -175,6 +175,11 @@ def run_claude(c: dict, prompt: str, cwd: Path, cancel=None, meter=None) -> str:
 def run_codex(c: dict, prompt: str, cwd: Path, images: list[Path], cancel=None, meter=None) -> str:
     """c["lean"]：不拉起用户 Codex 配置里的 MCP 服务（翻译时用，见 codex_lean）。
     这些覆盖参数让 Codex 报配置错误时，去掉它们照旧再调一次。"""
+    if c.get("_qa_policy") and not c.get("_qa_prepared"):
+        from . import qa_capabilities
+        with qa_capabilities.invocation("codex", c["_qa_policy"], prompt) as (skill_args, qa_prompt):
+            options = {**c, "_qa_prepared": True, "_qa_skill_args": skill_args, "lean": False}
+            return run_codex(options, qa_prompt, cwd, images, cancel, meter)
     exe = codex_path(c)
     if not exe:
         raise EngineError(tr("找不到 Codex 命令：{cmd}（先装好并登录 Codex CLI）", cmd=c.get("command") or "codex"))
@@ -214,14 +219,24 @@ def for_translation(cfg: dict) -> dict:
     out = dict(cfg)
     for e in ("claude", "codex"):
         if isinstance(cfg.get(e), dict):
-            out[e] = {**cfg[e], "lean": True}
+            out[e] = {**{k: v for k, v in cfg[e].items() if not k.startswith("_qa_") and k != "_chat"}, "lean": True}
     return out
 
 
 def _codex_once(exe: str, c: dict, prompt: str, cwd: Path, images: list[Path], cancel, extra: list[str]) -> tuple[str, str]:
+    qa_args = []
+    if c.get("_qa_policy"):
+        from . import qa_capabilities
+        try:
+            qa_args = qa_capabilities.codex_args(c["_qa_policy"], cwd, exe)
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            raise EngineError(str(error)) from None
     fd, last = tempfile.mkstemp(suffix=".txt", prefix="easyread-codex-")
     os.close(fd)
-    args = [exe, "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral", "--color", "never", "--json", "-o", last]
+    args = [exe, "exec", "--skip-git-repo-check"]
+    if not c.get("_qa_policy"):
+        args += ["--sandbox", "read-only"]
+    args += ["--ephemeral", "--color", "never", "--json", "-o", last]
     if c.get("model"):
         args += ["--model", c["model"]]
     for img in images:
@@ -231,7 +246,9 @@ def _codex_once(exe: str, c: dict, prompt: str, cwd: Path, images: list[Path], c
         if c.get(field):
             args += ["-c", key + "=" + json.dumps(c[field])]
     args += extra
-    if c.get("_chat"):
+    if c.get("_qa_policy"):
+        args += qa_args + c.get("_qa_skill_args", [])
+    elif c.get("_chat"):
         # Codex dispatches built-in web search through its code-mode host.
         args += ["-c", "features.code_mode_host=true", "-c", 'web_search="live"']
     elif extra:

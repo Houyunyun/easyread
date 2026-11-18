@@ -60,7 +60,7 @@ def handle(self, ws, body: dict):
             send({"model": model})
         attachments = chat.image_paths(ws, past + [user])
         image_options = {"images": attachments} if attachments else {}
-        for piece in chat.stream(ecfg, prompt_text, ws.root, cancel, seen, meter, **image_options):
+        for piece in chat.stream(ecfg, prompt_text, ws.root, cancel, seen, meter, qa=True, **image_options):
             pieces.append(piece)
             send({"t": piece})
         msg = chat_store.append(ws, tid, user, "".join(pieces), m["id"], model, meter.snapshot())
