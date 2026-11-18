@@ -27,7 +27,8 @@ class UnreadableDataTest(unittest.TestCase):
                     patch("easyread.server.jobs.config.load", return_value={}), \
                     self.assertLogs("easyread", level="ERROR") as logs:
                 jobs = Jobs(lib)
-            self.assertEqual(jobs.bulk.get_nowait(), good.name)
+            self.assertEqual(jobs.prepare.get_nowait(), good.name)
+            self.assertTrue(jobs.prepare.empty())
             self.assertTrue(jobs.bulk.empty())
             self.assertEqual(Workspace(good).load("job")["state"], "queued")
             self.assertEqual(broken.read_bytes(), content)

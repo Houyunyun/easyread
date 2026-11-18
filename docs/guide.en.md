@@ -54,6 +54,10 @@ Settings auto-detect what's installed; "Test one sentence" tells you right away 
 
 Papers are translated one at a time by default, with parallel batches still available within each paper. In Settings → Models → Translation, choose 1–4 concurrent papers and restart EasyRead to apply. Paper concurrency multiplies batch concurrency, increasing memory use and the risk of model rate limits; keeping the default of one paper is recommended. See the [configuration notes](paper-concurrency.md).
 
+**Separate preparation and translation queues:** PDF rendering and text extraction have their own single worker and do not consume translation slots. Prepared papers can translate while another PDF is being prepared. Click “Schedule translation” in the paper details or reader, or use batch Translate, before preparation finishes. Requested papers receive preparation priority without interrupting the current paper, then automatically join the translation queue. Each paper must still finish preparation before translation starts. The UI distinguishes waiting/preparing from waiting/translating.
+
+Cancel on a paper cancels both its preparation and reservation. Stop model tasks removes translation/original-processing requests but lets PDF preparation continue. Failed preparation does not start translation; retry after resolving the error. Restarting resumes unfinished jobs and retains saved translations. Zotero/folder migration still prepares PDFs only; separating the queues never enables translation for the whole library.
+
 ## Install
 
 **Easiest: download the installer** (no Python needed). From [Releases](https://github.com/Edwardxlai/easyread/releases/latest):

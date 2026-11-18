@@ -145,7 +145,7 @@
     if (t.dataset.t === "translate-en") PR.startTranslation(PR.pid, {en:true}).then(started => { if (started) { PR.toast(PR.t("已开始翻译，译好的页就地换成{lang}，笔记和划线都保留", { lang: PR.targetName((PR.state.paper.meta || {}).target || PR.target) })); PR.poll(); } }).catch(error => PR.toast(error.message));
     if (t.dataset.t === "model-settings") PR.openSettings("chat");
     if (t.dataset.t === "read-rest") PR.api("/api/p/" + PR.pid + "/translate", { method: "POST", body: { read: true, ...((S.job || {}).state === "error" ? { scope: S.job.scope || "all" } : {}) } }).then(() => { PR.toast(PR.t("已开始整理，整理好的页会自动出现")); PR.poll(); }).catch(error => PR.toast(PR.esc(error.message)));
-    if (t.dataset.t === "translate-rest") PR.startTranslation(PR.pid).then(started => { if (started) { PR.toast(PR.t("已开始翻译，译好的页会自动出现")); PR.poll(); } }).catch(error => PR.toast(error.message));
+    if (t.dataset.t === "translate-rest") PR.startTranslation(PR.pid).then(started => { if (started) { PR.toast(PR.canReserveTranslation?.(S.job) ? PR.t("已预约翻译，预处理完成后自动排队") : PR.t("已开始翻译，译好的页会自动出现")); PR.poll(); } }).catch(error => PR.toast(error.message));
   });
 
   /* ---------- 重译 ---------- */
